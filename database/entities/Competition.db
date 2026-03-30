@@ -1,0 +1,127 @@
+{
+  "name": "Competition",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "T\u00edtulo da competi\u00e7\u00e3o"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "duel",
+        "time_attack",
+        "weekly_league"
+      ],
+      "description": "Modo da competi\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "waiting",
+        "active",
+        "finished"
+      ],
+      "default": "waiting"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "Mat\u00e9ria associada (opcional)"
+    },
+    "question_count": {
+      "type": "number",
+      "default": 5
+    },
+    "time_limit_seconds": {
+      "type": "number",
+      "description": "Tempo limite em segundos (time_attack)"
+    },
+    "week_start": {
+      "type": "string",
+      "description": "In\u00edcio da semana (weekly_league, YYYY-MM-DD)"
+    },
+    "week_end": {
+      "type": "string",
+      "description": "Fim da semana (weekly_league, YYYY-MM-DD)"
+    },
+    "host_email": {
+      "type": "string",
+      "description": "Email do criador"
+    },
+    "invite_code": {
+      "type": "string",
+      "description": "C\u00f3digo de convite"
+    },
+    "participants": {
+      "type": "array",
+      "description": "Lista de participantes",
+      "items": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "invited",
+              "joined",
+              "finished"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "default": 0
+          },
+          "correct": {
+            "type": "number",
+            "default": 0
+          },
+          "wrong": {
+            "type": "number",
+            "default": 0
+          },
+          "time_spent_seconds": {
+            "type": "number",
+            "default": 0
+          },
+          "finished_at": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "description": "IDs das quest\u00f5es usadas",
+      "items": {
+        "type": "string"
+      }
+    },
+    "winner_email": {
+      "type": "string"
+    },
+    "finished_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "mode",
+    "host_email"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {},
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}

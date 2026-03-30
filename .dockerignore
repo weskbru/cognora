@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+*.log
+.env*
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.vscode
+context

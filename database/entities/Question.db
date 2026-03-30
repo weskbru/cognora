@@ -1,0 +1,75 @@
+{
+  "name": "Question",
+  "type": "object",
+  "properties": {
+    "statement": {
+      "type": "string",
+      "description": "Enunciado da quest\u00e3o"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "multiple_choice",
+        "true_false",
+        "essay"
+      ],
+      "description": "Tipo da quest\u00e3o"
+    },
+    "alternatives": {
+      "type": "array",
+      "description": "Alternativas da quest\u00e3o",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "correct": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Explica\u00e7\u00e3o da resposta correta"
+    },
+    "document_id": {
+      "type": "string",
+      "description": "ID do documento associado"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID da mat\u00e9ria associada"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "default": "medium",
+      "description": "N\u00edvel de dificuldade"
+    }
+  },
+  "required": [
+    "statement",
+    "type",
+    "document_id"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "created_by": "{{user.email}}"
+    },
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}

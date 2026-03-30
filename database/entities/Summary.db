@@ -1,0 +1,36 @@
+{
+  "name": "Summary",
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string",
+      "description": "Conte\u00fado do resumo gerado por IA"
+    },
+    "document_id": {
+      "type": "string",
+      "description": "ID do documento associado"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID da mat\u00e9ria associada"
+    }
+  },
+  "required": [
+    "content",
+    "document_id"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "created_by": "{{user.email}}"
+    },
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}

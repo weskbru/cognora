@@ -1,0 +1,80 @@
+{
+  "name": "UserProgress",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email do usu\u00e1rio"
+    },
+    "xp": {
+      "type": "number",
+      "description": "Total de XP acumulado",
+      "default": 0
+    },
+    "level": {
+      "type": "number",
+      "description": "N\u00edvel atual",
+      "default": 1
+    },
+    "streak_days": {
+      "type": "number",
+      "description": "Dias consecutivos de estudo",
+      "default": 0
+    },
+    "last_active_date": {
+      "type": "string",
+      "description": "\u00daltima data de atividade (YYYY-MM-DD)"
+    },
+    "total_questions_answered": {
+      "type": "number",
+      "default": 0
+    },
+    "total_correct_answers": {
+      "type": "number",
+      "default": 0
+    },
+    "total_summaries_generated": {
+      "type": "number",
+      "default": 0
+    },
+    "total_documents_uploaded": {
+      "type": "number",
+      "default": 0
+    },
+    "xp_history": {
+      "type": "array",
+      "description": "Hist\u00f3rico de XP ganho",
+      "items": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "user_email"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "created_by": "{{user.email}}"
+    },
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}

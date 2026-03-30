@@ -1,0 +1,60 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cognora
+      POSTGRES_PASSWORD: cognora
+      POSTGRES_DB: cognora
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cognora"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://cognora:cognora@db:5432/cognora
+      SECRET_KEY: dev-secret-key-troque-em-producao
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    volumes:
+      # Hot reload: monta o codigo sem rebuildar a imagem
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      # VITE_API_URL aponta para o host (browser acessa direto, nao via Docker network)
+      VITE_API_URL: http://localhost:8001
+    volumes:
+      # Hot reload: monta o projeto inteiro
+      - .:/app
+      # Preserva o node_modules do container (nao sobrescreve com o do host)
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

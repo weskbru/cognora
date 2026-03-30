@@ -1,0 +1,16 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copia so os manifests primeiro — camada cacheada enquanto nao mudar deps
+COPY package.json package-lock.json* ./
+
+# npm ci e mais rapido e determinístico que npm install (usa o lockfile)
+RUN npm ci --prefer-offline
+
+# Copia o restante do projeto
+COPY . .
+
+EXPOSE 5173
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

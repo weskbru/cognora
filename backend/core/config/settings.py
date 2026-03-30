@@ -1,0 +1,20 @@
+import os
+
+# Raiz do backend (/app em Docker, backend/ localmente)
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+class Settings:
+    database_url: str = os.getenv(
+        "DATABASE_URL", "postgresql://cognora:cognora@db:5432/cognora"
+    )
+    secret_key: str = os.getenv("SECRET_KEY", "dev-secret-key-troque-em-producao")
+    algorithm: str = "HS256"
+    token_expire_days: int = 30
+    upload_dir: str = os.path.join(_BACKEND_DIR, "uploads")
+    
+    # Linha corrigida: removido o "Self." e adicionada a tipagem normal
+    openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
+
+
+settings = Settings()

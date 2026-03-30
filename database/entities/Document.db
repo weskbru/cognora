@@ -1,0 +1,51 @@
+{
+  "name": "Document",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome do documento"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL do arquivo PDF"
+    },
+    "subject_id": {
+      "type": "string",
+      "description": "ID da mat\u00e9ria associada"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "completed",
+        "error"
+      ],
+      "default": "pending",
+      "description": "Status do processamento"
+    },
+    "page_count": {
+      "type": "number",
+      "description": "N\u00famero de p\u00e1ginas do documento"
+    }
+  },
+  "required": [
+    "name",
+    "subject_id"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "created_by": "{{user.email}}"
+    },
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}
