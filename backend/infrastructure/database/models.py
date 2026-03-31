@@ -100,6 +100,10 @@ class UserProgress(Base):
     total_summaries_generated = Column(Integer, default=0)
     total_documents_uploaded = Column(Integer, default=0)
     xp_history = Column(JSON, default=list)
+    # Profile
+    display_name = Column(String, nullable=True)
+    avatar_emoji = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
     # Freemium
     plan = Column(String, default="free")
     daily_generations_used = Column(Integer, default=0)

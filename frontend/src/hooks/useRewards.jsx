@@ -149,6 +149,14 @@ export function useRewards() {
   const addXPForSummary = useCallback(() => addXP(XP_REWARDS.SUMMARY_GENERATED, '✨ Resumo gerado por IA'), [addXP]);
   const addXPForDocument = useCallback(() => addXP(XP_REWARDS.DOCUMENT_UPLOADED, '📄 Documento enviado'), [addXP]);
 
+  const updateProfile = useCallback(async (fields) => {
+    const current = progressRef.current;
+    if (!current) return;
+    const updated = await base44.entities.UserProgress.update(current.id, fields);
+    setProgress(updated);
+    progressRef.current = updated;
+  }, []);
+
   return {
     progress,
     loading,
@@ -161,5 +169,6 @@ export function useRewards() {
     addXPForWrongAnswer,
     addXPForSummary,
     addXPForDocument,
+    updateProfile,
   };
 }

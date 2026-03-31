@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { HelpCircle, Sparkles, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import AILoadingCard from '@/components/shared/AILoadingCard';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import QuestionCard from './QuestionCard';
@@ -149,29 +150,33 @@ export default function QuestionsSection({ document, questions, documentId, subj
           />
 
           {/* Navegação Anterior / Próxima */}
-          <div className="flex items-center justify-between pt-2">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => goTo(currentIndex - 1)}
-              disabled={currentIndex === 0}
-            >
-              <ChevronLeft className="h-4 w-4" /> Anterior
-            </Button>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={e => { e.preventDefault(); goTo(currentIndex - 1); }}
+                  className={currentIndex === 0 ? 'pointer-events-none opacity-50' : ''}
+                  aria-disabled={currentIndex === 0}
+                />
+              </PaginationItem>
 
-            <span className="text-xs text-muted-foreground">
-              {currentIndex + 1} / {questions.length}
-            </span>
+              <PaginationItem>
+                <span className="text-sm text-muted-foreground px-3 tabular-nums">
+                  {currentIndex + 1} / {questions.length}
+                </span>
+              </PaginationItem>
 
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => goTo(currentIndex + 1)}
-              disabled={currentIndex === questions.length - 1}
-            >
-              Próxima <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={e => { e.preventDefault(); goTo(currentIndex + 1); }}
+                  className={currentIndex === questions.length - 1 ? 'pointer-events-none opacity-50' : ''}
+                  aria-disabled={currentIndex === questions.length - 1}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       ) : null}
     </div>

@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Sparkles, RotateCcw, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import AILoadingCard from '@/components/shared/AILoadingCard';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/shared/EmptyState';
@@ -127,18 +128,37 @@ export default function FlashcardsSection({ document, flashcards, documentId }) 
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
-        <Button variant="outline" className="gap-2" onClick={() => goTo(currentIndex - 1)} disabled={currentIndex === 0}>
-          <ChevronLeft className="h-4 w-4" /> Anterior
-        </Button>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">{currentIndex + 1} / {flashcards.length}</span>
-          <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={() => { setCurrentIndex(0); setFlipped(false); }}>
-            <RotateCcw className="h-3.5 w-3.5" /> Reiniciar
-          </Button>
-        </div>
-        <Button variant="outline" className="gap-2" onClick={() => goTo(currentIndex + 1)} disabled={currentIndex === flashcards.length - 1}>
-          Próximo <ChevronRight className="h-4 w-4" />
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              href="#"
+              onClick={e => { e.preventDefault(); goTo(currentIndex - 1); }}
+              className={currentIndex === 0 ? 'pointer-events-none opacity-50' : ''}
+              aria-disabled={currentIndex === 0}
+            />
+          </PaginationItem>
+
+          <PaginationItem>
+            <span className="text-sm text-muted-foreground px-3 tabular-nums">
+              {currentIndex + 1} / {flashcards.length}
+            </span>
+          </PaginationItem>
+
+          <PaginationItem>
+            <PaginationNext
+              href="#"
+              onClick={e => { e.preventDefault(); goTo(currentIndex + 1); }}
+              className={currentIndex === flashcards.length - 1 ? 'pointer-events-none opacity-50' : ''}
+              aria-disabled={currentIndex === flashcards.length - 1}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+
+      <div className="flex justify-center">
+        <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={() => { setCurrentIndex(0); setFlipped(false); }}>
+          <RotateCcw className="h-3.5 w-3.5" /> Reiniciar
         </Button>
       </div>
     </div>
