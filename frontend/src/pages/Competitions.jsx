@@ -13,9 +13,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const MODE_CONFIG = {
-  duel: { label: 'Duelo Rápido', icon: Swords, color: 'bg-red-100 text-red-700', bg: 'from-red-50 to-orange-50 border-red-200/60' },
-  time_attack: { label: 'Contra o Tempo', icon: Timer, color: 'bg-blue-100 text-blue-700', bg: 'from-blue-50 to-indigo-50 border-blue-200/60' },
-  weekly_league: { label: 'Liga Semanal', icon: Trophy, color: 'bg-amber-100 text-amber-700', bg: 'from-amber-50 to-yellow-50 border-amber-200/60' },
+  duel: { label: 'Duelo Rápido', icon: Swords, color: 'bg-violet-100 text-violet-700', bg: 'from-violet-50 to-indigo-50 border-violet-200/60' },
+  time_attack: { label: 'Contra o Tempo', icon: Timer, color: 'bg-violet-100 text-violet-700', bg: 'from-violet-50 to-indigo-50 border-violet-200/60' },
+  weekly_league: { label: 'Liga Semanal', icon: Trophy, color: 'bg-violet-100 text-violet-700', bg: 'from-violet-50 to-indigo-50 border-violet-200/60' },
 };
 
 const STATUS_CONFIG = {

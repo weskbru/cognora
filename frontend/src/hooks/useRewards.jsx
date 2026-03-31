@@ -41,9 +41,17 @@ export function getXpProgressPercent(xp) {
 export function useRewards() {
   const [progress, setProgress] = useState(null);
   const [rewardPopup, setRewardPopup] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const progressRef = useRef(null);
   const queryClient = useQueryClient();
+
+  const pushNotification = useCallback((xp, reason, levelUp = false, newLevel = null) => {
+    const notif = { id: Date.now(), xp, reason, levelUp, newLevel, date: new Date().toISOString() };
+    setNotifications(prev => [notif, ...prev].slice(0, 50));
+    setUnreadCount(prev => prev + 1);
+  }, []);
 
   const loadProgress = useCallback(async () => {
     let user;
@@ -73,6 +81,7 @@ export function useRewards() {
       setProgress(newRecord);
       progressRef.current = newRecord;
       setRewardPopup({ xp: XP_REWARDS.DAILY_LOGIN, reason: '🎉 Bem-vindo! Primeiro acesso', levelUp: false });
+      pushNotification(XP_REWARDS.DAILY_LOGIN, '🎉 Bem-vindo! Primeiro acesso');
     } else {
       let record = records[0];
       // Check daily login
@@ -102,13 +111,14 @@ export function useRewards() {
           ? `Login diário + 🔥 Streak de ${newStreak} dias (+${streakBonus} bônus)`
           : 'Login diário';
         setRewardPopup({ xp: totalXP, reason, levelUp, newLevel: levelUp ? newLevel : null });
+        pushNotification(totalXP, reason, levelUp, levelUp ? newLevel : null);
       } else {
         setProgress(record);
         progressRef.current = record;
       }
     }
     setLoading(false);
-  }, []);
+  }, [pushNotification]);
 
   useEffect(() => { loadProgress(); }, [loadProgress]);
 
@@ -131,7 +141,8 @@ export function useRewards() {
     progressRef.current = updated;
     queryClient.invalidateQueries({ queryKey: ['userProgress'] });
     setRewardPopup({ xp: amount, reason, levelUp, newLevel: levelUp ? newLevel : null });
-  }, [queryClient]);
+    pushNotification(amount, reason, levelUp, levelUp ? newLevel : null);
+  }, [queryClient, pushNotification]);
 
   const addXPForCorrectAnswer = useCallback(() => addXP(XP_REWARDS.CORRECT_ANSWER, '✅ Resposta correta'), [addXP]);
   const addXPForWrongAnswer = useCallback(() => addXP(XP_REWARDS.WRONG_ANSWER, '📚 Questão respondida'), [addXP]);
@@ -143,6 +154,9 @@ export function useRewards() {
     loading,
     rewardPopup,
     clearRewardPopup: () => setRewardPopup(null),
+    notifications,
+    unreadCount,
+    clearUnread: () => setUnreadCount(0),
     addXPForCorrectAnswer,
     addXPForWrongAnswer,
     addXPForSummary,

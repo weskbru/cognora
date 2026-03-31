@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Bell, LogOut, User, ChevronDown, Menu } from 'lucide-react';
+import { Search, Bell, LogOut, User, ChevronDown, Menu, Star } from 'lucide-react';
 import { Sun, Moon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useRewardsContext } from '@/context/RewardsContext';
 import { getLevelInfo } from '@/hooks/useRewards';
 import { useTheme } from '@/hooks/useTheme';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const LEVEL_EMOJIS = ['🌱','📖','💡','🎯','🚀','⚡','🏆','🧠','🌟','👑'];
 
@@ -17,12 +19,18 @@ function getInitials(email) {
 
 export default function TopBar({ onMenuClick = () => {}, sidebarOpen = true }) {
   const { user } = useAuth();
-  const { progress } = useRewardsContext();
+  const { progress, notifications, unreadCount, clearUnread } = useRewardsContext();
   const level = progress ? getLevelInfo(progress.xp || 0) : null;
   const { isDark, toggle } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  const handleOpenNotif = () => {
+    setNotifOpen(v => !v);
+    if (!notifOpen) clearUnread();
+  };
 
   const initials = getInitials(user?.email);
   const username = user?.email?.split('@')[0] ?? '';
@@ -76,12 +84,61 @@ export default function TopBar({ onMenuClick = () => {}, sidebarOpen = true }) {
         </button>
 
         {/* Notificações */}
-        <button
-          title="Notificações"
-          className="p-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors relative"
-        >
-          <Bell className="h-5 w-5" />
-        </button>
+        <div className="relative">
+          <button
+            title="Notificações"
+            onClick={handleOpenNotif}
+            className="p-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors relative"
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center leading-none">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
+              <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                  <p className="text-sm font-semibold text-foreground">Notificações</p>
+                  {notifications.length > 0 && (
+                    <span className="text-xs text-muted-foreground">{notifications.length} evento{notifications.length !== 1 ? 's' : ''}</span>
+                  )}
+                </div>
+
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      <Star className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      Nenhuma notificação ainda
+                    </div>
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n.id} className="flex items-start gap-3 px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-sm ${n.levelUp ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-primary/10'}`}>
+                          {n.levelUp ? '🏆' : '⭐'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground leading-snug">{n.reason}</p>
+                          {n.levelUp && n.newLevel && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-0.5">Subiu para Nível {n.newLevel}!</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {formatDistanceToNow(new Date(n.date), { addSuffix: true, locale: ptBR })}
+                          </p>
+                        </div>
+                        <span className="text-xs font-bold text-primary shrink-0">+{n.xp} XP</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Separador */}
         <div className="w-px h-6 bg-border mx-1" />

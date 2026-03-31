@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRewardsContext } from '@/context/RewardsContext';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
 import EmptyState from '@/components/shared/EmptyState';
 import LimitReachedCard from '@/components/freemium/LimitReachedCard';
+import AILoadingCard from '@/components/shared/AILoadingCard';
 
 export default function SummarySection({ document, summaries, documentId }) {
   const [generating, setGenerating] = useState(false);
@@ -60,11 +61,10 @@ export default function SummarySection({ document, summaries, documentId }) {
 
   if (generating) {
     return (
-      <Card className="p-12 flex flex-col items-center justify-center text-center">
-        <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
-        <h3 className="font-semibold text-lg">Gerando resumo com IA...</h3>
-        <p className="text-sm text-muted-foreground mt-1">Isso pode levar alguns segundos</p>
-      </Card>
+      <AILoadingCard
+        title="Gerando resumo com IA..."
+        subtitle="Analisando estrutura e tópicos do documento"
+      />
     );
   }
 
@@ -101,7 +101,7 @@ export default function SummarySection({ document, summaries, documentId }) {
         </Button>
       </div>
       <Card className="p-6">
-        <div className="prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/80">
+        <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-foreground prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-h3:mt-3 prose-p:text-foreground/80 prose-li:text-foreground/80 prose-strong:text-foreground prose-strong:font-semibold prose-hr:border-border prose-ul:my-1 prose-li:my-0">
           <ReactMarkdown>{summary.content}</ReactMarkdown>
         </div>
       </Card>

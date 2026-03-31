@@ -7,11 +7,11 @@ from core.config.settings import settings
 logger = logging.getLogger(__name__)
 
 _PROMPT_TEMPLATE = """
-Você é um especialista em educação. Analise o texto abaixo e responda SOMENTE com um JSON válido, sem markdown, sem explicações.
+Você é um especialista em educação para concursos públicos. Analise o texto abaixo e responda SOMENTE com um JSON válido, sem markdown, sem explicações adicionais.
 
 O JSON deve ter exatamente esta estrutura:
 {{
-  "resumo": "resumo detalhado aqui",
+  "resumo": "resumo estruturado aqui",
   "perguntas": [
     {{
       "statement": "pergunta aqui",
@@ -29,11 +29,45 @@ O JSON deve ter exatamente esta estrutura:
   ]
 }}
 
-Para o campo "resumo": mínimo de 5 parágrafos, cubra todos os tópicos principais, use linguagem didática em português.
+━━━ REGRAS PARA O CAMPO "resumo" ━━━
 
-Para "perguntas": gere exatamente {n_perguntas} questões de múltipla escolha.
+O resumo deve ser formatado em Markdown estruturado em 3 níveis:
 
-Para "flashcards": gere exatamente 10 flashcards com os conceitos mais importantes do texto.
+## 1. Visão Geral
+- Uma linha descrevendo o tema central do texto
+- Contexto e relevância do assunto
+
+## 2. Tópicos Principais
+Para cada tema identificado, use o formato:
+### [Nome do Tema]
+- **Conceito-chave**: definição objetiva (máx. 1 linha)
+- **Ponto importante**: informação direta e concisa
+(máximo 5 bullet points por subtópico, sem redundância)
+
+## 3. Pontos-Chave para Memorização
+- Liste os 5 a 8 fatos mais importantes para prova
+- Use **negrito** nas palavras-chave
+- Máx. 1 linha por item
+
+---
+**Resumo Ultra Curto (3–5 linhas)**
+Síntese do conteúdo em linguagem direta, estilo revisão rápida.
+
+━━━ REGRAS GERAIS ━━━
+- Use bullet points, NUNCA parágrafos longos
+- Destaque termos técnicos com **negrito**
+- Linguagem direta, objetiva, sem introduções ou conclusões prolixas
+- Sem repetição de informações entre seções
+- Ideal para leitura rápida e revisão de véspera
+
+━━━ REGRAS PARA "perguntas" ━━━
+- Gere exatamente {n_perguntas} questões de múltipla escolha
+- Questões objetivas, no estilo de concurso público
+
+━━━ REGRAS PARA "flashcards" ━━━
+- Gere exatamente 10 flashcards com os conceitos mais importantes
+- "front": termo, conceito ou pergunta objetiva
+- "back": definição ou resposta direta (máx. 2 linhas)
 
 TEXTO:
 {texto}

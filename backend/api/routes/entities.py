@@ -76,12 +76,14 @@ def create_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from domain.use_cases.limits import check_subject_limit, check_document_limit
+    # FASE DE TESTES: limites de plano desabilitados temporariamente
+    # from domain.use_cases.limits import check_subject_limit, check_document_limit
+    # if entity == "subjects":
+    #     check_subject_limit(current_user.email, db)
+    # elif entity == "documents" and "subject_id" in data:
+    #     check_document_limit(data["subject_id"], current_user.email, db)
     if entity == "subjects":
-        check_subject_limit(current_user.email, db)
         data = {**data, "owner_email": current_user.email}
-    elif entity == "documents" and "subject_id" in data:
-        check_document_limit(data["subject_id"], current_user.email, db)
     return row_to_dict(_repo(entity, db).create(data))
 
 

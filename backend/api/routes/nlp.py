@@ -62,8 +62,9 @@ async def analisar_documento(
     servico: Annotated[ServicoAnaliseNLP, Depends(_get_servico)],
     db: Session = Depends(get_db),
 ) -> AnalisarDocumentoResponse:
-    from domain.use_cases.limits import check_and_consume
-    check_and_consume(current_user.email, db)
+    # FASE DE TESTES: limite de gerações desabilitado temporariamente
+    # from domain.use_cases.limits import check_and_consume
+    # check_and_consume(current_user.email, db)
 
     logger.info("POST /api/nlp/analisar-documento — url: %s", body.file_url)
 
@@ -106,8 +107,9 @@ async def analisar(
     servico: Annotated[ServicoAnaliseNLP, Depends(_get_servico)],
     db: Session = Depends(get_db),
 ) -> AnalisarTextoResponse:
-    from domain.use_cases.limits import check_and_consume
-    check_and_consume(current_user.email, db)
+    # FASE DE TESTES: limite de gerações desabilitado temporariamente
+    # from domain.use_cases.limits import check_and_consume
+    # check_and_consume(current_user.email, db)
 
     logger.info("POST /api/nlp/analisar — texto com %d chars.", len(body.texto))
     try:

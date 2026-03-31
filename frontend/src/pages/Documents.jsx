@@ -96,7 +96,7 @@ export default function Documents() {
           title="Nenhum documento"
           description="Envie seu primeiro PDF para começar"
           actionLabel="Enviar PDF"
-          actionPath="/documents"
+          onAction={() => setUploadOpen(true)}
         />
       ) : filtered.length === 0 ? (
         <p className="text-center py-8 text-muted-foreground">Nenhum documento encontrado</p>

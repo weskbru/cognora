@@ -1,10 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
-  HelpCircle, ChevronLeft, ChevronRight, CheckCircle2, RotateCcw, XCircle, Trophy, BookX,
+  HelpCircle, CheckCircle2, RotateCcw, XCircle, Trophy, BookX,
 } from 'lucide-react';
+import {
+  Pagination, PaginationContent, PaginationItem,
+  PaginationPrevious, PaginationNext,
+} from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,9 +36,6 @@ export default function Quiz() {
   });
 
   const filtered = useMemo(() => {
-    setCurrentIndex(0);
-    setAnswers({});
-    setShowResults(false);
     return questions.filter(q => {
       if (subjectFilter !== 'all' && q.subject_id !== subjectFilter) return false;
       if (difficultyFilter !== 'all' && q.difficulty !== difficultyFilter) return false;
@@ -42,6 +43,12 @@ export default function Quiz() {
       return true;
     });
   }, [questions, subjectFilter, difficultyFilter, typeFilter]);
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setAnswers({});
+    setShowResults(false);
+  }, [subjectFilter, difficultyFilter, typeFilter]);
 
   const total = filtered.length;
   const answeredCount = Object.keys(answers).length;
@@ -258,36 +265,44 @@ export default function Quiz() {
           />
 
           {/* Navegação */}
-          <div className="flex items-center justify-between pt-1">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => goTo(currentIndex - 1)}
-              disabled={currentIndex === 0}
-            >
-              <ChevronLeft className="h-4 w-4" /> Anterior
-            </Button>
+          <div className="space-y-3 pt-1">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={e => { e.preventDefault(); goTo(currentIndex - 1); }}
+                    className={currentIndex === 0 ? 'pointer-events-none opacity-50' : ''}
+                    aria-disabled={currentIndex === 0}
+                  />
+                </PaginationItem>
 
-            <span className="text-sm text-muted-foreground">
-              {currentIndex + 1} / {total}
-            </span>
+                <PaginationItem>
+                  <span className="text-sm text-muted-foreground px-3 tabular-nums">
+                    {currentIndex + 1} / {total}
+                  </span>
+                </PaginationItem>
 
-            {isLastQuestion && currentAnswered ? (
-              <Button
-                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => setShowResults(true)}
-              >
-                <Trophy className="h-4 w-4" /> Finalizar
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => goTo(currentIndex + 1)}
-                disabled={isLastQuestion}
-              >
-                Próxima <ChevronRight className="h-4 w-4" />
-              </Button>
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={e => { e.preventDefault(); goTo(currentIndex + 1); }}
+                    className={isLastQuestion ? 'pointer-events-none opacity-50' : ''}
+                    aria-disabled={isLastQuestion}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+
+            {isLastQuestion && currentAnswered && (
+              <div className="flex justify-center">
+                <Button
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => setShowResults(true)}
+                >
+                  <Trophy className="h-4 w-4" /> Finalizar Quiz
+                </Button>
+              </div>
             )}
           </div>
         </div>

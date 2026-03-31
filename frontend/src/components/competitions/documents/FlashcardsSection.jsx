@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
-import { Sparkles, Loader2, RotateCcw, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { Sparkles, RotateCcw, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import AILoadingCard from '@/components/shared/AILoadingCard';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/shared/EmptyState';
@@ -57,11 +58,10 @@ export default function FlashcardsSection({ document, flashcards, documentId }) 
 
   if (generating) {
     return (
-      <Card className="p-12 flex flex-col items-center justify-center text-center">
-        <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
-        <h3 className="font-semibold text-lg">Gerando flashcards com IA...</h3>
-        <p className="text-sm text-muted-foreground mt-1">Isso pode levar alguns segundos</p>
-      </Card>
+      <AILoadingCard
+        title="Gerando flashcards com IA..."
+        subtitle="Extraindo conceitos-chave do documento"
+      />
     );
   }
 

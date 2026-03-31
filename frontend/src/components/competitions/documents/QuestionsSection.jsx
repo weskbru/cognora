@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
-import { HelpCircle, Loader2, Sparkles, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { HelpCircle, Sparkles, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import AILoadingCard from '@/components/shared/AILoadingCard';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import QuestionCard from './QuestionCard';
@@ -59,11 +59,10 @@ export default function QuestionsSection({ document, questions, documentId, subj
 
   if (generating) {
     return (
-      <Card className="p-12 flex flex-col items-center justify-center text-center">
-        <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
-        <h3 className="font-semibold text-lg">Gerando questões com IA...</h3>
-        <p className="text-sm text-muted-foreground mt-1">Criando {questionCount} questões</p>
-      </Card>
+      <AILoadingCard
+        title="Gerando questões com IA..."
+        subtitle={`Criando ${questionCount} questões de múltipla escolha`}
+      />
     );
   }
 
