@@ -13,9 +13,24 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const MODE_CONFIG = {
-  duel: { label: 'Duelo Rápido', icon: Swords, color: 'bg-red-100 text-red-700', bg: 'from-red-50 to-orange-50 border-red-200/60' },
-  time_attack: { label: 'Contra o Tempo', icon: Timer, color: 'bg-blue-100 text-blue-700', bg: 'from-blue-50 to-indigo-50 border-blue-200/60' },
-  weekly_league: { label: 'Liga Semanal', icon: Trophy, color: 'bg-amber-100 text-amber-700', bg: 'from-amber-50 to-yellow-50 border-amber-200/60' },
+  duel: {
+    label: 'Duelo Rápido',
+    icon: Swords,
+    color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-200',
+    bg: 'from-violet-50 to-indigo-50 border-violet-200/60 dark:from-violet-950/20 dark:to-indigo-950/20 dark:border-violet-800',
+  },
+  time_attack: {
+    label: 'Contra o Tempo',
+    icon: Timer,
+    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-200',
+    bg: 'from-orange-50 to-amber-50 border-orange-200/60 dark:from-orange-950/20 dark:to-amber-950/20 dark:border-orange-800',
+  },
+  weekly_league: {
+    label: 'Liga Semanal',
+    icon: Trophy,
+    color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200',
+    bg: 'from-emerald-50 to-teal-50 border-emerald-200/60 dark:from-emerald-950/20 dark:to-teal-950/20 dark:border-emerald-800',
+  },
 };
 
 const STATUS_CONFIG = {
@@ -137,7 +152,7 @@ function CompetitionRow({ competition: c, userEmail }) {
 
   return (
     <Link to={`/competitions/${c.id}`}>
-      <Card className="p-4 hover:shadow-md transition-all cursor-pointer flex items-center gap-4">
+      <Card className="p-4 bg-card border border-border hover:shadow-md transition-all cursor-pointer flex items-center gap-4 dark:bg-card dark:border-border">
         <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.color}`}>
           <cfg.icon className="h-5 w-5" />
         </div>

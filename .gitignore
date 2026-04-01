@@ -1,7 +1,52 @@
+# ── Variáveis de ambiente (NUNCA commitar) ────────────────────────────────────
 .env
+.env.local
+.env.*.local
 *.env.local
+
+# ── Dependências ──────────────────────────────────────────────────────────────
 node_modules/
+
+# ── Build / dist ──────────────────────────────────────────────────────────────
 dist/
+build/
+frontend/dist/
+frontend/build/
+
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+
+# ── Ambientes virtuais Python ─────────────────────────────────────────────────
+.venv/
+venv/
+env/
+backend/.venv/
+
+# ── Testes e cobertura ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ── Uploads do backend ────────────────────────────────────────────────────────
 backend/uploads/
+
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── SO ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

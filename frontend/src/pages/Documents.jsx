@@ -96,18 +96,18 @@ export default function Documents() {
           title="Nenhum documento"
           description="Envie seu primeiro PDF para começar"
           actionLabel="Enviar PDF"
-          actionPath="/documents"
+          onAction={() => setUploadOpen(true)}
         />
       ) : filtered.length === 0 ? (
         <p className="text-center py-8 text-muted-foreground">Nenhum documento encontrado</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filtered.map(doc => {
             const subject = subjects.find(s => s.id === doc.subject_id);
             const st = statusMap[doc.status] || statusMap.pending;
             return (
               <Link key={doc.id} to={`/documents/${doc.id}`}>
-                <Card className="p-4 hover:shadow-md transition-shadow flex items-center gap-4">
+                <Card className="p-4 mb-2 hover:shadow-md transition-shadow flex items-center gap-4">
                   <div className="h-11 w-11 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <FileText className="h-5 w-5 text-primary" />
                   </div>

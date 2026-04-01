@@ -68,9 +68,9 @@ export default function UploadDialog({ open, onOpenChange, subjectId: preSelecte
           <div>
             <label className="text-sm font-medium mb-2 block">Arquivo PDF</label>
             {file ? (
-              <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg">
+              <div className="flex items-center gap-3 p-3 bg-secondary rounded-lg min-w-0">
                 <FileText className="h-5 w-5 text-primary" />
-                <span className="text-sm flex-1 truncate">{file.name}</span>
+                <span className="text-sm flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{file.name}</span>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setFile(null)}>
                   <X className="h-3 w-3" />
                 </Button>
@@ -86,7 +86,12 @@ export default function UploadDialog({ open, onOpenChange, subjectId: preSelecte
 
           <div>
             <label className="text-sm font-medium mb-2 block">Nome do documento</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do documento" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nome do documento"
+              className="max-w-full truncate"
+            />
           </div>
 
           {!preSelectedSubjectId && (

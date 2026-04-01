@@ -3,15 +3,20 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import {
   BookX, CheckCircle2, XCircle, ChevronDown, ChevronUp,
-  ChevronLeft, ChevronRight, RotateCcw, Star, Trophy,
+  RotateCcw, Star, Trophy,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/AuthContext';
 import { Link } from 'react-router-dom';
 import PageHeader from '@/components/competitions/shared/PageHeader';
 import EmptyState from '@/components/competitions/shared/EmptyState';
+import {
+  Pagination, PaginationContent, PaginationItem,
+  PaginationPrevious, PaginationNext,
+} from '@/components/ui/pagination';
 
 const difficultyConfig = {
   easy:   { label: 'Fácil',   class: 'bg-emerald-100 text-emerald-700' },
@@ -394,34 +399,44 @@ export default function ErrorNotebook() {
           )}
 
           {/* Navegação */}
-          <div className="flex items-center justify-between pt-1">
-            <button
-              onClick={() => setCurrentIndex(i => i - 1)}
-              disabled={currentIndex === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent transition-colors disabled:opacity-40 disabled:pointer-events-none"
-            >
-              <ChevronLeft className="h-4 w-4" /> Anterior
-            </button>
+          <div className="space-y-3 pt-1">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={e => { e.preventDefault(); setCurrentIndex(i => i - 1); }}
+                    className={currentIndex === 0 ? 'pointer-events-none opacity-50' : ''}
+                    aria-disabled={currentIndex === 0}
+                  />
+                </PaginationItem>
 
-            <span className="text-sm text-muted-foreground">
-              {currentIndex + 1} / {total}
-            </span>
+                <PaginationItem>
+                  <span className="text-sm text-muted-foreground px-3 tabular-nums">
+                    {currentIndex + 1} / {total}
+                  </span>
+                </PaginationItem>
 
-            {isLast && currentAnswered ? (
-              <button
-                onClick={() => setShowResults(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors"
-              >
-                <Trophy className="h-4 w-4" /> Finalizar Revisão
-              </button>
-            ) : (
-              <button
-                onClick={() => setCurrentIndex(i => i + 1)}
-                disabled={!currentAnswered || isLast}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent transition-colors disabled:opacity-40 disabled:pointer-events-none"
-              >
-                Próxima <ChevronRight className="h-4 w-4" />
-              </button>
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={e => { e.preventDefault(); setCurrentIndex(i => i + 1); }}
+                    className={isLast ? 'pointer-events-none opacity-50' : ''}
+                    aria-disabled={isLast}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+
+            {isLast && currentAnswered && (
+              <div className="flex justify-center">
+                <Button
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => setShowResults(true)}
+                >
+                  <Trophy className="h-4 w-4" /> Finalizar Revisão
+                </Button>
+              </div>
             )}
           </div>
         </div>
