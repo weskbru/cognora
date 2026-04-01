@@ -9,10 +9,14 @@ from api.routes import auth, entities, upload, nlp, limits
 
 app = FastAPI(title="Cognora API")
 
+_wildcard_origins = settings.allowed_origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
-    allow_credentials=True,
+    # allow_credentials=True é incompatível com allow_origins=["*"] (spec CORS).
+    # Este projeto usa JWT via header Authorization (não cookies),
+    # então credentials só é necessário em produção com origem específica.
+    allow_credentials=not _wildcard_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
