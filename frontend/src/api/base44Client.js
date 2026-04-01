@@ -3,7 +3,10 @@
  * Nenhum dos 24 arquivos da app precisa mudar — so este arquivo.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001'
+const API_URL = import.meta.env.VITE_API_URL
+if (!API_URL) {
+  throw new Error('[Cognora] VITE_API_URL não configurada. Crie um arquivo .env.local com VITE_API_URL=http://localhost:8001')
+}
 
 async function request(method, path, body = null) {
   const token = localStorage.getItem('cognora_token')

@@ -12,9 +12,14 @@ class Settings:
     algorithm: str = "HS256"
     token_expire_days: int = 30
     upload_dir: str = os.path.join(_BACKEND_DIR, "uploads")
-    
-    # Linha corrigida: removido o "Self." e adicionada a tipagem normal
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
+    # ALLOWED_ORIGINS: lista separada por vírgula, ex: "https://app.com,https://www.app.com"
+    # Em desenvolvimento, deixe vazio ou use "*" (qualquer origem)
+    allowed_origins: list[str] = [
+        o.strip()
+        for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")
+        if o.strip()
+    ]
 
 
 settings = Settings()

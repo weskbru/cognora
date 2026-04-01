@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, Loader2, Brain, Zap, Trophy, ArrowRight, User, Sparkles } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001'
+const API_URL = import.meta.env.VITE_API_URL
+if (!API_URL) {
+  throw new Error('[Cognora] VITE_API_URL não configurada. Crie um arquivo .env.local com VITE_API_URL=http://localhost:8001')
+}
 const TOKEN_KEY = 'cognora_token'
 
 // ── Painel Showcase (mesmo conteúdo em ambos os modos) ────────────────────────
