@@ -9,6 +9,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/((?!api/.*).*)", "destination": "/index.html" }
+    { "source": "/:path*", "destination": "/index.html" }
   ]
 }
