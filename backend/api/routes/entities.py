@@ -56,7 +56,7 @@ def list_entities(
     }.items() if v is not None}
     if entity == "subjects":
         filters.setdefault("owner_email", current_user.email)
-    elif entity in ("user_progress", "question_attempts"):
+    elif entity == "question_attempts":
         filters.setdefault("user_email", current_user.email)
     elif entity in ("documents", "questions", "summaries", "flashcards") and "subject_id" not in filters:
         user_subject_ids = [
