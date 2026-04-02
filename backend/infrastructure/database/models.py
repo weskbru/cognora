@@ -62,6 +62,7 @@ class Competition(Base):
     status = Column(String, default="waiting")
     host_email = Column(String)
     participants = Column(JSON, default=list)
+    questions_data = Column(JSON, default=list)
     question_count = Column(Integer, default=5)
     time_limit_seconds = Column(Integer)
     invite_code = Column(String, unique=True)

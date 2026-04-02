@@ -74,7 +74,10 @@ export default function CompetitionDetail() {
   };
 
   const handleStartCompetition = async () => {
-    await base44.entities.Competition.update(id, { status: 'active' });
+    const filter = competition.subject_id ? { subject_id: competition.subject_id } : {};
+    let qs = await base44.entities.Question.filter(filter, '-created_date', 100);
+    qs = qs.sort(() => Math.random() - 0.5).slice(0, competition.question_count || 5);
+    await base44.entities.Competition.update(id, { status: 'active', questions_data: qs });
     queryClient.invalidateQueries({ queryKey: ['competition', id] });
   };
 
