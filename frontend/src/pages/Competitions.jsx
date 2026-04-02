@@ -56,11 +56,6 @@ export default function Competitions() {
     c.participants?.some(p => p.email === user?.email)
   );
 
-  const openCompetitions = competitions.filter(c =>
-    c.status === 'waiting' &&
-    c.host_email !== user?.email &&
-    !c.participants?.some(p => p.email === user?.email)
-  );
 
   return (
     <div className="space-y-6">
@@ -114,17 +109,7 @@ export default function Competitions() {
         )}
       </section>
 
-      {/* Open Competitions */}
-      {openCompetitions.length > 0 && (
-        <section>
-          <h2 className="text-base font-semibold mb-3 text-foreground">Competições Abertas</h2>
-          <div className="space-y-3">
-            {openCompetitions.map(c => <CompetitionRow key={c.id} competition={c} userEmail={user?.email} />)}
-          </div>
-        </section>
-      )}
-
-      <CreateCompetitionDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={refetch} initialMode={selectedMode} />
+<CreateCompetitionDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={refetch} initialMode={selectedMode} />
       <JoinCompetitionDialog open={joinOpen} onOpenChange={setJoinOpen} onJoined={refetch} />
     </div>
   );
