@@ -11,3 +11,4 @@ bcrypt
 httpx
 openai
 pypdf
+supabase

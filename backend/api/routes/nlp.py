@@ -37,11 +37,22 @@ def _get_servico() -> ServicoAnaliseNLP:
 
 
 def _file_url_to_path(file_url: str) -> str:
-    filename = os.path.basename(urllib.parse.urlparse(file_url).path)
-    path = os.path.join(settings.upload_dir, filename)
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Arquivo não encontrado: {filename}")
-    return path
+    import tempfile
+    import httpx
+
+    try:
+        r = httpx.get(file_url, follow_redirects=True, timeout=30)
+    except Exception as exc:
+        raise FileNotFoundError(f"Erro ao baixar arquivo: {exc}")
+
+    if r.status_code != 200:
+        raise FileNotFoundError(f"Arquivo não encontrado na URL (status {r.status_code})")
+
+    ext = os.path.splitext(urllib.parse.urlparse(file_url).path)[1] or ".pdf"
+    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+    tmp.write(r.content)
+    tmp.close()
+    return tmp.name
 
 
 @router.post(
@@ -77,6 +88,11 @@ async def analisar_documento(
         texto = extrair_texto_pdf(filepath)
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    finally:
+        try:
+            os.unlink(filepath)
+        except Exception:
+            pass
 
     try:
         resultado = await servico.analisar(texto)
