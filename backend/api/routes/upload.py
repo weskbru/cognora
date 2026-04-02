@@ -8,7 +8,7 @@ from supabase import create_client
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
-_BUCKET = "documents"
+_BUCKET = "cognora-storage"
 
 
 def _get_supabase():
