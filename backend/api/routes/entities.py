@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import desc, asc
 from typing import Optional
 from infrastructure.database.connection import get_db
 from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt
@@ -57,6 +58,24 @@ def list_entities(
         filters.setdefault("owner_email", current_user.email)
     elif entity in ("user_progress", "question_attempts"):
         filters.setdefault("user_email", current_user.email)
+    elif entity in ("documents", "questions", "summaries", "flashcards") and "subject_id" not in filters:
+        user_subject_ids = [
+            str(s.id)
+            for s in db.query(Subject).filter(Subject.owner_email == current_user.email).all()
+        ]
+        if not user_subject_ids:
+            return []
+        model = ENTITY_MAP[entity]
+        query = db.query(model).filter(model.subject_id.in_(user_subject_ids))
+        for field, value in filters.items():
+            if hasattr(model, field):
+                query = query.filter(getattr(model, field) == value)
+        if sort and hasattr(model, sort.lstrip("-")):
+            col = getattr(model, sort.lstrip("-"))
+            query = query.order_by(desc(col) if sort.startswith("-") else asc(col))
+        if limit:
+            query = query.limit(limit)
+        return [row_to_dict(r) for r in query.all()]
     return [row_to_dict(r) for r in repo.list(sort=sort, limit=limit, **filters)]
 
 
