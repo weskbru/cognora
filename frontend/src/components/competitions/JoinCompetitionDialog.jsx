@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
 
-export default function JoinCompetitionDialog({ open, onOpenChange, onJoined }) {
-  const [code, setCode] = useState('');
+export default function JoinCompetitionDialog({ open, onOpenChange, onJoined, initialCode = '' }) {
+  const [code, setCode] = useState(initialCode);
+
+  useEffect(() => { if (open) setCode(initialCode); }, [open, initialCode]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();

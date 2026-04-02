@@ -43,6 +43,7 @@ export default function Competitions() {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [selectedMode, setSelectedMode] = useState(null);
+  const [joinCode, setJoinCode] = useState('');
 
   const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
 
@@ -55,6 +56,17 @@ export default function Competitions() {
     c.host_email === user?.email ||
     c.participants?.some(p => p.email === user?.email)
   );
+
+  const openCompetitions = competitions.filter(c =>
+    c.status === 'waiting' &&
+    c.host_email !== user?.email &&
+    !c.participants?.some(p => p.email === user?.email)
+  );
+
+  const handleJoinOpen = (code) => {
+    setJoinCode(code);
+    setJoinOpen(true);
+  };
 
 
   return (
@@ -109,17 +121,30 @@ export default function Competitions() {
         )}
       </section>
 
-<CreateCompetitionDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={refetch} initialMode={selectedMode} />
-      <JoinCompetitionDialog open={joinOpen} onOpenChange={setJoinOpen} onJoined={refetch} />
+      {/* Competições Abertas */}
+      {openCompetitions.length > 0 && (
+        <section>
+          <h2 className="text-base font-semibold mb-3 text-foreground">Competições Abertas</h2>
+          <div className="space-y-3">
+            {openCompetitions.map(c => (
+              <CompetitionRow key={c.id} competition={c} userEmail={user?.email} onJoin={handleJoinOpen} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <CreateCompetitionDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={refetch} initialMode={selectedMode} />
+      <JoinCompetitionDialog open={joinOpen} onOpenChange={setJoinOpen} onJoined={refetch} initialCode={joinCode} />
     </div>
   );
 }
 
-function CompetitionRow({ competition: c, userEmail }) {
+function CompetitionRow({ competition: c, userEmail, onJoin }) {
   const cfg = MODE_CONFIG[c.mode] || MODE_CONFIG.duel;
   const status = STATUS_CONFIG[c.status] || STATUS_CONFIG.waiting;
   const isHost = c.host_email === userEmail;
   const myParticipant = c.participants?.find(p => p.email === userEmail);
+  const isMember = isHost || !!myParticipant;
   const myFinished = myParticipant?.status === 'finished';
   const queryClient = useQueryClient();
 
@@ -135,8 +160,15 @@ function CompetitionRow({ competition: c, userEmail }) {
     deleteMutation.mutate();
   };
 
+  const handleClick = (e) => {
+    if (!isMember) {
+      e.preventDefault();
+      onJoin?.(c.invite_code);
+    }
+  };
+
   return (
-    <Link to={`/competitions/${c.id}`}>
+    <Link to={`/competitions/${c.id}`} onClick={handleClick}>
       <Card className="p-4 bg-card border border-border hover:shadow-md transition-all cursor-pointer flex items-center gap-4 dark:bg-card dark:border-border">
         <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.color}`}>
           <cfg.icon className="h-5 w-5" />
