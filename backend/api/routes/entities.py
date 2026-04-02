@@ -44,7 +44,7 @@ def list_entities(
     type: Optional[str] = Query(None),
     invite_code: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     repo = _repo(entity, db)
     filters = {k: v for k, v in {
@@ -53,6 +53,10 @@ def list_entities(
         "status": status, "host_email": host_email,
         "difficulty": difficulty, "type": type, "invite_code": invite_code,
     }.items() if v is not None}
+    if entity == "subjects":
+        filters.setdefault("owner_email", current_user.email)
+    elif entity in ("user_progress", "question_attempts"):
+        filters.setdefault("user_email", current_user.email)
     return [row_to_dict(r) for r in repo.list(sort=sort, limit=limit, **filters)]
 
 
