@@ -13,6 +13,8 @@ class Settings:
     token_expire_days: int = 30
     upload_dir: str = os.path.join(_BACKEND_DIR, "uploads")
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
+    supabase_url: str | None = os.getenv("SUPABASE_URL")
+    supabase_key: str | None = os.getenv("SUPABASE_KEY")
     # ALLOWED_ORIGINS: lista separada por vírgula, ex: "https://app.com,https://www.app.com"
     # Em desenvolvimento, deixe vazio ou use "*" (qualquer origem)
     allowed_origins: list[str] = [
