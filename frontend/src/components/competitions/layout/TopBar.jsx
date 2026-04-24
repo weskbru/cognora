@@ -5,12 +5,10 @@ import { Sun, Moon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useRewardsContext } from '@/context/RewardsContext';
-import { getLevelInfo } from '@/hooks/useRewards';
 import { useTheme } from '@/hooks/useTheme';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-const LEVEL_EMOJIS = ['🌱','📖','💡','🎯','🚀','⚡','🏆','🧠','🌟','👑'];
 
 function getInitials(email) {
   if (!email) return '?';
@@ -19,8 +17,7 @@ function getInitials(email) {
 
 export default function TopBar({ onMenuClick = () => {}, sidebarOpen = true }) {
   const { user } = useAuth();
-  const { progress, notifications, unreadCount, clearUnread } = useRewardsContext();
-  const level = progress ? getLevelInfo(progress.xp || 0) : null;
+  const { notifications, unreadCount, clearUnread } = useRewardsContext();
   const { isDark, toggle } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -161,18 +158,6 @@ export default function TopBar({ onMenuClick = () => {}, sidebarOpen = true }) {
             <>
               <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
               <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border rounded-xl shadow-lg z-20 overflow-hidden">
-                {/* Header do menu */}
-                <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-semibold text-foreground capitalize truncate">{username}</p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{user?.email}</p>
-                  {level && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {LEVEL_EMOJIS[Math.min(level.level - 1, 9)]} Nível {level.level} · {progress?.xp ?? 0} XP
-                    </p>
-                  )}
-                </div>
-
-                {/* Itens */}
                 <div className="py-1">
                   <Link
                     to="/profile"

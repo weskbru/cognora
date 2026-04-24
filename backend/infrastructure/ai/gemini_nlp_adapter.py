@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from core.config.settings import settings
@@ -172,8 +173,11 @@ class GeminiNLPAdapter:
                     raw = raw.strip()
 
                 data = json.loads(raw)
+                resultado = ResultadoGeminiNLP.model_validate(data)
+                for pergunta in resultado.perguntas:
+                    random.shuffle(pergunta.alternatives)
                 logger.info("Sucesso com modelo: %s", model)
-                return ResultadoGeminiNLP.model_validate(data)
+                return resultado
 
             except json.JSONDecodeError as exc:
                 motivo = "resposta fora do formato JSON esperado"
