@@ -9,10 +9,12 @@ from pydantic import BaseModel, Field
 
 class AnalisarTextoRequest(BaseModel):
     texto: str = Field(..., min_length=50, description="Texto extraído do documento para análise.")
+    question_type: str = Field(default="multiple_choice", description="'multiple_choice' ou 'true_false'")
 
 
 class AnalisarDocumentoRequest(BaseModel):
     file_url: str = Field(..., description="URL do arquivo PDF já enviado ao servidor.")
+    question_type: str = Field(default="multiple_choice", description="'multiple_choice' ou 'true_false'")
 
 
 # ── Schemas de saída ──────────────────────────────────────────────────────────

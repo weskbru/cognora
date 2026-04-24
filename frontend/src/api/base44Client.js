@@ -107,8 +107,8 @@ export const base44 = {
         return request('POST', '/api/ai/invoke', { prompt, file_urls, response_json_schema })
       },
 
-      async AnalisarDocumento({ file_url }) {
-        return request('POST', '/api/nlp/analisar-documento', { file_url })
+      async AnalisarDocumento({ file_url, question_type = 'multiple_choice' }) {
+        return request('POST', '/api/nlp/analisar-documento', { file_url, question_type })
       },
     },
   },

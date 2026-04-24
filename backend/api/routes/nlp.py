@@ -103,7 +103,7 @@ async def analisar_documento(
             pass
 
     try:
-        resultado = await servico.analisar(texto)
+        resultado = await servico.analisar(texto, question_type=body.question_type)
         return AnalisarDocumentoResponse(**resultado.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -138,7 +138,7 @@ async def analisar(
 
     logger.info("POST /api/nlp/analisar — texto com %d chars.", len(body.texto))
     try:
-        resultado = await servico.analisar(body.texto)
+        resultado = await servico.analisar(body.texto, question_type=body.question_type)
         return AnalisarTextoResponse(**resultado.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))

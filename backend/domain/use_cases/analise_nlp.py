@@ -19,21 +19,9 @@ class ServicoAnaliseNLP:
     def __init__(self, adapter: GeminiNLPAdapter) -> None:
         self._adapter = adapter
 
-    async def analisar(self, texto: str, n_perguntas: int = 5) -> ResultadoGeminiNLP:
-        """
-        Gera resumo e questões MCQ estruturadas a partir do texto.
-
-        Args:
-            texto: Conteúdo textual (ex.: extraído de um PDF).
-            n_perguntas: Quantidade de questões a gerar.
-
-        Returns:
-            ResultadoGeminiNLP com resumo e lista de PerguntaGerada.
-        """
-        logger.info("Executando caso de uso NLP — %d chars, %d questões.", len(texto), n_perguntas)
-        
-        # O 'await' é crucial aqui pois o Adapter agora usa o AsyncOpenAI
-        return await self._adapter.analisar(texto, n_perguntas=n_perguntas)
+    async def analisar(self, texto: str, n_perguntas: int = 5, question_type: str = "multiple_choice") -> ResultadoGeminiNLP:
+        logger.info("Executando caso de uso NLP — %d chars, %d questões, tipo: %s.", len(texto), n_perguntas, question_type)
+        return await self._adapter.analisar(texto, n_perguntas=n_perguntas, question_type=question_type)
 
 
 def criar_servico_analise_nlp() -> ServicoAnaliseNLP:

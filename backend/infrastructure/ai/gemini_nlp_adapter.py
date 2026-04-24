@@ -7,6 +7,23 @@ from core.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+_REGRAS_MULTIPLA_ESCOLHA = """━━━ REGRAS PARA "perguntas" ━━━
+- Gere exatamente {n_perguntas} questões de múltipla escolha
+- Questões objetivas, no estilo de concurso público
+- "type" deve ser "multiple_choice"
+- Cada questão deve ter exatamente 4 alternativas
+- Apenas UMA alternativa deve ter "correct": true"""
+
+_REGRAS_VERDADEIRO_FALSO = """━━━ REGRAS PARA "perguntas" ━━━
+- Gere exatamente {n_perguntas} afirmações de VERDADEIRO ou FALSO
+- "type" deve ser "true_false"
+- Cada questão deve ser uma AFIRMAÇÃO objetiva sobre o conteúdo (não uma pergunta)
+- Varie entre afirmações verdadeiras e falsas de forma equilibrada
+- Cada questão deve ter EXATAMENTE 2 alternativas nesta ordem:
+  [{{"text": "Verdadeiro", "correct": true_ou_false}}, {{"text": "Falso", "correct": false_ou_true}}]
+- Se a afirmação é verdadeira: Verdadeiro tem "correct": true e Falso tem "correct": false
+- Se a afirmação é falsa: Verdadeiro tem "correct": false e Falso tem "correct": true"""
+
 _PROMPT_TEMPLATE = """
 Você é um especialista em educação para concursos públicos. Analise o texto abaixo e responda SOMENTE com um JSON válido, sem markdown, sem explicações adicionais.
 
@@ -15,7 +32,8 @@ O JSON deve ter exatamente esta estrutura:
   "resumo": "resumo estruturado aqui",
   "perguntas": [
     {{
-      "statement": "pergunta aqui",
+      "statement": "enunciado aqui",
+      "type": "multiple_choice",
       "alternatives": [
         {{"text": "opção A", "correct": true}},
         {{"text": "opção B", "correct": false}},
@@ -61,9 +79,7 @@ Síntese do conteúdo em linguagem direta, estilo revisão rápida.
 - Sem repetição de informações entre seções
 - Ideal para leitura rápida e revisão de véspera
 
-━━━ REGRAS PARA "perguntas" ━━━
-- Gere exatamente {n_perguntas} questões de múltipla escolha
-- Questões objetivas, no estilo de concurso público
+{regras_perguntas}
 
 ━━━ REGRAS PARA "flashcards" ━━━
 - Gere exatamente 10 flashcards com os conceitos mais importantes
@@ -143,12 +159,18 @@ class GeminiNLPAdapter:
             ):
                 self._candidates.append((openrouter, model))
 
-    async def analisar(self, texto: str, n_perguntas: int = 5) -> ResultadoGeminiNLP:
+    async def analisar(self, texto: str, n_perguntas: int = 5, question_type: str = "multiple_choice") -> ResultadoGeminiNLP:
         if not texto or not texto.strip():
             raise ValueError("Texto vazio.")
 
+        if question_type == "true_false":
+            regras = _REGRAS_VERDADEIRO_FALSO.format(n_perguntas=n_perguntas)
+        else:
+            regras = _REGRAS_MULTIPLA_ESCOLHA.format(n_perguntas=n_perguntas)
+
         prompt = _PROMPT_TEMPLATE.format(
             n_perguntas=n_perguntas,
+            regras_perguntas=regras,
             texto=texto[:30_000],
         )
 
@@ -175,7 +197,8 @@ class GeminiNLPAdapter:
                 data = json.loads(raw)
                 resultado = ResultadoGeminiNLP.model_validate(data)
                 for pergunta in resultado.perguntas:
-                    random.shuffle(pergunta.alternatives)
+                    if pergunta.type != "true_false":
+                        random.shuffle(pergunta.alternatives)
                 logger.info("Sucesso com modelo: %s", model)
                 return resultado
 
