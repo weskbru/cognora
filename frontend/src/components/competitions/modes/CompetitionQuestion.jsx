@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 const diffConfig = {
   easy: { label: 'Fácil', cls: 'bg-emerald-100 text-emerald-700' },
@@ -9,24 +9,67 @@ const diffConfig = {
   hard: { label: 'Difícil', cls: 'bg-red-100 text-red-700' },
 };
 
-export default function CompetitionQuestion({ question, index, total, onAnswer }) {
+export default function CompetitionQuestion({ question, index, total, onAnswer, timePerQuestion = null }) {
   const [selected, setSelected] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(timePerQuestion);
+  const [timedOut, setTimedOut] = useState(false);
+  const calledRef = useRef(false);
   const diff = diffConfig[question.difficulty] || diffConfig.medium;
 
+  useEffect(() => {
+    if (!timePerQuestion || selected !== null) return;
+    if (timeLeft <= 0) {
+      if (!calledRef.current) {
+        calledRef.current = true;
+        setTimedOut(true);
+        setTimeout(() => onAnswer(false), 800);
+      }
+      return;
+    }
+    const t = setTimeout(() => setTimeLeft(v => v - 1), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, selected, timePerQuestion]);
+
   const handleSelect = (i) => {
-    if (selected !== null) return;
+    if (selected !== null || timedOut) return;
     setSelected(i);
     const isCorrect = question.alternatives?.[i]?.correct === true;
     setTimeout(() => onAnswer(isCorrect), 900);
   };
 
+  const timerPct = timePerQuestion ? (timeLeft / timePerQuestion) * 100 : 100;
+  const timerColor = timerPct > 50 ? 'bg-emerald-500' : timerPct > 25 ? 'bg-amber-400' : 'bg-red-500';
+  const timerUrgent = timePerQuestion && timeLeft <= 10 && !timedOut && selected === null;
+
   return (
-    <Card className="p-5">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-bold text-muted-foreground">Questão {index + 1} de {total}</span>
-        <Badge className={diff.cls}>{diff.label}</Badge>
-      </div>
-      <p className="font-semibold text-base mb-5 leading-relaxed">{question.statement}</p>
+    <Card className="overflow-hidden">
+      {/* Barra de cronômetro */}
+      {timePerQuestion && (
+        <div className="h-1.5 w-full bg-secondary">
+          <div
+            className={`h-full transition-all duration-1000 ease-linear ${timerColor} ${timerUrgent ? 'animate-pulse' : ''}`}
+            style={{ width: `${Math.max(0, timerPct)}%` }}
+          />
+        </div>
+      )}
+
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm font-bold text-muted-foreground">Questão {index + 1} de {total}</span>
+          <div className="flex items-center gap-2">
+            {timePerQuestion && !timedOut && selected === null && (
+              <span className={`flex items-center gap-1 text-sm font-mono font-bold ${timerUrgent ? 'text-red-500' : 'text-muted-foreground'}`}>
+                <Clock className={`h-3.5 w-3.5 ${timerUrgent ? 'animate-pulse' : ''}`} />
+                {timeLeft}s
+              </span>
+            )}
+            {timedOut && (
+              <span className="text-xs font-semibold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">Tempo!</span>
+            )}
+            <Badge className={diff.cls}>{diff.label}</Badge>
+          </div>
+        </div>
+        <p className="font-semibold text-base mb-5 leading-relaxed">{question.statement}</p>
 
       {(question.type === 'multiple_choice' || question.type === 'true_false') && question.alternatives && (
         <div className="space-y-2">
@@ -66,6 +109,7 @@ export default function CompetitionQuestion({ question, index, total, onAnswer }
           </button>
         </div>
       )}
+      </div>
     </Card>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -44,6 +44,7 @@ export default function Competitions() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [selectedMode, setSelectedMode] = useState(null);
   const [joinCode, setJoinCode] = useState('');
+  const queryClient = useQueryClient();
 
   const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
 
@@ -51,6 +52,18 @@ export default function Competitions() {
     queryKey: ['competitions'],
     queryFn: () => base44.entities.Competition.list('-created_date', 30),
   });
+
+  // Limpa automaticamente competições em "waiting" criadas há mais de 24h
+  useEffect(() => {
+    if (!competitions.length) return;
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const stale = competitions.filter(c =>
+      c.status === 'waiting' && new Date(c.created_date).getTime() < cutoff
+    );
+    if (!stale.length) return;
+    Promise.all(stale.map(c => base44.entities.Competition.delete(c.id)))
+      .then(() => queryClient.invalidateQueries({ queryKey: ['competitions'] }));
+  }, [competitions]);
 
   const myCompetitions = competitions.filter(c =>
     c.host_email === user?.email ||

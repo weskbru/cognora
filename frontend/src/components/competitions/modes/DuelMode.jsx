@@ -149,7 +149,7 @@ export default function DuelMode({ competition, user, onFinish }) {
         )}
       </Card>
 
-      <CompetitionQuestion key={currentIndex} question={questions[currentIndex]} index={currentIndex} total={questions.length} onAnswer={handleAnswer} />
+      <CompetitionQuestion key={currentIndex} question={questions[currentIndex]} index={currentIndex} total={questions.length} onAnswer={handleAnswer} timePerQuestion={30} />
     </div>
   );
 }
