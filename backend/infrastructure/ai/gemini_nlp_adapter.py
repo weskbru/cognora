@@ -118,14 +118,25 @@ class GeminiNLPAdapter:
         )
 
         _MODELS = [
-            "google/gemma-3-27b-it:free",    # Google AI Studio
-            "google/gemma-3-12b-it:free",    # Google AI Studio
-            "google/gemma-3-4b-it:free",     # Google AI Studio
-            "nvidia/nemotron-3-super-120b-a12b:free",  # NVIDIA
-            "minimax/minimax-m2.5:free",     # MiniMax
-            "stepfun/step-3.5-flash:free",   # StepFun
-            "z-ai/glm-4.5-air:free",         # ZhipuAI
-            "meta-llama/llama-3.3-70b-instruct:free",  # Venice (fallback)
+            # DeepSeek — limites separados, bom em JSON estruturado
+            "deepseek/deepseek-r1:free",
+            "deepseek/deepseek-chat-v3-0324:free",
+            # Qwen (Alibaba) — limites independentes
+            "qwen/qwen3-30b-a3b:free",
+            "qwen/qwen3-14b:free",
+            # Google Gemma
+            "google/gemma-3-27b-it:free",
+            "google/gemma-3-12b-it:free",
+            "google/gemma-3-4b-it:free",
+            # Meta Llama
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "meta-llama/llama-3.1-8b-instruct:free",
+            # Mistral
+            "mistralai/mistral-7b-instruct:free",
+            # NVIDIA / outros
+            "nvidia/nemotron-3-super-120b-a12b:free",
+            "z-ai/glm-4.5-air:free",
+            "minimax/minimax-m2.5:free",
         ]
 
         falhas: list[str] = []
