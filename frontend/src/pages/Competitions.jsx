@@ -163,7 +163,7 @@ function CompetitionRow({ competition: c, userEmail, onJoin }) {
   const handleClick = (e) => {
     if (!isMember) {
       e.preventDefault();
-      onJoin?.(c.invite_code);
+      onJoin?.('');
     }
   };
 
@@ -184,7 +184,7 @@ function CompetitionRow({ competition: c, userEmail, onJoin }) {
             <span className="flex items-center gap-1"><Users className="h-3 w-3" />{c.participants?.length || 0} participantes</span>
             {c.question_count && <span className="flex items-center gap-1"><Zap className="h-3 w-3" />{c.question_count} questões</span>}
             {c.time_limit_seconds && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{c.time_limit_seconds / 60} min</span>}
-            {c.invite_code && <span className="font-mono bg-secondary px-1.5 py-0.5 rounded">#{c.invite_code}</span>}
+            {isHost && c.invite_code && <span className="font-mono bg-secondary px-1.5 py-0.5 rounded">#{c.invite_code}</span>}
           </div>
         </div>
         {isHost ? (

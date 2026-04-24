@@ -6,8 +6,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Copy, Users, Swords, Timer, Trophy, Play, Bot, Clock } from 'lucide-react';
+import { ArrowLeft, Copy, Users, Swords, Timer, Trophy, Play, Bot, Clock, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
 import DuelMode from '@/components/competitions/modes/DuelMode';
 import TimeAttackMode from '@/components/competitions/modes/TimeAttackMode';
 import WeeklyLeagueMode from '@/components/competitions/modes/WeeklyLeagueMode';
@@ -59,8 +60,20 @@ export default function CompetitionDetail() {
   const cfg = MODE_CONFIG[competition.mode] || MODE_CONFIG.duel;
   const isHost = competition.host_email === user?.email;
   const myParticipant = competition.participants?.find(p => p.email === user?.email);
+  const isMember = isHost || !!myParticipant;
   const myFinished = myParticipant?.status === 'finished';
   const canPlay = myParticipant && competition.status !== 'finished' && !myFinished;
+
+  if (!isMember) {
+    return (
+      <InviteCodeGate
+        competition={competition}
+        cfg={cfg}
+        user={user}
+        onJoined={() => queryClient.invalidateQueries({ queryKey: ['competition', id] })}
+      />
+    );
+  }
   const hasBot = competition.participants?.some(p => p.email === BOT.email);
 
   // Duel: need exactly 2 players
@@ -142,16 +155,18 @@ export default function CompetitionDetail() {
         </div>
       </div>
 
-      {/* Invite code */}
-      <Card className="p-4 flex items-center justify-between gap-4 bg-secondary/50">
-        <div>
-          <p className="text-xs text-muted-foreground mb-0.5">Código de convite</p>
-          <p className="text-2xl font-mono font-bold tracking-widest text-primary">{competition.invite_code}</p>
-        </div>
-        <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={handleCopyCode}>
-          <Copy className="h-3.5 w-3.5" /> Copiar
-        </Button>
-      </Card>
+      {/* Invite code — visível apenas para o criador */}
+      {isHost && (
+        <Card className="p-4 flex items-center justify-between gap-4 bg-secondary/50">
+          <div>
+            <p className="text-xs text-muted-foreground mb-0.5">Código de convite</p>
+            <p className="text-2xl font-mono font-bold tracking-widest text-primary">{competition.invite_code}</p>
+          </div>
+          <Button variant="outline" size="sm" className="gap-2 shrink-0" onClick={handleCopyCode}>
+            <Copy className="h-3.5 w-3.5" /> Copiar
+          </Button>
+        </Card>
+      )}
 
       {/* Duel: waiting for opponent */}
       {needsMorePlayers && (
@@ -159,7 +174,10 @@ export default function CompetitionDetail() {
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="flex-1 text-center sm:text-left">
               <p className="font-semibold text-foreground">Aguardando oponente...</p>
-              <p className="text-sm text-muted-foreground mt-1">Compartilhe o código <span className="font-mono font-bold text-primary">{competition.invite_code}</span> ou adicione um bot para jogar agora.</p>
+              {isHost
+              ? <p className="text-sm text-muted-foreground mt-1">Compartilhe o código <span className="font-mono font-bold text-primary">{competition.invite_code}</span> ou adicione um bot para jogar agora.</p>
+              : <p className="text-sm text-muted-foreground mt-1">Aguardando mais jogadores entrarem na competição.</p>
+            }
             </div>
             {isHost && !hasBot && (
               <Button variant="outline" className="gap-2 shrink-0" onClick={handleAddBot} disabled={addingBot}>
@@ -233,6 +251,79 @@ export default function CompetitionDetail() {
       {competition.status === 'finished' && (
         <CompetitionResults competition={competition} userEmail={user?.email} />
       )}
+    </div>
+  );
+}
+
+function InviteCodeGate({ competition, cfg, user, onJoined }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleJoin = async () => {
+    if (!code.trim()) return;
+    setLoading(true);
+    setError('');
+
+    if (code.trim().toUpperCase() !== competition.invite_code) {
+      setError('Código inválido. Verifique e tente novamente.');
+      setLoading(false);
+      return;
+    }
+
+    if (competition.status === 'finished') {
+      setError('Esta competição já foi encerrada.');
+      setLoading(false);
+      return;
+    }
+
+    const updatedParticipants = [
+      ...(competition.participants || []),
+      {
+        email: user.email,
+        display_name: user.full_name || user.email.split('@')[0],
+        status: 'joined',
+        score: 0, correct: 0, wrong: 0, time_spent_seconds: 0,
+      },
+    ];
+    await base44.entities.Competition.update(competition.id, { participants: updatedParticipants });
+    onJoined();
+    setLoading(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Link to="/competitions">
+          <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <h1 className="text-xl font-bold">{competition.title || cfg.label}</h1>
+          <Badge className={cfg.color}><cfg.icon className="h-3 w-3 mr-1" />{cfg.label}</Badge>
+        </div>
+      </div>
+
+      <Card className="max-w-sm mx-auto p-8 text-center space-y-5">
+        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+          <Lock className="h-8 w-8 text-primary" />
+        </div>
+        <div>
+          <p className="font-semibold text-foreground">Competição com acesso restrito</p>
+          <p className="text-sm text-muted-foreground mt-1">Digite o código de convite para participar</p>
+        </div>
+        <Input
+          placeholder="Ex: ABC123"
+          value={code}
+          onChange={e => setCode(e.target.value.toUpperCase())}
+          className="font-mono text-center text-lg tracking-widest"
+          maxLength={6}
+          onKeyDown={e => e.key === 'Enter' && handleJoin()}
+        />
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button className="w-full" onClick={handleJoin} disabled={loading || !code.trim()}>
+          {loading ? 'Entrando...' : 'Entrar na Competição'}
+        </Button>
+      </Card>
     </div>
   );
 }
