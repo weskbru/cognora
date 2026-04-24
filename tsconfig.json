@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./frontend",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/components/ui/*":          ["./src/components/competitions/ui/*"],
+      "@/components/layout/*":      ["./src/components/competitions/layout/*"],
+      "@/components/shared/*":      ["./src/components/competitions/shared/*"],
+      "@/components/documents/*":   ["./src/components/competitions/documents/*"],
+      "@/components/rewards/*":     ["./src/components/competitions/rewards/*"],
+      "@/components/leaderboard/*": ["./src/components/competitions/leaderboard/*"],
+      "@/components/modes/*":       ["./src/components/competitions/modes/*"]
+    },
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext", "dom"],
+    "target": "esnext",
+    "strict": true,
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["frontend/src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
