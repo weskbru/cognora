@@ -12,6 +12,8 @@ class Settings:
     algorithm: str = "HS256"
     token_expire_days: int = 30
     upload_dir: str = os.path.join(_BACKEND_DIR, "uploads")
+    gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
+    nvidia_api_key: str | None = os.getenv("NVIDIA_API_KEY")
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
     supabase_url: str | None = os.getenv("SUPABASE_URL")
     supabase_key: str | None = os.getenv("SUPABASE_KEY")

@@ -100,13 +100,47 @@ class ResultadoGeminiNLP(BaseModel):
 
 class GeminiNLPAdapter:
     def __init__(self) -> None:
-        if not settings.openrouter_api_key:
-            raise ValueError("OPENROUTER_API_KEY não configurada.")
+        if not settings.nvidia_api_key and not settings.gemini_api_key and not settings.openrouter_api_key:
+            raise ValueError("Configure NVIDIA_API_KEY, GEMINI_API_KEY ou OPENROUTER_API_KEY.")
 
-        self.client = AsyncOpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=settings.openrouter_api_key,
-        )
+        # (client, model) — NVIDIA primeiro, Gemini segundo, OpenRouter fallback
+        self._candidates: list[tuple[AsyncOpenAI, str]] = []
+
+        if settings.nvidia_api_key:
+            nvidia = AsyncOpenAI(
+                base_url="https://integrate.api.nvidia.com/v1",
+                api_key=settings.nvidia_api_key,
+            )
+            for model in (
+                "meta/llama-3.3-70b-instruct",
+                "nvidia/llama-3.1-nemotron-70b-instruct",
+                "meta/llama-3.1-70b-instruct",
+                "mistralai/mixtral-8x7b-instruct-v0.1",
+            ):
+                self._candidates.append((nvidia, model))
+
+        if settings.gemini_api_key:
+            gemini = AsyncOpenAI(
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=settings.gemini_api_key,
+            )
+            for model in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"):
+                self._candidates.append((gemini, model))
+
+        if settings.openrouter_api_key:
+            openrouter = AsyncOpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=settings.openrouter_api_key,
+            )
+            for model in (
+                "google/gemma-3-27b-it:free",
+                "google/gemma-3-12b-it:free",
+                "google/gemma-3-4b-it:free",
+                "meta-llama/llama-3.3-70b-instruct:free",
+                "nvidia/nemotron-3-super-120b-a12b:free",
+                "z-ai/glm-4.5-air:free",
+            ):
+                self._candidates.append((openrouter, model))
 
     async def analisar(self, texto: str, n_perguntas: int = 5) -> ResultadoGeminiNLP:
         if not texto or not texto.strip():
@@ -117,38 +151,19 @@ class GeminiNLPAdapter:
             texto=texto[:30_000],
         )
 
-        _MODELS = [
-            # DeepSeek — limites separados, bom em JSON estruturado
-            "deepseek/deepseek-r1:free",
-            "deepseek/deepseek-chat-v3-0324:free",
-            # Qwen (Alibaba) — limites independentes
-            "qwen/qwen3-30b-a3b:free",
-            "qwen/qwen3-14b:free",
-            # Google Gemma
-            "google/gemma-3-27b-it:free",
-            "google/gemma-3-12b-it:free",
-            "google/gemma-3-4b-it:free",
-            # Meta Llama
-            "meta-llama/llama-3.3-70b-instruct:free",
-            "meta-llama/llama-3.1-8b-instruct:free",
-            # Mistral
-            "mistralai/mistral-7b-instruct:free",
-            # NVIDIA / outros
-            "nvidia/nemotron-3-super-120b-a12b:free",
-            "z-ai/glm-4.5-air:free",
-            "minimax/minimax-m2.5:free",
-        ]
-
         falhas: list[str] = []
-        for model in _MODELS:
+        for client, model in self._candidates:
             try:
                 logger.info("Tentando modelo: %s", model)
-                response = await self.client.chat.completions.create(
+                response = await client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
                 )
 
-                raw = response.choices[0].message.content.strip()
+                raw = (response.choices[0].message.content or "").strip()
+                if not raw:
+                    falhas.append(f"{model}: resposta vazia")
+                    continue
 
                 if raw.startswith("```"):
                     raw = raw.split("```")[1]
@@ -161,27 +176,30 @@ class GeminiNLPAdapter:
                 return ResultadoGeminiNLP.model_validate(data)
 
             except json.JSONDecodeError as exc:
-                motivo = f"resposta fora do formato JSON esperado"
+                motivo = "resposta fora do formato JSON esperado"
                 logger.warning("Modelo %s — %s: %s", model, motivo, exc)
                 falhas.append(f"{model}: {motivo}")
                 continue
             except Exception as exc:
                 erro = str(exc)
+                logger.warning("Modelo %s falhou — %s: %s", model, type(exc).__name__, erro)
                 if "401" in erro or "authentication" in erro.lower():
                     motivo = "chave de API inválida ou sem permissão"
-                elif "429" in erro or "rate" in erro.lower():
+                elif "403" in erro or "permission" in erro.lower() or "forbidden" in erro.lower():
+                    motivo = "acesso negado — verifique se a API está ativada no Google Cloud"
+                elif "429" in erro or "rate" in erro.lower() or "quota" in erro.lower() or "exhausted" in erro.lower():
                     motivo = "limite de requisições atingido"
                 elif "503" in erro or "unavailable" in erro.lower():
                     motivo = "modelo temporariamente indisponível"
+                elif "404" in erro:
+                    motivo = "modelo não encontrado"
                 else:
                     motivo = erro
-                logger.warning("Modelo %s falhou (%s), tentando próximo...", model, motivo)
                 falhas.append(f"{model}: {motivo}")
                 continue
 
         resumo_falhas = "; ".join(falhas) if falhas else "motivo desconhecido"
         raise RuntimeError(
             f"Nenhum modelo de IA conseguiu processar o documento. "
-            f"Verifique se OPENROUTER_API_KEY está configurada corretamente. "
             f"Detalhes: {resumo_falhas}"
         )
