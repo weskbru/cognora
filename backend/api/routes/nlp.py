@@ -33,7 +33,10 @@ router = APIRouter(prefix="/api/nlp", tags=["nlp"])
 
 
 def _get_servico() -> ServicoAnaliseNLP:
-    return criar_servico_analise_nlp()
+    try:
+        return criar_servico_analise_nlp()
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
 
 def _file_url_to_path(file_url: str) -> str:
@@ -82,12 +85,17 @@ async def analisar_documento(
     try:
         filepath = _file_url_to_path(body.file_url)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(
+            status_code=404,
+            detail=f"Não foi possível acessar o arquivo PDF. Verifique se o upload foi concluído. Detalhe: {exc}",
+        )
 
     try:
         texto = extrair_texto_pdf(filepath)
-    except (ValueError, RuntimeError) as exc:
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=f"Erro ao ler o PDF: {exc}")
     finally:
         try:
             os.unlink(filepath)
@@ -100,10 +108,11 @@ async def analisar_documento(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
+        logger.error("Falha na geração de conteúdo IA: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
     except Exception as exc:
         logger.exception("Erro inesperado em /api/nlp/analisar-documento")
-        raise HTTPException(status_code=500, detail=f"Erro interno: {exc}")
+        raise HTTPException(status_code=500, detail=f"Erro inesperado ao processar documento: {exc}")
 
 
 @router.post(

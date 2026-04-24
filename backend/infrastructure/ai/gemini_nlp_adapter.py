@@ -128,7 +128,7 @@ class GeminiNLPAdapter:
             "meta-llama/llama-3.3-70b-instruct:free",  # Venice (fallback)
         ]
 
-        last_exc: Exception = RuntimeError("Nenhum modelo disponível.")
+        falhas: list[str] = []
         for model in _MODELS:
             try:
                 logger.info("Tentando modelo: %s", model)
@@ -150,11 +150,27 @@ class GeminiNLPAdapter:
                 return ResultadoGeminiNLP.model_validate(data)
 
             except json.JSONDecodeError as exc:
-                logger.error("JSON inválido do modelo %s: %s", model, exc)
-                raise RuntimeError(f"Resposta da IA não é JSON válido: {exc}") from exc
+                motivo = f"resposta fora do formato JSON esperado"
+                logger.warning("Modelo %s — %s: %s", model, motivo, exc)
+                falhas.append(f"{model}: {motivo}")
+                continue
             except Exception as exc:
-                logger.warning("Modelo %s falhou (%s), tentando próximo...", model, exc)
-                last_exc = exc
+                erro = str(exc)
+                if "401" in erro or "authentication" in erro.lower():
+                    motivo = "chave de API inválida ou sem permissão"
+                elif "429" in erro or "rate" in erro.lower():
+                    motivo = "limite de requisições atingido"
+                elif "503" in erro or "unavailable" in erro.lower():
+                    motivo = "modelo temporariamente indisponível"
+                else:
+                    motivo = erro
+                logger.warning("Modelo %s falhou (%s), tentando próximo...", model, motivo)
+                falhas.append(f"{model}: {motivo}")
                 continue
 
-        raise RuntimeError(f"Todos os modelos falharam. Último erro: {last_exc}") from last_exc
+        resumo_falhas = "; ".join(falhas) if falhas else "motivo desconhecido"
+        raise RuntimeError(
+            f"Nenhum modelo de IA conseguiu processar o documento. "
+            f"Verifique se OPENROUTER_API_KEY está configurada corretamente. "
+            f"Detalhes: {resumo_falhas}"
+        )

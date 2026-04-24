@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS user_progress (
     total_summaries_generated INTEGER DEFAULT 0,
     total_documents_uploaded INTEGER DEFAULT 0,
     xp_history JSONB DEFAULT '[]',
+    display_name TEXT,
+    avatar_emoji TEXT,
+    avatar_url TEXT,
     plan TEXT DEFAULT 'free',
     daily_generations_used INTEGER DEFAULT 0,
     last_generation_date DATE
@@ -96,4 +99,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'free';
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS daily_generations_used INTEGER DEFAULT 0;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS last_generation_date DATE;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS display_name TEXT;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_emoji TEXT;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE subjects ADD COLUMN IF NOT EXISTS owner_email TEXT;

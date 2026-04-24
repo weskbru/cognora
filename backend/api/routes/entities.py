@@ -58,7 +58,30 @@ def list_entities(
         filters.setdefault("owner_email", current_user.email)
     elif entity == "question_attempts":
         filters.setdefault("user_email", current_user.email)
-    elif entity in ("documents", "questions", "summaries", "flashcards") and "subject_id" not in filters:
+    elif entity == "summaries" and "document_id" not in filters:
+        user_subject_ids = [
+            str(s.id)
+            for s in db.query(Subject).filter(Subject.owner_email == current_user.email).all()
+        ]
+        if not user_subject_ids:
+            return []
+        user_doc_ids = [
+            str(d.id)
+            for d in db.query(Document).filter(Document.subject_id.in_(user_subject_ids)).all()
+        ]
+        if not user_doc_ids:
+            return []
+        query = db.query(Summary).filter(Summary.document_id.in_(user_doc_ids))
+        for field, value in filters.items():
+            if hasattr(Summary, field):
+                query = query.filter(getattr(Summary, field) == value)
+        if sort and hasattr(Summary, sort.lstrip("-")):
+            col = getattr(Summary, sort.lstrip("-"))
+            query = query.order_by(desc(col) if sort.startswith("-") else asc(col))
+        if limit:
+            query = query.limit(limit)
+        return [row_to_dict(r) for r in query.all()]
+    elif entity in ("documents", "questions", "flashcards") and "subject_id" not in filters:
         user_subject_ids = [
             str(s.id)
             for s in db.query(Subject).filter(Subject.owner_email == current_user.email).all()

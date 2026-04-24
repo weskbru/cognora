@@ -31,6 +31,9 @@ Leia este arquivo primeiro para saber qual documento consultar.
 ## "Para que serve cada arquivo de config? Como rodar o projeto?"
 → Leia `config-and-scripts.md`
 
+## "Onde esta deployado? Variaveis de ambiente? Como fazer deploy?"
+→ Leia `deploy.md`
+
 ---
 
 ## Resumo em uma frase

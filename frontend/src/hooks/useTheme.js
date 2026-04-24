@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 export function useTheme() {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('cognora_theme') || 'dark';
+    return localStorage.getItem('cognora_theme') || 'light';
   });
 
   useEffect(() => {
