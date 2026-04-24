@@ -155,8 +155,11 @@ export default function Login() {
         >
           {/* Título */}
           <div className="mb-8">
+            <div className="h-14 w-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mb-5">
+              <Brain className="h-7 w-7 text-indigo-400" />
+            </div>
             <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">
-              {isLogin ? 'Bem-vindo de volta! 🧠' : 'Sua jornada começa aqui 🚀'}
+              {isLogin ? 'Bem-vindo de volta!' : 'Sua jornada começa aqui'}
             </h1>
             <p className="text-slate-400 text-base">
               {isLogin

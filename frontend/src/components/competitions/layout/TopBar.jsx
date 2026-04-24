@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, Bell, LogOut, User, ChevronDown, Menu, Star } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Bell, LogOut, User, ChevronDown, Menu, Star } from 'lucide-react';
 import { Sun, Moon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
@@ -21,8 +21,6 @@ export default function TopBar({ onMenuClick = () => {}, sidebarOpen = true }) {
   const { isDark, toggle } = useTheme();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const navigate = useNavigate();
 
   const handleOpenNotif = () => {
     setNotifOpen(v => !v);
@@ -32,40 +30,17 @@ export default function TopBar({ onMenuClick = () => {}, sidebarOpen = true }) {
   const initials = getInitials(user?.email);
   const username = user?.email?.split('@')[0] ?? '';
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/quiz?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
-    }
-  };
-
   return (
     <header className={`fixed top-0 h-[70px] bg-card border-b border-border z-20 flex items-center justify-between px-5 gap-4 right-0 transition-all duration-300 ${sidebarOpen ? 'left-64' : 'left-0'}`}>
 
-      {/* Lado esquerdo — hamburguer + busca */}
-      <div className="flex items-center gap-3 flex-1">
+      {/* Lado esquerdo — hamburguer */}
+      <div className="flex items-center">
         <button
           onClick={onMenuClick}
           className="p-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
         >
           <Menu className="h-5 w-5" />
         </button>
-
-        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1 max-w-sm">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar ou digitar comando..."
-              className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-14 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground pointer-events-none">
-              ⌘K
-            </kbd>
-          </div>
-        </form>
       </div>
 
       {/* Lado direito — tema, notificações, usuário */}
