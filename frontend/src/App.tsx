@@ -1,11 +1,12 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import Login from '@/pages/Login';
 import ResetPassword from '@/pages/ResetPassword';
 import Pricing from '@/pages/Pricing';
+import Landing from '@/pages/Landing';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import Dashboard from '@/pages/Dashboard';
@@ -22,19 +23,21 @@ import CompetitionDetail from '@/pages/CompetitionDetail';
 import ErrorNotebook from '@/pages/ErrorNotebook';
 import { RewardsProvider } from '@/context/RewardsContext';
 
-// Rotas protegidas — redireciona para /login se nao autenticado
+// Rotas protegidas — mostra Landing na raiz para nao autenticados, redireciona demais para /login
 const ProtectedRoutes = () => {
   const { isLoadingAuth, isAuthenticated } = useAuth();
+  const location = useLocation();
 
   if (isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-950">
+        <div className="w-8 h-8 border-4 border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (!isAuthenticated) {
+    if (location.pathname === '/') return <Landing />;
     return <Navigate to="/login" replace />;
   }
 
