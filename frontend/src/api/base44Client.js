@@ -25,7 +25,10 @@ async function request(method, path, body = null) {
   const data = await res.json().catch(() => ({ detail: res.statusText }))
 
   if (!res.ok) {
-    throw { status: res.status, message: data.detail || 'Erro na requisicao' }
+    const detail = data.detail
+    const message = typeof detail === 'string' ? detail : detail?.message || 'Erro na requisição'
+    const code = typeof detail === 'object' ? detail?.code : null
+    throw { status: res.status, message, code }
   }
 
   return data

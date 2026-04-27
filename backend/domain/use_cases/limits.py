@@ -1,20 +1,20 @@
 """
 Regras de negócio dos planos Free / Pro / Ilimitado.
 
-Free:      3 gerações/dia, 2 matérias, 1 doc/matéria
-Pro:       20 gerações/dia, matérias ilimitadas, docs ilimitados
-Ilimitado: gerações ilimitadas, tudo ilimitado
+Free:      3 gerações/dia, 2 matérias, 1 doc/matéria, 5 MB upload, 1 competição ativa
+Pro:       20 gerações/dia, ilimitado em tudo, 25 MB upload
+Ilimitado: tudo ilimitado, 50 MB upload
 """
 from datetime import date, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from infrastructure.database.models import UserProgress, Subject, Document
+from infrastructure.database.models import UserProgress, Subject, Document, Competition
 
 PLAN_LIMITS = {
-    "free":      {"daily": 3,    "subjects": 2,    "docs_per_subject": 1},
-    "pro":       {"daily": 20,   "subjects": None,  "docs_per_subject": None},
-    "unlimited": {"daily": None, "subjects": None,  "docs_per_subject": None},
+    "free":      {"daily": 3,    "subjects": 2,    "docs_per_subject": 1,  "upload_mb": 5,  "competitions": 1},
+    "pro":       {"daily": 20,   "subjects": None,  "docs_per_subject": None, "upload_mb": 25, "competitions": None},
+    "unlimited": {"daily": None, "subjects": None,  "docs_per_subject": None, "upload_mb": 50, "competitions": None},
 }
 
 
@@ -131,6 +131,42 @@ def check_document_limit(subject_id: str, email: str, db: Session):
                 detail={
                     "code": "DOCUMENT_LIMIT_REACHED",
                     "message": f"Seu plano permite {limit} documento por matéria. Faça upgrade para adicionar mais.",
+                    "limit": limit,
+                },
+            )
+
+
+def check_upload_size(email: str, file_size_bytes: int, db: Session):
+    p = _get_or_create_progress(email, db)
+    plan = p.plan or "free"
+    limit_mb = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["upload_mb"]
+    limit_bytes = limit_mb * 1024 * 1024
+    if file_size_bytes > limit_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "code": "FILE_TOO_LARGE",
+                "message": f"Arquivo muito grande. Seu plano permite até {limit_mb} MB por arquivo. Faça upgrade para enviar arquivos maiores.",
+                "limit_mb": limit_mb,
+            },
+        )
+
+
+def check_competition_limit(email: str, db: Session):
+    p = _get_or_create_progress(email, db)
+    plan = p.plan or "free"
+    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["competitions"]
+    if limit is not None:
+        count = db.query(Competition).filter(
+            Competition.host_email == email,
+            Competition.status != "finished",
+        ).count()
+        if count >= limit:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "COMPETITION_LIMIT_REACHED",
+                    "message": f"Seu plano permite {limit} competição ativa por vez. Finalize a atual ou faça upgrade.",
                     "limit": limit,
                 },
             )

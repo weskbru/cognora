@@ -1,7 +1,9 @@
 import os
 import uuid
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+from sqlalchemy.orm import Session
 from api.dependencies import get_current_user
+from infrastructure.database.connection import get_db
 from infrastructure.database.models import User
 from core.config.settings import settings
 from supabase import create_client
@@ -20,11 +22,15 @@ def _get_supabase():
 @router.post("/upload")
 def upload_file(
     file: UploadFile = File(...),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    from domain.use_cases.limits import check_upload_size
+    data = file.file.read()
+    check_upload_size(current_user.email, len(data), db)
+
     ext = os.path.splitext(file.filename or "")[1] or ".pdf"
     filename = f"{uuid.uuid4()}{ext}"
-    data = file.file.read()
 
     supabase = _get_supabase()
     supabase.storage.from_(_BUCKET).upload(
