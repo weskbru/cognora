@@ -75,13 +75,14 @@ class AuthUseCases:
         google_id = info["sub"]
         email = info.get("email", "")
 
+        is_new_user = False
         user = self.user_repo.get_by_google_id(google_id)
         if not user:
             user = self.user_repo.get_by_email(email)
             if user:
                 self.user_repo.link_google_id(user, google_id)
             else:
-                # Derive username from email local part, ensure uniqueness
+                is_new_user = True
                 base = re.sub(r'[^a-zA-Z0-9_]', '', email.split('@')[0])[:28] or "user"
                 username = base
                 counter = 1
@@ -91,7 +92,7 @@ class AuthUseCases:
                 user = self.user_repo.create_google_user(email, google_id, username)
 
         token = create_token(user.email)
-        return {"access_token": token, "token_type": "bearer", "email": user.email, "username": user.username}, None
+        return {"access_token": token, "token_type": "bearer", "email": user.email, "username": user.username, "is_new_user": is_new_user}, None
 
     def forgot_password(self, email: str):
         user = self.user_repo.get_by_email(email)
