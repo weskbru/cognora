@@ -115,7 +115,7 @@ export default function Login() {
     }
   }, [remember]);
 
-  // Renderiza o botão oficial do Google no container após o script carregar
+  // Renderiza o botão do Google fora da tela (off-screen) após o script carregar
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || mode === 'forgot') return;
 
@@ -129,7 +129,7 @@ export default function Login() {
       window.google.accounts.id.renderButton(container, {
         theme: 'filled_black',
         size: 'large',
-        width: container.offsetWidth || 320,
+        width: 320,
         text: mode === 'login' ? 'signin_with' : 'signup_with',
         locale: 'pt-BR',
       });
@@ -148,7 +148,6 @@ export default function Login() {
         script.onload = renderBtn;
         document.head.appendChild(script);
       } else {
-        // Script já está carregando, aguarda
         const interval = setInterval(() => {
           if (window.google) { clearInterval(interval); renderBtn(); }
         }, 100);
@@ -156,6 +155,16 @@ export default function Login() {
       }
     }
   }, [mode, handleGoogleCallback]);
+
+  const triggerGoogleSignIn = () => {
+    const container = document.getElementById('google-signin-btn');
+    const btn = container?.querySelector<HTMLElement>('div[role="button"]');
+    if (btn) {
+      btn.click();
+    } else {
+      setError('Google ainda está carregando, tente novamente em instantes.');
+    }
+  };
 
   const switchMode = (next: Mode) => {
     setError('');
@@ -351,28 +360,22 @@ export default function Login() {
                 <span className="text-xs text-slate-500">ou</span>
                 <div className="flex-1 h-px bg-slate-700" />
               </div>
-              {/* Botão visual + overlay invisível do Google sobre ele */}
-              <div className="relative w-full">
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  className="w-full flex items-center justify-center gap-3 border border-slate-700 bg-slate-800 hover:bg-slate-700 rounded-xl py-3 text-sm font-medium text-slate-300 transition-colors pointer-events-none"
-                >
-                  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
-                    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
-                    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-                    <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
-                    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96l3.007 2.332C4.672 5.163 6.656 3.58 9 3.58z"/>
-                  </svg>
-                  {mode === 'login' ? 'Entrar com Google' : 'Cadastrar com Google'}
-                </button>
-                {/* Overlay invisível — o SDK do Google renderiza o botão real aqui */}
-                <div
-                  id="google-signin-btn"
-                  className="absolute inset-0 overflow-hidden"
-                  style={{ opacity: 0 }}
-                />
-              </div>
+              {/* Botão customizado que dispara o botão real do Google (off-screen) */}
+              <button
+                type="button"
+                onClick={triggerGoogleSignIn}
+                className="w-full flex items-center justify-center gap-3 border border-slate-700 bg-slate-800 hover:bg-slate-700 rounded-xl py-3 text-sm font-medium text-slate-300 transition-colors"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+                  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+                  <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96l3.007 2.332C4.672 5.163 6.656 3.58 9 3.58z"/>
+                </svg>
+                {mode === 'login' ? 'Entrar com Google' : 'Cadastrar com Google'}
+              </button>
+              {/* Botão real do Google renderizado fora da tela */}
+              <div id="google-signin-btn" style={{ position: 'absolute', left: '-9999px', top: 0 }} />
             </>
           )}
 
