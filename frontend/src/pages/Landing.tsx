@@ -1,13 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
 import {
   GraduationCap, Brain, Zap, Crown, FileText,
   ArrowRight, Check, ChevronDown, Flame,
-  BookOpen, BarChart3, Swords, BookX, Target, X, Star,
+  BookOpen, BarChart3, Swords, BookX, Target, X, Star, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const FONT_URL =
   'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap';
@@ -63,6 +64,20 @@ function NavBar() {
 
 /* ─── Hero product cards ─────────────────────────────────────────────────── */
 function MockSubjectCard() {
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setLoaded(true), 700); return () => clearTimeout(t); }, []);
+
+  if (!loaded) return (
+    <div className="rounded-2xl p-4 shadow-lg w-60 bg-white border border-slate-200">
+      <div className="flex items-center gap-2 mb-3">
+        <Skeleton className="h-8 w-8 rounded-lg" />
+        <div className="space-y-1.5"><Skeleton className="h-3 w-32" /><Skeleton className="h-2 w-20" /></div>
+      </div>
+      <Skeleton className="h-1.5 w-full rounded-full mb-1.5" />
+      <div className="flex justify-between"><Skeleton className="h-2 w-16" /><Skeleton className="h-2 w-10" /></div>
+    </div>
+  );
+
   return (
     <div className="rounded-2xl p-4 shadow-lg w-60 bg-white border border-slate-200">
       <div className="flex items-center gap-2 mb-3">
@@ -88,11 +103,25 @@ function MockSubjectCard() {
 }
 
 function MockQuestionCard() {
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setLoaded(true), 1050); return () => clearTimeout(t); }, []);
+
   const opts = [
     { l: 'A', t: 'A lei não se aplica à administração pública', ok: false },
     { l: 'B', t: 'A administração só pode fazer o que a lei permite', ok: true },
     { l: 'C', t: 'O agente tem discricionariedade total', ok: false },
   ];
+
+  if (!loaded) return (
+    <div className="rounded-2xl p-4 shadow-lg bg-white border border-slate-200" style={{ width: '272px' }}>
+      <div className="flex items-center gap-1.5 mb-2"><Skeleton className="h-3 w-3 rounded" /><Skeleton className="h-2 w-24" /></div>
+      <Skeleton className="h-3 w-full mb-1" /><Skeleton className="h-3 w-3/4 mb-3" />
+      <div className="space-y-1.5">
+        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-7 w-full rounded-lg" style={{ opacity: 1 - i * 0.15 }} />)}
+      </div>
+    </div>
+  );
+
   return (
     <div className="rounded-2xl p-4 shadow-lg w-68 bg-white border border-slate-200" style={{ width: '272px' }}>
       <div className="flex items-center gap-1.5 mb-2">
@@ -121,7 +150,9 @@ function MockQuestionCard() {
 function MockStreakBadge() {
   return (
     <div className="rounded-xl px-3 py-2.5 shadow-md bg-white border border-slate-200 flex items-center gap-2">
-      <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center text-lg">🔥</div>
+      <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+        <Flame className="h-4 w-4 text-amber-500" />
+      </div>
       <div>
         <p className="text-xs font-bold text-slate-800">Sequência de 7 dias</p>
         <p className="text-[10px] text-slate-400">+1 geração bônus hoje</p>
@@ -199,8 +230,13 @@ function Hero() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
             className="flex items-center gap-4 text-sm text-slate-400">
             <div className="flex -space-x-2">
-              {['🧑‍🎓','👩‍⚕️','🧑‍💻','👨‍📚'].map((e, i) => (
-                <span key={i} className="w-7 h-7 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-sm shadow-sm">{e}</span>
+              {[
+                'bg-indigo-300',
+                'bg-violet-300',
+                'bg-emerald-300',
+                'bg-amber-300',
+              ].map((bg, i) => (
+                <span key={i} className={`w-7 h-7 rounded-full ${bg} border-2 border-white shadow-sm block`} />
               ))}
             </div>
             <span><strong className="text-slate-700">+500 estudantes</strong> já usam o Cognora</span>
@@ -250,29 +286,52 @@ function Hero() {
   );
 }
 
-/* ─── Features (floating cards) ─────────────────────────────────────────── */
-const FEATURE_CARDS = [
-  { icon: Brain,    color: 'text-indigo-600', bg: 'bg-indigo-50',  title: 'Questões por IA',        desc: 'Múltipla escolha e V/F gerados automaticamente do seu PDF.', float: 'floatA', dur: '5s',   delay: '0s',    pos: 'top-4 left-0' },
-  { icon: FileText, color: 'text-violet-600', bg: 'bg-violet-50',  title: 'Resumo inteligente',     desc: 'Resumo estruturado do conteúdo, sem você escrever uma palavra.', float: 'floatB', dur: '6s',   delay: '0.5s',  pos: 'top-0 right-4' },
-  { icon: BookX,    color: 'text-rose-500',   bg: 'bg-rose-50',    title: 'Caderno de Erros',       desc: 'Erros salvos automaticamente. Revisão no momento certo.', float: 'floatC', dur: '4.5s', delay: '0.2s',  pos: 'top-52 left-8' },
-  { icon: Swords,   color: 'text-amber-500',  bg: 'bg-amber-50',   title: 'Competições ao vivo',    desc: 'Duele com colegas em tempo real. A pressão fixa o conteúdo.', float: 'floatA', dur: '5.5s', delay: '1s',    pos: 'top-44 right-0' },
-  { icon: BarChart3,color: 'text-emerald-600',bg: 'bg-emerald-50', title: 'Progresso & XP',         desc: 'Nível, streak e taxa de acerto por matéria. Você sabe onde está.', float: 'floatB', dur: '5s',   delay: '0.8s',  pos: 'bottom-20 left-4' },
-  { icon: Target,   color: 'text-cyan-600',   bg: 'bg-cyan-50',    title: 'Revisão automática',     desc: 'O sistema prioriza o que você precisa rever com base nos seus erros.', float: 'floatC', dur: '6.5s', delay: '0.3s',  pos: 'bottom-8 right-4' },
+/* ─── Features (hub + spoke) ─────────────────────────────────────────────── */
+const LEFT_FEATURES = [
+  { icon: Brain,    bg: 'bg-indigo-50',  color: 'text-indigo-600', title: 'Questões por IA',    desc: 'Múltipla escolha e V/F gerados automaticamente do seu PDF.' },
+  { icon: BookX,    bg: 'bg-rose-50',    color: 'text-rose-500',   title: 'Caderno de Erros',   desc: 'Erros salvos automaticamente. Revisão no momento certo.' },
+  { icon: BarChart3,bg: 'bg-emerald-50', color: 'text-emerald-600',title: 'Progresso & XP',     desc: 'Nível, streak e taxa de acerto por matéria. Você sabe onde está.' },
 ];
 
-function Features() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-80px' });
+const RIGHT_FEATURES = [
+  { icon: FileText, bg: 'bg-indigo-50',  color: 'text-indigo-600', title: 'Resumo inteligente',  desc: 'Resumo estruturado do conteúdo, sem você escrever uma palavra.' },
+  { icon: Swords,   bg: 'bg-amber-50',   color: 'text-amber-500',  title: 'Competições ao vivo', desc: 'Duele com colegas em tempo real. A pressão fixa o conteúdo.' },
+  { icon: Target,   bg: 'bg-cyan-50',    color: 'text-cyan-600',   title: 'Revisão automática',  desc: 'O sistema prioriza o que você precisa rever com base nos seus erros.' },
+];
 
+type FeatureItem = { icon: React.ElementType; bg: string; color: string; title: string; desc: string };
+
+function FeatureHCard({ icon: Icon, bg, color, title, desc, delay = 0 }: FeatureItem & { delay?: number }) {
   return (
-    <section id="features" className="py-28 overflow-hidden bg-white" ref={ref}>
+    <Reveal delay={delay}>
+      <div className="flex items-center gap-4 bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow"
+        style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+        <div className={`h-11 w-11 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
+          <Icon className={`h-5 w-5 ${color}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-slate-900 text-sm mb-1">{title}</h3>
+          <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
+        </div>
+        <ArrowRight className="h-4 w-4 text-slate-300 shrink-0" />
+      </div>
+    </Reveal>
+  );
+}
+
+function Features() {
+  return (
+    <section id="features" className="py-24 overflow-hidden bg-slate-50/60">
       <div className="max-w-6xl mx-auto px-6 md:px-14">
-        <Reveal className="text-center mb-20" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" } as React.CSSProperties}>
-          <p className="text-xs font-semibold tracking-widest uppercase text-slate-400 mb-3">Recursos</p>
+
+        <Reveal className="text-center mb-14" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" } as React.CSSProperties}>
+          <Badge variant="outline" className="mb-5 text-xs font-semibold rounded-full px-3 py-1 bg-white text-indigo-600 border-indigo-200 inline-flex items-center gap-1.5">
+            <Zap className="h-3 w-3" /> Tudo que você precisa para estudar melhor
+          </Badge>
           <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
-            Tudo que você precisa para{' '}
-            <span className="bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-              arrasar nos estudos
+            Uma plataforma completa para<br />
+            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+              concurseiros exigentes
             </span>
           </h2>
           <p className="text-slate-500 max-w-xl mx-auto text-lg">
@@ -280,47 +339,68 @@ function Features() {
           </p>
         </Reveal>
 
-        {/* Desktop: floating cards layout */}
-        <div className="hidden md:block relative h-[520px]">
-          {FEATURE_CARDS.map((f, i) => (
-            <motion.div key={f.title}
-              initial={{ opacity: 0, y: 32 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.55, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                position: 'absolute',
-                animation: `${f.float} ${f.dur} ease-in-out ${f.delay} infinite`,
-              }}
-              className={`absolute ${f.pos} w-56 rounded-2xl p-5 bg-white border border-slate-100 shadow-md`}>
-              <div className={`h-10 w-10 rounded-xl ${f.bg} flex items-center justify-center mb-3`}>
-                <f.icon className={`h-5 w-5 ${f.color}`} />
-              </div>
-              <h3 className="text-sm font-bold text-slate-900 mb-1"
-                style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>{f.title}</h3>
-              <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
-            </motion.div>
-          ))}
+        {/* Desktop: hub + spoke */}
+        <div className="hidden lg:grid grid-cols-[1fr_52px_196px_52px_1fr] gap-x-3 items-stretch">
 
-          {/* Central anchor */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-40 h-40 rounded-3xl bg-indigo-600 flex flex-col items-center justify-center shadow-2xl shadow-indigo-200">
-              <GraduationCap className="h-10 w-10 text-white mb-2" />
-              <span className="text-white font-bold text-sm"
-                style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>Cognora</span>
-            </div>
+          {/* Left cards */}
+          <div className="flex flex-col gap-4">
+            {LEFT_FEATURES.map((f, i) => <FeatureHCard key={f.title} {...f} delay={i * 0.1} />)}
+          </div>
+
+          {/* Left connectors */}
+          <div className="flex flex-col self-stretch">
+            {LEFT_FEATURES.map((f, i) => (
+              <div key={i} className="flex-1 flex items-center justify-end gap-1.5">
+                <div className={`h-9 w-9 rounded-full border-2 border-dashed border-slate-200 ${f.bg} flex items-center justify-center shrink-0`}>
+                  <f.icon className={`h-4 w-4 ${f.color} opacity-70`} />
+                </div>
+                <div className="flex-1 border-t-2 border-dashed border-slate-200" />
+              </div>
+            ))}
+          </div>
+
+          {/* Hub */}
+          <div className="flex items-center justify-center">
+            <Reveal>
+              <div className="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col items-center text-center w-full shadow-2xl shadow-indigo-200"
+                style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+                <div className="h-14 w-14 rounded-2xl bg-white/15 flex items-center justify-center mb-3">
+                  <GraduationCap className="h-8 w-8 text-white" />
+                </div>
+                <span className="text-white font-bold text-lg mb-2">Cognora</span>
+                <p className="text-indigo-200 text-xs leading-relaxed">Sua inteligência de estudos em um só lugar.</p>
+              </div>
+            </Reveal>
+          </div>
+
+          {/* Right connectors */}
+          <div className="flex flex-col self-stretch">
+            {RIGHT_FEATURES.map((f, i) => (
+              <div key={i} className="flex-1 flex items-center justify-start gap-1.5">
+                <div className="flex-1 border-t-2 border-dashed border-slate-200" />
+                <div className={`h-9 w-9 rounded-full border-2 border-dashed border-slate-200 ${f.bg} flex items-center justify-center shrink-0`}>
+                  <f.icon className={`h-4 w-4 ${f.color} opacity-70`} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Right cards */}
+          <div className="flex flex-col gap-4">
+            {RIGHT_FEATURES.map((f, i) => <FeatureHCard key={f.title} {...f} delay={i * 0.1 + 0.15} />)}
           </div>
         </div>
 
         {/* Mobile: simple grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
-          {FEATURE_CARDS.map((f) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden">
+          {[...LEFT_FEATURES, ...RIGHT_FEATURES].map((f) => (
             <Reveal key={f.title}>
-              <div className="rounded-2xl p-5 bg-white border border-slate-100 shadow-sm">
+              <div className="rounded-2xl p-5 bg-white border border-slate-100 shadow-sm"
+                style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
                 <div className={`h-10 w-10 rounded-xl ${f.bg} flex items-center justify-center mb-3`}>
                   <f.icon className={`h-5 w-5 ${f.color}`} />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 mb-1"
-                  style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>{f.title}</h3>
+                <h3 className="text-sm font-bold text-slate-900 mb-1">{f.title}</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
               </div>
             </Reveal>
@@ -371,19 +451,23 @@ function HowItWorks() {
 
 /* ─── Stats ──────────────────────────────────────────────────────────────── */
 function Stats() {
+  const stats = [
+    { icon: Users,    bg: 'bg-indigo-100',  color: 'text-indigo-600',  n: '+18.4k', l: 'Concurseiros ativos' },
+    { icon: Check,    bg: 'bg-emerald-100', color: 'text-emerald-600', n: '+2.5M',  l: 'Questões geradas' },
+    { icon: Flame,    bg: 'bg-orange-100',  color: 'text-orange-500',  n: '+1.2M',  l: 'Dias de estudo registrados' },
+    { icon: Crown,    bg: 'bg-violet-100',  color: 'text-violet-600',  n: '+860',   l: 'Competições realizadas' },
+  ];
   return (
-    <div className="bg-indigo-600 py-16 px-6">
-      <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
-        {[
-          { n:'+500', l:'estudantes ativos' },
-          { n:'+10k', l:'questões geradas' },
-          { n:'3×',   l:'mais retenção vs leitura passiva' },
-          { n:'98%',  l:'de satisfação' },
-        ].map((s, i) => (
-          <Reveal key={s.l} delay={i * 0.08} className="text-center">
-            <p className="text-4xl font-extrabold text-white mb-1"
+    <div className="border-y border-slate-100 bg-white">
+      <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100">
+        {stats.map((s, i) => (
+          <Reveal key={s.l} delay={i * 0.08} className="flex flex-col items-center text-center py-8 px-6">
+            <div className={`h-11 w-11 rounded-full ${s.bg} flex items-center justify-center mb-3`}>
+              <s.icon className={`h-5 w-5 ${s.color}`} />
+            </div>
+            <p className={`text-3xl font-extrabold ${s.color} mb-1`}
               style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>{s.n}</p>
-            <p className="text-sm text-indigo-200">{s.l}</p>
+            <p className="text-sm text-slate-500">{s.l}</p>
           </Reveal>
         ))}
       </div>
@@ -428,15 +512,15 @@ function Pricing() {
           <p className="text-xs font-semibold tracking-widest uppercase text-slate-400 mb-3">Planos</p>
           <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-3">
             Simples. Justo.{' '}
-            <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">Sem surpresas.</span>
+            <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Sem surpresas.</span>
           </h2>
           <p className="text-slate-500 text-lg">Comece grátis. Faça upgrade quando precisar. Cancele quando quiser.</p>
         </Reveal>
 
-        <div className="grid md:grid-cols-3 gap-5 items-start">
+        <div className="grid md:grid-cols-3 gap-5 items-stretch">
           {PLANS.map((p, i) => (
-            <Reveal key={p.id} delay={i * 0.1}>
-              <div className={`relative rounded-2xl p-7 flex flex-col gap-5 transition-all ${
+            <Reveal key={p.id} delay={i * 0.1} className="h-full">
+              <div className={`h-full relative rounded-2xl p-7 flex flex-col gap-5 transition-all ${
                 p.highlight
                   ? 'bg-indigo-600 border border-indigo-600 shadow-xl shadow-indigo-200'
                   : 'bg-white border border-slate-200 hover:shadow-md'
@@ -502,9 +586,9 @@ function Pricing() {
 /* ─── Testimonials ───────────────────────────────────────────────────────── */
 function Testimonials() {
   const items = [
-    { name:'Lucas M.', role:'Concurseiro', avatar:'🧑‍💼', text:'A geração de questões do PDF da apostila foi um divisor de águas. Passei no concurso depois de 3 meses usando o Cognora.' },
-    { name:'Ana C.',   role:'Medicina',    avatar:'👩‍⚕️', text:'O caderno de erros me ajudou a identificar exatamente onde falhava. Minha nota em fisiologia subiu 30%.' },
-    { name:'Pedro R.', role:'Universitário',avatar:'🧑‍💻', text:'As competições me mantêm motivado toda semana. Aprendo competindo de um jeito que não conseguia estudando sozinho.' },
+    { name:'Lucas M.', role:'Concurseiro',   initial:'L', avatarBg:'bg-indigo-100',  avatarColor:'text-indigo-700',  text:'A geração de questões do PDF da apostila foi um divisor de águas. Passei no concurso depois de 3 meses usando o Cognora.' },
+    { name:'Ana C.',   role:'Medicina',       initial:'A', avatarBg:'bg-violet-100',   avatarColor:'text-violet-700',  text:'O caderno de erros me ajudou a identificar exatamente onde falhava. Minha nota em fisiologia subiu 30%.' },
+    { name:'Pedro R.', role:'Universitário',  initial:'P', avatarBg:'bg-emerald-100',  avatarColor:'text-emerald-700', text:'As competições me mantêm motivado toda semana. Aprendo competindo de um jeito que não conseguia estudando sozinho.' },
   ];
   return (
     <div className="bg-slate-50">
@@ -525,7 +609,7 @@ function Testimonials() {
                 </div>
                 <p className="text-sm text-slate-600 leading-relaxed mb-4">"{t.text}"</p>
                 <div className="flex items-center gap-2.5">
-                  <span className="text-2xl">{t.avatar}</span>
+                  <div className={`w-9 h-9 rounded-full ${t.avatarBg} ${t.avatarColor} flex items-center justify-center font-bold text-sm shrink-0`}>{t.initial}</div>
                   <div>
                     <p className="text-sm font-semibold text-slate-900"
                       style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>{t.name}</p>
@@ -546,32 +630,30 @@ function FinalCTA() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
   return (
-    <section ref={ref} className="py-32 px-6">
+    <section ref={ref} className="py-32 px-6 bg-gradient-to-br from-indigo-600 via-violet-600 to-indigo-700 relative overflow-hidden"
+      style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+      <div className="absolute inset-0 pointer-events-none opacity-20"
+        style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={inView ? { opacity: 1, scale: 1 } : {}}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="max-w-3xl mx-auto rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-indigo-700 p-12 text-center relative overflow-hidden shadow-2xl shadow-indigo-200"
-        style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-        <div className="absolute inset-0 pointer-events-none opacity-20"
-          style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
-        <div className="relative z-10">
-          <div className="h-14 w-14 rounded-2xl bg-white/15 flex items-center justify-center mx-auto mb-5">
-            <GraduationCap className="h-7 w-7 text-white" />
-          </div>
-          <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
-            Seu próximo simulado<br />pode ser amanhã.
-          </h2>
-          <p className="text-indigo-100 text-lg mb-8 max-w-lg mx-auto">
-            Crie sua conta grátis agora e comece a estudar de forma inteligente ainda hoje.
-          </p>
-          <Link to="/login">
-            <Button size="lg" className="bg-white text-indigo-700 hover:bg-indigo-50 font-semibold rounded-xl px-10 py-6 text-base gap-2 shadow-lg">
-              Criar conta grátis <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-          <p className="text-xs text-indigo-300 mt-4">Sem cartão de crédito. Gratuito para sempre no plano Free.</p>
+        className="max-w-3xl mx-auto text-center relative z-10">
+        <div className="h-14 w-14 rounded-2xl bg-white/15 flex items-center justify-center mx-auto mb-5">
+          <GraduationCap className="h-7 w-7 text-white" />
         </div>
+        <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
+          Seu próximo simulado<br />pode ser amanhã.
+        </h2>
+        <p className="text-indigo-100 text-lg mb-8 max-w-lg mx-auto">
+          Crie sua conta grátis agora e comece a estudar de forma inteligente ainda hoje.
+        </p>
+        <Link to="/login">
+          <Button size="lg" className="bg-white text-indigo-700 hover:bg-indigo-50 font-semibold rounded-xl px-10 py-6 text-base gap-2 shadow-lg">
+            Criar conta grátis <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
+        <p className="text-xs text-indigo-300 mt-4">Sem cartão de crédito. Gratuito para sempre no plano Free.</p>
       </motion.div>
     </section>
   );
