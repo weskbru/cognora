@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -7,7 +8,46 @@ from fastapi.exceptions import RequestValidationError
 from core.config.settings import settings
 from api.routes import auth, entities, upload, nlp, limits
 
-app = FastAPI(title="Cognora API")
+
+def _run_migrations():
+    """Idempotent column additions for new auth fields."""
+    from infrastructure.database.connection import engine
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR UNIQUE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR UNIQUE",
+        "ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL",
+        """CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_email VARCHAR NOT NULL,
+            token VARCHAR NOT NULL UNIQUE,
+            expires_at TIMESTAMP NOT NULL,
+            used BOOLEAN DEFAULT FALSE
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_users_username ON users (username)",
+        "CREATE INDEX IF NOT EXISTS ix_users_google_id ON users (google_id)",
+        "CREATE INDEX IF NOT EXISTS ix_prt_user_email ON password_reset_tokens (user_email)",
+        "CREATE INDEX IF NOT EXISTS ix_prt_token ON password_reset_tokens (token)",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+            except Exception:
+                pass
+        conn.commit()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        _run_migrations()
+    except Exception:
+        pass
+    yield
+
+
+app = FastAPI(title="Cognora API", lifespan=lifespan)
 
 _wildcard_origins = settings.allowed_origins == ["*"]
 app.add_middleware(

@@ -2,6 +2,7 @@
  * Adapter que expoe a mesma interface do Base44 SDK, mas chama o backend Python local.
  * Nenhum dos 24 arquivos da app precisa mudar — so este arquivo.
  */
+import { getToken, removeToken } from '@/lib/tokenStorage'
 
 const API_URL = import.meta.env.VITE_API_URL
 if (!API_URL) {
@@ -9,7 +10,7 @@ if (!API_URL) {
 }
 
 async function request(method, path, body = null) {
-  const token = localStorage.getItem('cognora_token')
+  const token = getToken()
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers: {
@@ -88,7 +89,7 @@ export const base44 = {
   integrations: {
     Core: {
       async UploadFile({ file }) {
-        const token = localStorage.getItem('cognora_token')
+        const token = getToken()
         const formData = new FormData()
         formData.append('file', file)
         const res = await fetch(`${API_URL}/api/upload`, {
@@ -125,7 +126,7 @@ export const base44 = {
     },
 
     async logout(redirectUrl) {
-      localStorage.removeItem('cognora_token')
+      removeToken()
       window.location.href = redirectUrl || '/login'
     },
 

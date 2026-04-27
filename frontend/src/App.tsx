@@ -4,6 +4,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import Login from '@/pages/Login';
+import ResetPassword from '@/pages/ResetPassword';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import Dashboard from '@/pages/Dashboard';
@@ -65,8 +66,9 @@ function App() {
       <QueryClientProvider client={queryClientInstance}>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
-            {/* Rota publica — sem verificacao de auth */}
+            {/* Rotas publicas — sem verificacao de auth */}
             <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             {/* Todas as outras rotas sao protegidas */}
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

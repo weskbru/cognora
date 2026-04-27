@@ -12,3 +12,5 @@ httpx
 openai
 pypdf
 supabase
+resend
+google-auth

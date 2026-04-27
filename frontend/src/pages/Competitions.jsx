@@ -9,6 +9,10 @@ import PageHeader from '@/components/shared/PageHeader';
 import { Swords, Timer, Trophy, Plus, Users, Clock, ChevronRight, Zap, Trash2 } from 'lucide-react';
 import CreateCompetitionDialog from '@/components/competitions/CreateCompetitionDialog';
 import JoinCompetitionDialog from '@/components/competitions/JoinCompetitionDialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -159,6 +163,7 @@ function CompetitionRow({ competition: c, userEmail, onJoin }) {
   const myParticipant = c.participants?.find(p => p.email === userEmail);
   const isMember = isHost || !!myParticipant;
   const myFinished = myParticipant?.status === 'finished';
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const deleteMutation = useMutation({
@@ -166,11 +171,10 @@ function CompetitionRow({ competition: c, userEmail, onJoin }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['competitions'] }),
   });
 
-  const handleDelete = (e) => {
+  const handleDeleteClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm(`Excluir a competição "${c.title || cfg.label}"? Esta ação não pode ser desfeita.`)) return;
-    deleteMutation.mutate();
+    setConfirmOpen(true);
   };
 
   const handleClick = (e) => {
@@ -181,38 +185,62 @@ function CompetitionRow({ competition: c, userEmail, onJoin }) {
   };
 
   return (
-    <Link to={`/competitions/${c.id}`} onClick={handleClick}>
-      <Card className="p-4 bg-card border border-border hover:shadow-md transition-all cursor-pointer flex items-center gap-4 dark:bg-card dark:border-border">
-        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.color}`}>
-          <cfg.icon className="h-5 w-5" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-sm truncate">{c.title || cfg.label}</p>
-            <Badge variant={status.variant} className="text-xs">{status.label}</Badge>
-            {isHost && <Badge variant="outline" className="text-xs">Host</Badge>}
-            {myFinished && <Badge className="text-xs bg-emerald-100 text-emerald-700">Finalizado</Badge>}
+    <>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir competição</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <span className="font-semibold text-foreground">"{c.title || cfg.label}"</span>?
+              Todos os dados e participantes serão perdidos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? 'Excluindo...' : 'Sim, excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Link to={`/competitions/${c.id}`} onClick={handleClick}>
+        <Card className="p-4 bg-card border border-border hover:shadow-md transition-all cursor-pointer flex items-center gap-4 dark:bg-card dark:border-border">
+          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.color}`}>
+            <cfg.icon className="h-5 w-5" />
           </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{c.participants?.length || 0} participantes</span>
-            {c.question_count && <span className="flex items-center gap-1"><Zap className="h-3 w-3" />{c.question_count} questões</span>}
-            {c.time_limit_seconds && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{c.time_limit_seconds / 60} min</span>}
-            {isHost && c.invite_code && <span className="font-mono bg-secondary px-1.5 py-0.5 rounded">#{c.invite_code}</span>}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm truncate">{c.title || cfg.label}</p>
+              <Badge variant={status.variant} className="text-xs">{status.label}</Badge>
+              {isHost && <Badge variant="outline" className="text-xs">Host</Badge>}
+              {myFinished && <Badge className="text-xs bg-emerald-100 text-emerald-700">Finalizado</Badge>}
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Users className="h-3 w-3" />{c.participants?.length || 0} participantes</span>
+              {c.question_count && <span className="flex items-center gap-1"><Zap className="h-3 w-3" />{c.question_count} questões</span>}
+              {c.time_limit_seconds && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{c.time_limit_seconds / 60} min</span>}
+              {isHost && c.invite_code && <span className="font-mono bg-secondary px-1.5 py-0.5 rounded">#{c.invite_code}</span>}
+            </div>
           </div>
-        </div>
-        {isHost ? (
-          <button
-            onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-            className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-40"
-            title="Excluir competição"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        )}
-      </Card>
-    </Link>
+          {isHost ? (
+            <button
+              onClick={handleDeleteClick}
+              disabled={deleteMutation.isPending}
+              className="p-2 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-40"
+              title="Excluir competição"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          )}
+        </Card>
+      </Link>
+    </>
   );
 }

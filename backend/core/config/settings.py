@@ -10,13 +10,16 @@ class Settings:
     )
     secret_key: str = os.getenv("SECRET_KEY", "dev-secret-key-troque-em-producao")
     algorithm: str = "HS256"
-    token_expire_days: int = 30
+    token_expire_days: int = 1   # 1 dia — renovado a cada login
     upload_dir: str = os.path.join(_BACKEND_DIR, "uploads")
     gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
     nvidia_api_key: str | None = os.getenv("NVIDIA_API_KEY")
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
     supabase_url: str | None = os.getenv("SUPABASE_URL")
     supabase_key: str | None = os.getenv("SUPABASE_KEY")
+    resend_api_key: str | None = os.getenv("RESEND_API_KEY")
+    google_client_id: str | None = os.getenv("GOOGLE_CLIENT_ID")
+    app_url: str = os.getenv("APP_URL", "http://localhost:5173")
     # ALLOWED_ORIGINS: lista separada por vírgula, ex: "https://app.com,https://www.app.com"
     # Em desenvolvimento, deixe vazio ou use "*" (qualquer origem)
     allowed_origins: list[str] = [
