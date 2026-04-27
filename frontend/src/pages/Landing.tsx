@@ -1,38 +1,59 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useInView, useScroll, useTransform } from 'framer-motion';
 import {
-  GraduationCap, Brain, Zap, Crown, Trophy, Swords,
-  FileText, HelpCircle, Sparkles, ArrowRight,
-  Check, Star, ChevronDown, BookX, BarChart3, Target, X,
+  GraduationCap, Brain, Zap, Crown, FileText,
+  ArrowRight, Check, ChevronDown, Flame,
+  Upload, X, BookOpen, BarChart3,
+  Swords, BookX, Target,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-/* ─── Animation helpers ──────────────────────────────────────────────────── */
-const fadeUp = {
-  hidden: { opacity: 0, y: 32 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.55, ease: 'easeOut' } },
+/* ─── Font injection ─────────────────────────────────────────────────────── */
+const FONT_URL =
+  'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap';
+
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
+const D = {
+  bg:         '#FAFAF8',
+  surface:    '#FFFFFF',
+  dark:       '#111110',
+  darkSurf:   '#1C1C1A',
+  text:       '#1A1A18',
+  textSub:    '#6B6860',
+  textMuted:  '#A8A49D',
+  textDark:   '#F0EFE9',
+  textDarkSub:'#8A8880',
+  accent:     '#2563EB',
+  accentHov:  '#1D4ED8',
+  accentLt:   '#EFF6FF',
+  success:    '#059669',
+  successLt:  '#ECFDF5',
+  border:     '#E8E7E2',
+  borderDark: '#2C2C2A',
+  fontDisplay:"'Space Grotesk', system-ui, sans-serif",
+  fontBody:   "'DM Sans', system-ui, sans-serif",
 };
 
-const stagger = (delay = 0.1) => ({
-  visible: { transition: { staggerChildren: delay } },
-});
-
-function Section({ children, className = '', id }: { children: React.ReactNode; className?: string; id?: string }) {
+/* ─── Scroll-reveal wrapper ──────────────────────────────────────────────── */
+function Reveal({
+  children, delay = 0, y = 28, className = '',
+}: {
+  children: React.ReactNode; delay?: number; y?: number; className?: string;
+}) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const inView = useInView(ref, { once: true, margin: '-60px' });
   return (
-    <motion.section
+    <motion.div
       ref={ref}
-      id={id}
-      variants={stagger()}
-      initial="hidden"
-      animate={inView ? 'visible' : 'hidden'}
+      initial={{ opacity: 0, y }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
       className={className}
     >
       {children}
-    </motion.section>
+    </motion.div>
   );
 }
 
@@ -40,28 +61,36 @@ function Section({ children, className = '', id }: { children: React.ReactNode; 
 function NavBar() {
   return (
     <motion.nav
-      initial={{ opacity: 0, y: -20 }}
+      initial={{ opacity: 0, y: -16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200"
+      transition={{ duration: 0.4 }}
+      style={{ background: 'rgba(250,250,248,0.92)', borderBottom: `1px solid ${D.border}`, fontFamily: D.fontDisplay }}
+      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-14 h-16 backdrop-blur-md"
     >
       <div className="flex items-center gap-2.5">
-        <div className="h-8 w-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
+        <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: D.accent }}>
           <GraduationCap className="h-4 w-4 text-white" />
         </div>
-        <span className="text-lg font-bold text-slate-900 tracking-tight">Cognora</span>
+        <span className="text-base font-bold tracking-tight" style={{ color: D.text }}>Cognora</span>
       </div>
-      <div className="hidden md:flex items-center gap-7 text-sm text-slate-500">
-        <a href="#features" className="hover:text-slate-900 transition-colors">Recursos</a>
-        <a href="#how" className="hover:text-slate-900 transition-colors">Como funciona</a>
-        <a href="#pricing" className="hover:text-slate-900 transition-colors">Preços</a>
+
+      <div className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: D.textSub }}>
+        {['#problem', '#solution', '#pricing'].map((href, i) => (
+          <a key={href} href={href} className="hover:text-slate-900 transition-colors">
+            {['Problema', 'Como funciona', 'Planos'][i]}
+          </a>
+        ))}
       </div>
+
       <div className="flex items-center gap-3">
-        <Link to="/login" className="text-sm text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
+        <Link to="/login" className="text-sm font-medium hidden sm:block transition-colors"
+          style={{ color: D.textSub }}>
           Entrar
         </Link>
         <Link to="/login">
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4">
+          <Button size="sm" className="text-sm font-semibold rounded-lg px-4"
+            style={{ background: D.accent, color: '#fff' }}>
             Começar grátis
           </Button>
         </Link>
@@ -70,96 +99,237 @@ function NavBar() {
   );
 }
 
+/* ─── Hero product mockup ────────────────────────────────────────────────── */
+function MockSubjectCard() {
+  return (
+    <div className="rounded-2xl p-4 shadow-lg w-64"
+      style={{ background: D.surface, border: `1px solid ${D.border}`, fontFamily: D.fontBody }}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: '#EFF6FF' }}>
+          <BookOpen className="h-4 w-4" style={{ color: D.accent }} />
+        </div>
+        <div>
+          <p className="text-xs font-semibold" style={{ color: D.text }}>Direito Constitucional</p>
+          <p className="text-[10px]" style={{ color: D.textMuted }}>12 questões · 3 docs</p>
+        </div>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden mb-1.5" style={{ background: '#F0EFE9' }}>
+        <div className="h-full rounded-full" style={{ width: '73%', background: D.accent }} />
+      </div>
+      <div className="flex items-center justify-between text-[10px]" style={{ color: D.textMuted }}>
+        <span>73% estudado</span>
+        <span className="flex items-center gap-0.5">
+          <Flame className="h-3 w-3 text-amber-500" /> streak 7 dias
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MockQuestionCard() {
+  const opts = [
+    { l: 'A', t: 'A lei não se aplica à administração pública federal', ok: false },
+    { l: 'B', t: 'A administração só pode fazer o que a lei permite', ok: true },
+    { l: 'C', t: 'O agente tem discricionariedade total de atuação', ok: false },
+  ];
+  return (
+    <div className="rounded-2xl p-4 shadow-lg w-72"
+      style={{ background: D.surface, border: `1px solid ${D.border}`, fontFamily: D.fontBody }}>
+      <div className="flex items-center gap-1.5 mb-2">
+        <div className="h-4 w-4 rounded" style={{ background: '#EFF6FF' }}>
+          <Brain className="h-3 w-3 m-0.5" style={{ color: D.accent }} />
+        </div>
+        <span className="text-[10px] font-semibold" style={{ color: D.accent }}>IA · Múltipla escolha</span>
+      </div>
+      <p className="text-xs font-medium mb-3" style={{ color: D.text }}>
+        Qual princípio impede a administração de agir sem previsão legal?
+      </p>
+      <div className="space-y-1.5">
+        {opts.map((o) => (
+          <div key={o.l}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[10px]"
+            style={{
+              background: o.ok ? D.successLt : '#F7F6F2',
+              border: `1px solid ${o.ok ? '#A7F3D0' : 'transparent'}`,
+            }}>
+            <span className="w-4 h-4 rounded-full flex items-center justify-center font-bold shrink-0 text-[9px]"
+              style={{ background: o.ok ? D.success : '#DDD9D0', color: o.ok ? '#fff' : '#888' }}>
+              {o.l}
+            </span>
+            <span style={{ color: o.ok ? D.success : D.textSub }}>{o.t}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MockStreakBadge() {
+  return (
+    <div className="rounded-xl px-3 py-2.5 shadow-md flex items-center gap-2"
+      style={{ background: D.surface, border: `1px solid ${D.border}`, fontFamily: D.fontBody }}>
+      <div className="h-8 w-8 rounded-lg flex items-center justify-center text-lg" style={{ background: '#FEF3C7' }}>
+        🔥
+      </div>
+      <div>
+        <p className="text-xs font-bold" style={{ color: D.text }}>Sequência de 7 dias</p>
+        <p className="text-[10px]" style={{ color: D.textMuted }}>+1 geração bônus hoje</p>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Hero ───────────────────────────────────────────────────────────────── */
 function Hero() {
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-gradient-to-b from-slate-50 to-white">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-100 rounded-full blur-[120px] opacity-60" />
-        <div className="absolute top-2/3 left-1/5 w-[350px] h-[350px] bg-violet-100 rounded-full blur-[100px] opacity-50" />
-        <div className="absolute top-1/4 right-1/5 w-[280px] h-[280px] bg-emerald-100 rounded-full blur-[80px] opacity-40" />
-      </div>
-      <div
-        className="absolute inset-0 opacity-[0.35] pointer-events-none"
-        style={{ backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)', backgroundSize: '32px 32px' }}
+    <section
+      className="relative min-h-screen flex items-center overflow-hidden pt-16"
+      style={{ background: D.bg, fontFamily: D.fontDisplay }}
+    >
+      {/* Subtle dot grid */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `radial-gradient(circle, #D8D6CF 1px, transparent 1px)`,
+          backgroundSize: '36px 36px',
+          opacity: 0.45,
+        }}
       />
+      {/* Soft glow */}
+      <div className="absolute top-1/3 right-1/4 w-96 h-96 rounded-full pointer-events-none"
+        style={{ background: '#DBEAFE', filter: 'blur(100px)', opacity: 0.5 }} />
 
-      <div className="relative z-10 max-w-4xl mx-auto">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
-          <Badge variant="outline" className="mb-6 bg-indigo-50 text-indigo-600 border-indigo-200 text-xs px-3 py-1 rounded-full">
-            <Sparkles className="h-3 w-3 mr-1.5" />
-            IA para estudantes — gratuito para começar
-          </Badge>
-        </motion.div>
+      <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-14 w-full grid md:grid-cols-2 gap-16 items-center py-20">
 
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1 }}
-          className="text-5xl md:text-7xl font-extrabold text-slate-900 leading-[1.08] tracking-tight mb-6"
-        >
-          Estude mais{' '}
-          <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-emerald-500 bg-clip-text text-transparent">
-            inteligente
-          </span>
-          {' '}com IA
-        </motion.h1>
+        {/* Left — copy */}
+        <div>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Badge variant="outline"
+              className="mb-6 text-xs font-semibold rounded-full px-3 py-1"
+              style={{ background: D.accentLt, color: D.accent, borderColor: '#BFDBFE' }}>
+              IA para concursos e ENEM
+            </Badge>
+          </motion.div>
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.25 }}
-          className="text-xl text-slate-500 max-w-2xl mx-auto mb-10 leading-relaxed"
-        >
-          O Cognora transforma seus documentos em questões, resumos e flashcards gerados por IA.
-          Compete com colegas, acompanha seu progresso e domina qualquer matéria.
-        </motion.p>
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+            className="text-5xl md:text-6xl font-extrabold leading-[1.06] tracking-tight mb-5"
+            style={{ color: D.text }}
+          >
+            Pare de esquecer<br />
+            <span style={{
+              background: `linear-gradient(135deg, ${D.accent}, #7C3AED)`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}>
+              o que estudou.
+            </span>
+          </motion.h1>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="flex flex-col sm:flex-row items-center justify-center gap-4"
-        >
-          <Link to="/login">
-            <Button size="lg" className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-6 text-base font-semibold rounded-xl gap-2 shadow-lg shadow-indigo-200">
-              Começar grátis agora
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-          <a href="#how">
-            <Button size="lg" variant="outline" className="border-slate-300 text-slate-600 hover:bg-slate-50 px-8 py-6 text-base rounded-xl gap-2">
-              Ver como funciona
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </a>
-        </motion.div>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.18 }}
+            className="text-lg leading-relaxed mb-8"
+            style={{ color: D.textSub, fontFamily: D.fontBody }}
+          >
+            Envie seu PDF, gere questões e resumos com IA e revise
+            automaticamente o que você precisa lembrar — até a véspera da prova.
+          </motion.p>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7, duration: 0.6 }}
-          className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-slate-400"
-        >
-          <div className="flex items-center gap-1.5">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.28 }}
+            className="flex flex-col sm:flex-row gap-3 mb-10"
+          >
+            <Link to="/login">
+              <Button size="lg"
+                className="font-semibold rounded-xl px-7 py-6 text-base gap-2 shadow-lg"
+                style={{ background: D.accent, color: '#fff', boxShadow: '0 8px 24px rgba(37,99,235,0.28)' }}>
+                Começar grátis agora
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <a href="#solution">
+              <Button size="lg" variant="outline"
+                className="font-medium rounded-xl px-7 py-6 text-base"
+                style={{ borderColor: D.border, color: D.textSub }}>
+                Ver como funciona
+                <ChevronDown className="h-4 w-4 ml-1" />
+              </Button>
+            </a>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="flex items-center gap-5"
+            style={{ fontFamily: D.fontBody }}
+          >
             <div className="flex -space-x-2">
-              {['🧑‍🎓', '👩‍💻', '🧑‍🔬', '👨‍📚'].map((e, i) => (
-                <span key={i} className="w-7 h-7 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-sm shadow-sm">{e}</span>
+              {['🧑‍🎓','👩‍⚕️','🧑‍💻','👨‍📚'].map((e, i) => (
+                <span key={i}
+                  className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm"
+                  style={{ background: '#F0EFE9', borderColor: D.bg }}>
+                  {e}
+                </span>
               ))}
             </div>
-            <span>+500 estudantes ativos</span>
-          </div>
-          <div className="flex items-center gap-1">
-            {[...Array(5)].map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />)}
-            <span className="ml-1">4.9 / 5</span>
-          </div>
-        </motion.div>
+            <div className="text-sm" style={{ color: D.textMuted }}>
+              <span className="font-semibold" style={{ color: D.text }}>+500 estudantes</span> já usam o Cognora
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Right — product mockup */}
+        <div className="relative hidden md:flex items-center justify-center h-[480px]">
+          <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, delay: 0.3 }}
+            className="absolute top-0 right-4"
+            style={{ animation: 'floatA 5s ease-in-out infinite' }}
+          >
+            <MockSubjectCard />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, delay: 0.5 }}
+            className="absolute bottom-8 left-0"
+            style={{ animation: 'floatB 6s ease-in-out infinite' }}
+          >
+            <MockQuestionCard />
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.7 }}
+            className="absolute bottom-36 right-0"
+            style={{ animation: 'floatC 4.5s ease-in-out infinite' }}
+          >
+            <MockStreakBadge />
+          </motion.div>
+          <style>{`
+            @keyframes floatA { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+            @keyframes floatB { 0%,100%{transform:translateY(0)} 50%{transform:translateY(8px)} }
+            @keyframes floatC { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+          `}</style>
+        </div>
       </div>
 
       <motion.div
         animate={{ y: [0, 8, 0] }}
-        transition={{ repeat: Infinity, duration: 2 }}
-        className="absolute bottom-10 left-1/2 -translate-x-1/2 text-slate-300"
+        transition={{ repeat: Infinity, duration: 2.5 }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+        style={{ color: D.textMuted }}
       >
         <ChevronDown className="h-5 w-5" />
       </motion.div>
@@ -167,479 +337,440 @@ function Hero() {
   );
 }
 
-/* ─── Horizontal scroll (Features) ──────────────────────────────────────── */
-const FEATURES = [
+/* ─── Problem ────────────────────────────────────────────────────────────── */
+const PAINS = [
   {
-    icon: Brain,
-    color: 'text-indigo-600',
-    bg: 'bg-indigo-50',
-    accent: 'border-indigo-200',
-    title: 'IA Generativa',
-    desc: 'Envie qualquer PDF ou texto e a IA gera questões, resumos e flashcards personalizados em segundos.',
-    tag: 'Powered by Gemini',
+    emoji: '📖',
+    title: 'Você lê o PDF duas vezes e esquece no dia seguinte.',
+    desc: 'Leitura passiva não forma memória. Você sente que estudou, mas na prova a cabeça bate na parede.',
   },
   {
-    icon: HelpCircle,
-    color: 'text-violet-600',
-    bg: 'bg-violet-50',
-    accent: 'border-violet-200',
-    title: 'Questões Inteligentes',
-    desc: 'Múltipla escolha ou verdadeiro/falso gerados automaticamente. Pratique no ritmo que quiser.',
-    tag: 'MCQ & V/F',
+    emoji: '📂',
+    title: 'Suas anotações estão espalhadas em 5 lugares diferentes.',
+    desc: 'Caderno, Google Drive, foto no celular, sticky note... Na hora que precisa, não acha nada.',
   },
   {
-    icon: BookX,
-    color: 'text-rose-500',
-    bg: 'bg-rose-50',
-    accent: 'border-rose-200',
-    title: 'Caderno de Erros',
-    desc: 'Todo erro vira oportunidade. O sistema registra o que você errou para revisar no momento certo.',
-    tag: 'Revisão ativa',
-  },
-  {
-    icon: Swords,
-    color: 'text-amber-500',
-    bg: 'bg-amber-50',
-    accent: 'border-amber-200',
-    title: 'Competições',
-    desc: 'Duele com colegas em tempo real. Quem responde mais rápido e correto sobe no ranking.',
-    tag: 'Tempo real',
-  },
-  {
-    icon: BarChart3,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50',
-    accent: 'border-emerald-200',
-    title: 'Progresso & XP',
-    desc: 'Acompanhe seu desempenho com XP, níveis e streak diário. Gamificação que mantém você motivado.',
-    tag: 'Gamificação',
-  },
-  {
-    icon: Trophy,
-    color: 'text-cyan-600',
-    bg: 'bg-cyan-50',
-    accent: 'border-cyan-200',
-    title: 'Ranking Global',
-    desc: 'Ligas semanais com os estudantes mais dedicados. Suba para o topo e mostre seu conhecimento.',
-    tag: 'Ligas semanais',
+    emoji: '😰',
+    title: 'Na véspera da prova, você não sabe o que revisar.',
+    desc: 'Você estudou muito, mas não sabe onde estão os buracos. Fica relendo o que já sabe e ignorando o que esqueceu.',
   },
 ];
 
-function HorizontalScroll() {
+function Problem() {
+  return (
+    <section id="problem" style={{ background: D.dark, fontFamily: D.fontDisplay }}>
+      <div className="max-w-5xl mx-auto px-6 md:px-14 py-28">
+        <Reveal className="text-center mb-16">
+          <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: D.textDarkSub }}>
+            O problema
+          </p>
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight" style={{ color: D.textDark }}>
+            Todo estudante conhece<br />essa sensação.
+          </h2>
+        </Reveal>
+
+        <div className="grid md:grid-cols-3 gap-5">
+          {PAINS.map((p, i) => (
+            <Reveal key={p.title} delay={i * 0.1}>
+              <div className="rounded-2xl p-7 h-full flex flex-col gap-4"
+                style={{ background: D.darkSurf, border: `1px solid ${D.borderDark}` }}>
+                <span className="text-3xl">{p.emoji}</span>
+                <h3 className="text-base font-bold leading-snug" style={{ color: D.textDark }}>
+                  {p.title}
+                </h3>
+                <p className="text-sm leading-relaxed flex-1" style={{ color: D.textDarkSub, fontFamily: D.fontBody }}>
+                  {p.desc}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        <Reveal delay={0.3} className="mt-14 text-center">
+          <p className="text-xl font-semibold" style={{ color: D.textDark }}>
+            Você não tem problema de capacidade.{' '}
+            <span style={{ color: D.textDarkSub }}>Tem problema de método.</span>
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Solution (horizontal scroll) ──────────────────────────────────────── */
+const SOLUTIONS = [
+  {
+    icon: Upload,
+    color: D.accent,
+    bg: '#EFF6FF',
+    tag: 'Passo 1',
+    title: 'Envie seu PDF ou texto',
+    desc: 'Faça upload de qualquer apostila, artigo ou cola o texto direto. O Cognora organiza tudo por matéria automaticamente.',
+    mock: (
+      <div className="rounded-xl p-4 mt-4" style={{ background: '#F7F9FF', border: '1px solid #DBEAFE' }}>
+        <div className="flex items-center gap-3 text-xs" style={{ color: '#3B82F6', fontFamily: 'DM Sans, sans-serif' }}>
+          <FileText className="h-4 w-4 shrink-0" />
+          <span className="font-medium">Direito_Constitucional_2024.pdf</span>
+          <span className="ml-auto text-green-600 font-semibold">✓ Enviado</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: Brain,
+    color: '#7C3AED',
+    bg: '#F5F3FF',
+    tag: 'Passo 2',
+    title: 'IA gera questões e resumos',
+    desc: 'Em segundos, a IA produz questões de múltipla escolha, resumo estruturado e flashcards prontos para revisão.',
+    mock: (
+      <div className="rounded-xl p-4 mt-4 space-y-2" style={{ background: '#FAFAF8', border: '1px solid #E8E7E2' }}>
+        {['Resumo gerado ✓', '5 questões MCQ ✓', '8 flashcards ✓'].map((t) => (
+          <div key={t} className="flex items-center gap-2 text-xs" style={{ color: '#374151', fontFamily: 'DM Sans, sans-serif' }}>
+            <div className="h-4 w-4 rounded-full flex items-center justify-center shrink-0" style={{ background: '#ECFDF5' }}>
+              <Check className="h-2.5 w-2.5 text-emerald-600" />
+            </div>
+            {t}
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    icon: Target,
+    color: '#059669',
+    bg: '#ECFDF5',
+    tag: 'Passo 3',
+    title: 'Responda e revise com foco',
+    desc: 'Pratique questões, veja onde erra, e o sistema prioriza automaticamente o que você precisa revisar mais.',
+    mock: (
+      <div className="rounded-xl p-3 mt-4" style={{ background: '#FAFAF8', border: '1px solid #E8E7E2' }}>
+        <div className="h-2 rounded-full overflow-hidden mb-1.5" style={{ background: '#E5E7EB' }}>
+          <div className="h-full rounded-full" style={{ width: '68%', background: '#059669' }} />
+        </div>
+        <p className="text-[11px]" style={{ color: '#6B7280', fontFamily: 'DM Sans, sans-serif' }}>68% de aproveitamento · 4 pontos de atenção</p>
+      </div>
+    ),
+  },
+  {
+    icon: BookX,
+    color: '#DC2626',
+    bg: '#FEF2F2',
+    tag: 'Diferencial',
+    title: 'Caderno de erros automático',
+    desc: 'Cada questão errada vai automaticamente para revisão. Você nunca mais precisa anotar manualmente o que errou.',
+    mock: (
+      <div className="rounded-xl p-3 mt-4 space-y-1.5" style={{ background: '#FAFAF8', border: '1px solid #E8E7E2' }}>
+        {['Princípio da legalidade', 'Ato administrativo vinculado'].map((t) => (
+          <div key={t} className="flex items-center gap-2 text-[11px]" style={{ color: '#374151', fontFamily: 'DM Sans, sans-serif' }}>
+            <div className="h-2 w-2 rounded-full shrink-0" style={{ background: '#FCA5A5' }} />
+            {t}
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    icon: Swords,
+    color: '#D97706',
+    bg: '#FFFBEB',
+    tag: 'Engajamento',
+    title: 'Compete e sobe no ranking',
+    desc: 'Duele com colegas em competições ao vivo. A pressão do tempo e da competição fixa o conteúdo como nada mais.',
+    mock: (
+      <div className="rounded-xl p-3 mt-4" style={{ background: '#FAFAF8', border: '1px solid #E8E7E2' }}>
+        <div className="flex items-center justify-between text-[11px]" style={{ color: '#374151', fontFamily: 'DM Sans, sans-serif' }}>
+          <span>🥇 Ana C.</span><span className="font-bold text-amber-600">920 pts</span>
+        </div>
+        <div className="flex items-center justify-between text-[11px] mt-1" style={{ color: '#374151', fontFamily: 'DM Sans, sans-serif' }}>
+          <span>🥈 Você</span><span className="font-bold" style={{ color: D.accent }}>870 pts</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    icon: BarChart3,
+    color: '#0891B2',
+    bg: '#ECFEFF',
+    tag: 'Progresso',
+    title: 'Acompanhe sua evolução',
+    desc: 'XP, streak, nível e taxa de acerto por matéria. Você sabe exatamente onde está e o que precisa melhorar.',
+    mock: (
+      <div className="rounded-xl p-3 mt-4 grid grid-cols-3 gap-2" style={{ background: '#FAFAF8', border: '1px solid #E8E7E2' }}>
+        {[['XP', '2.400'], ['Nível', '8'], ['Streak', '7d 🔥']].map(([l, v]) => (
+          <div key={l} className="text-center">
+            <p className="text-xs font-bold" style={{ color: D.text }}>{v}</p>
+            <p className="text-[10px]" style={{ color: D.textMuted, fontFamily: 'DM Sans, sans-serif' }}>{l}</p>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+];
+
+function Solution() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
   });
-  // translate the strip from 0 to -(total - 100vw) — 6 cards × 420px = 2520px, minus 1 visible
-  const x = useTransform(scrollYProgress, [0, 1], ['0%', '-62%']);
+  const x = useTransform(scrollYProgress, [0, 1], ['0%', '-64%']);
 
   return (
-    <div id="features" ref={containerRef} style={{ height: '400vh' }}>
-      <div style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'hidden' }}
-        className="flex flex-col justify-center bg-white"
-      >
-        {/* Section label */}
-        <div className="px-8 md:px-16 mb-8">
-          <Badge variant="outline" className="mb-3 bg-violet-50 text-violet-600 border-violet-200 text-xs px-3 py-1 rounded-full">
-            Recursos
-          </Badge>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
-            Tudo que você precisa para{' '}
-            <span className="bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-              arrasar nos estudos
-            </span>
-          </h2>
-          <p className="text-slate-500 mt-2 text-base">Role para ver todos os recursos →</p>
+    <div id="solution" ref={containerRef} style={{ height: '500vh' }}>
+      <div style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'hidden', background: D.bg }}>
+        <div className="px-6 md:px-14 pt-16 pb-6">
+          <Reveal>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2"
+              style={{ color: D.textMuted, fontFamily: D.fontDisplay }}>
+              A solução
+            </p>
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight"
+              style={{ color: D.text, fontFamily: D.fontDisplay }}>
+              O sistema que fecha as lacunas do seu estudo.
+            </h2>
+            <p className="text-sm mt-1.5 hidden sm:block" style={{ color: D.textMuted, fontFamily: D.fontBody }}>
+              Role para explorar →
+            </p>
+          </Reveal>
         </div>
 
-        {/* Scrolling strip */}
         <div style={{ overflow: 'hidden' }}>
-          <motion.div
-            style={{ x }}
-            className="flex gap-5 pl-8 md:pl-16 pr-8"
-          >
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className={`shrink-0 w-[340px] md:w-[420px] p-7 rounded-2xl border ${f.accent} bg-white shadow-sm flex flex-col gap-4`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className={`h-12 w-12 rounded-xl ${f.bg} flex items-center justify-center`}>
-                    <f.icon className={`h-6 w-6 ${f.color}`} />
+          <motion.div style={{ x }} className="flex gap-4 px-6 md:px-14">
+            {SOLUTIONS.map((s) => (
+              <div key={s.title}
+                className="shrink-0 w-72 md:w-80 rounded-2xl p-6 flex flex-col"
+                style={{ background: D.surface, border: `1px solid ${D.border}` }}>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="h-11 w-11 rounded-xl flex items-center justify-center"
+                    style={{ background: s.bg }}>
+                    <s.icon className="h-5 w-5" style={{ color: s.color }} />
                   </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${f.bg} ${f.color}`}>{f.tag}</span>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full"
+                    style={{ background: s.bg, color: s.color }}>
+                    {s.tag}
+                  </span>
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-lg mb-1.5">{f.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{f.desc}</p>
-                </div>
+                <h3 className="text-base font-bold mb-2 leading-snug"
+                  style={{ color: D.text, fontFamily: D.fontDisplay }}>
+                  {s.title}
+                </h3>
+                <p className="text-sm leading-relaxed flex-1"
+                  style={{ color: D.textSub, fontFamily: D.fontBody }}>
+                  {s.desc}
+                </p>
+                {s.mock}
               </div>
             ))}
           </motion.div>
         </div>
 
-        {/* Progress indicator */}
-        <div className="px-8 md:px-16 mt-6 flex gap-1.5">
-          {FEATURES.map((_f, i) => (
-            <motion.div
-              key={i}
-              style={{ scaleX: useTransform(scrollYProgress, [i / FEATURES.length, (i + 1) / FEATURES.length], [0, 1]) }}
-              className="h-1 w-8 bg-indigo-600 rounded-full origin-left"
+        {/* Progress dots */}
+        <div className="px-6 md:px-14 mt-5 flex items-center gap-2">
+          {SOLUTIONS.map((_, i) => (
+            <motion.div key={i}
+              style={{
+                width: useTransform(
+                  scrollYProgress,
+                  [i / SOLUTIONS.length, (i + 0.5) / SOLUTIONS.length, (i + 1) / SOLUTIONS.length],
+                  [8, 24, 8]
+                ),
+                background: D.accent,
+              }}
+              className="h-1.5 rounded-full transition-all"
             />
           ))}
-          <div className="h-1 flex-1 bg-slate-100 rounded-full" />
         </div>
       </div>
     </div>
   );
 }
 
-/* ─── How it works ───────────────────────────────────────────────────────── */
-const STEPS = [
-  {
-    n: '01',
-    icon: FileText,
-    color: 'text-indigo-600',
-    bg: 'bg-indigo-50',
-    title: 'Envie seu material',
-    desc: 'Faça upload de PDFs, apostilas ou cole seu texto. O Cognora aceita qualquer formato.',
-  },
-  {
-    n: '02',
-    icon: Brain,
-    color: 'text-violet-600',
-    bg: 'bg-violet-50',
-    title: 'IA processa e gera',
-    desc: 'Nossa IA analisa o conteúdo e cria questões, resumos e flashcards em segundos.',
-  },
-  {
-    n: '03',
-    icon: Target,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50',
-    title: 'Pratique e evolua',
-    desc: 'Responda questões, revise erros e dispute rankings. Quanto mais você usa, mais aprende.',
-  },
-];
-
-function HowItWorks() {
-  return (
-    <div className="bg-slate-50 py-1">
-      <Section id="how" className="py-28 px-6 max-w-5xl mx-auto">
-        <motion.div variants={fadeUp} className="text-center mb-16">
-          <Badge variant="outline" className="mb-4 bg-emerald-50 text-emerald-600 border-emerald-200 text-xs px-3 py-1 rounded-full">
-            Como funciona
-          </Badge>
-          <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
-            De zero ao domínio em{' '}
-            <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
-              3 passos
-            </span>
-          </h2>
-          <p className="text-slate-500 max-w-xl mx-auto text-lg">
-            Simples, rápido e eficaz. Comece a estudar em menos de 2 minutos.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-          <div className="hidden md:block absolute top-12 left-[22%] right-[22%] h-px bg-gradient-to-r from-indigo-200 via-violet-200 to-emerald-200" />
-          {STEPS.map((s) => (
-            <motion.div key={s.n} variants={fadeUp} className="flex flex-col items-center text-center">
-              <div className={`relative h-24 w-24 rounded-2xl ${s.bg} border border-slate-100 flex items-center justify-center mb-6 shadow-sm`}>
-                <s.icon className={`h-9 w-9 ${s.color}`} />
-                <span className="absolute -top-2.5 -right-2.5 h-6 w-6 rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-500 flex items-center justify-center shadow-sm">
-                  {s.n}
-                </span>
-              </div>
-              <h3 className="font-bold text-slate-900 text-lg mb-2">{s.title}</h3>
-              <p className="text-slate-500 text-sm leading-relaxed max-w-xs">{s.desc}</p>
-            </motion.div>
-          ))}
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-/* ─── Stats band ─────────────────────────────────────────────────────────── */
+/* ─── Stats ──────────────────────────────────────────────────────────────── */
 function Stats() {
-  const stats = [
-    { value: '+500', label: 'Estudantes ativos' },
-    { value: '+10k', label: 'Questões geradas' },
-    { value: '98%', label: 'Satisfação' },
-    { value: '3x', label: 'Mais rápido para aprender' },
+  const items = [
+    { n: '+500', l: 'estudantes ativos' },
+    { n: '+10k', l: 'questões geradas' },
+    { n: '3×', l: 'mais retenção vs leitura passiva' },
+    { n: '98%', l: 'de satisfação dos usuários' },
   ];
   return (
-    <div className="bg-indigo-600 py-16 px-6">
-      <Section className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
-        {stats.map((s) => (
-          <motion.div key={s.label} variants={fadeUp} className="text-center">
-            <p className="text-4xl font-extrabold text-white mb-1">{s.value}</p>
-            <p className="text-sm text-indigo-200">{s.label}</p>
-          </motion.div>
-        ))}
-      </Section>
-    </div>
-  );
-}
-
-/* ─── Pricing preview ────────────────────────────────────────────────────── */
-const PREVIEW_PLANS = [
-  {
-    id: 'free',
-    icon: Sparkles,
-    iconColor: 'text-slate-400',
-    iconBg: 'bg-slate-100',
-    name: 'Free',
-    price: 'R$0',
-    period: 'para sempre',
-    features: [
-      '3 gerações de IA por dia',
-      '2 matérias',
-      '1 documento por matéria',
-      'Upload até 5 MB',
-      '1 competição ativa',
-      'Questões ilimitadas',
-    ],
-    limits: [] as string[],
-    cta: 'Começar grátis',
-    highlight: false,
-  },
-  {
-    id: 'pro',
-    icon: Zap,
-    iconColor: 'text-indigo-600',
-    iconBg: 'bg-indigo-50',
-    name: 'Pro',
-    price: 'R$9,90',
-    period: '/mês',
-    badge: 'Mais popular',
-    features: [
-      '20 gerações de IA por dia',
-      'Matérias ilimitadas',
-      'Documentos ilimitados',
-      'Upload até 25 MB',
-      'Competições ilimitadas',
-      'Suporte prioritário',
-    ],
-    limits: [] as string[],
-    cta: 'Assinar Pro',
-    highlight: true,
-  },
-  {
-    id: 'unlimited',
-    icon: Crown,
-    iconColor: 'text-amber-500',
-    iconBg: 'bg-amber-50',
-    name: 'Ilimitado',
-    price: 'R$19,90',
-    period: '/mês',
-    features: [
-      'Gerações de IA ilimitadas',
-      'Tudo do Pro',
-      'Upload até 50 MB',
-      'Acesso antecipado a novidades',
-    ],
-    limits: [] as string[],
-    cta: 'Assinar Ilimitado',
-    highlight: false,
-  },
-];
-
-function PricingPreview() {
-  return (
-    <Section id="pricing" className="py-28 px-6 max-w-5xl mx-auto">
-      <motion.div variants={fadeUp} className="text-center mb-14">
-        <Badge variant="outline" className="mb-4 bg-amber-50 text-amber-600 border-amber-200 text-xs px-3 py-1 rounded-full">
-          Planos
-        </Badge>
-        <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
-          Comece de graça,{' '}
-          <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
-            cresça sem limites
-          </span>
-        </h2>
-        <p className="text-slate-500 max-w-xl mx-auto text-lg">
-          Cancele quando quiser. Sem contratos. Sem pegadinhas.
-        </p>
-      </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {PREVIEW_PLANS.map((p) => (
-          <motion.div
-            key={p.id}
-            variants={fadeUp}
-            className={`relative rounded-2xl p-6 border transition-all ${
-              p.highlight
-                ? 'border-indigo-400 shadow-xl shadow-indigo-100 ring-1 ring-indigo-400'
-                : 'border-slate-200 bg-white hover:shadow-md'
-            }`}
-          >
-            {p.badge && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <Badge variant="default" className="bg-indigo-600 text-white text-xs px-3">{p.badge}</Badge>
-              </div>
-            )}
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className={`h-9 w-9 rounded-xl ${p.iconBg} flex items-center justify-center`}>
-                <p.icon className={`h-5 w-5 ${p.iconColor}`} />
-              </div>
-              <span className="font-bold text-slate-900">{p.name}</span>
-            </div>
-            <div className="mb-5">
-              <span className="text-3xl font-extrabold text-slate-900">{p.price}</span>
-              <span className="text-sm text-slate-400 ml-1">{p.period}</span>
-            </div>
-            <ul className="space-y-2 mb-6">
-              {p.features.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-slate-600">
-                  <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <Link to="/login">
-              <Button
-                variant={p.highlight ? 'default' : 'outline'}
-                className={`w-full ${p.highlight ? 'bg-indigo-600 hover:bg-indigo-500' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-              >
-                {p.cta}
-              </Button>
-            </Link>
-          </motion.div>
+    <section style={{ background: D.dark, borderTop: `1px solid ${D.borderDark}` }}>
+      <div className="max-w-5xl mx-auto px-6 md:px-14 py-16 grid grid-cols-2 md:grid-cols-4 gap-8">
+        {items.map((s, i) => (
+          <Reveal key={s.l} delay={i * 0.08} className="text-center">
+            <p className="text-4xl font-extrabold mb-1" style={{ color: '#FFFFFF', fontFamily: D.fontDisplay }}>
+              {s.n}
+            </p>
+            <p className="text-sm" style={{ color: D.textDarkSub, fontFamily: D.fontBody }}>{s.l}</p>
+          </Reveal>
         ))}
       </div>
-
-      {/* Comparison table */}
-      <motion.div variants={fadeUp} className="mt-12 overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="border-b border-slate-200">
-              <th className="text-left py-3 px-4 text-slate-500 font-medium">Recurso</th>
-              <th className="text-center py-3 px-4 text-slate-700 font-semibold">Free</th>
-              <th className="text-center py-3 px-4 text-indigo-600 font-semibold">Pro</th>
-              <th className="text-center py-3 px-4 text-amber-600 font-semibold">Ilimitado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {[
-              ['Gerações de IA/dia', '3', '20', '∞'],
-              ['Matérias', '2', '∞', '∞'],
-              ['Documentos por matéria', '1', '∞', '∞'],
-              ['Tamanho máximo do arquivo', '5 MB', '25 MB', '50 MB'],
-              ['Competições ativas', '1', '∞', '∞'],
-              ['Questões & Flashcards', '∞', '∞', '∞'],
-              ['Ranking & Competições', <Check className="h-4 w-4 text-emerald-500 mx-auto" />, <Check className="h-4 w-4 text-emerald-500 mx-auto" />, <Check className="h-4 w-4 text-emerald-500 mx-auto" />],
-              ['Suporte prioritário', <X className="h-4 w-4 text-slate-300 mx-auto" />, <Check className="h-4 w-4 text-emerald-500 mx-auto" />, <Check className="h-4 w-4 text-emerald-500 mx-auto" />],
-            ].map(([label, free, pro, unl], i) => (
-              <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                <td className="py-3 px-4 text-slate-600">{label}</td>
-                <td className="py-3 px-4 text-center text-slate-500">{free}</td>
-                <td className="py-3 px-4 text-center font-medium text-indigo-700">{pro}</td>
-                <td className="py-3 px-4 text-center font-medium text-amber-700">{unl}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </motion.div>
-    </Section>
+    </section>
   );
 }
 
-/* ─── Testimonials ───────────────────────────────────────────────────────── */
-const TESTIMONIALS = [
+/* ─── Pricing ────────────────────────────────────────────────────────────── */
+const PLANS = [
   {
-    name: 'Lucas M.',
-    role: 'Concurseiro',
-    avatar: '🧑‍💼',
-    text: 'Usei o Cognora pra estudar para o ENEM. A geração de questões do PDF da apostila foi um divisor de águas. Passei!',
+    id: 'free', icon: BookOpen, iconBg: '#F3F4F6', iconColor: '#6B7280',
+    name: 'Free', price: 'R$0', period: 'para sempre',
+    desc: 'Para começar sem compromisso.',
+    features: ['3 gerações de IA por dia', '2 matérias', '1 documento por matéria', 'Upload até 5 MB', '1 competição ativa', 'Questões ilimitadas'],
+    nope: ['Sem suporte prioritário'],
+    cta: 'Começar grátis', highlight: false,
   },
   {
-    name: 'Ana C.',
-    role: 'Estudante de Medicina',
-    avatar: '👩‍⚕️',
-    text: 'O caderno de erros me ajudou a identificar exatamente onde eu estava falhando. Minha nota em fisiologia subiu 30%.',
+    id: 'pro', icon: Zap, iconBg: '#EFF6FF', iconColor: D.accent,
+    name: 'Pro', price: 'R$9,90', period: '/mês', badge: 'Mais popular',
+    desc: 'Para quem estuda de verdade.',
+    features: ['20 gerações de IA por dia', 'Matérias ilimitadas', 'Documentos ilimitados', 'Upload até 25 MB', 'Competições ilimitadas', 'Suporte prioritário'],
+    nope: [] as string[],
+    cta: 'Assinar Pro', highlight: true,
   },
   {
-    name: 'Pedro R.',
-    role: 'Universitário',
-    avatar: '🧑‍💻',
-    text: 'As competições me mantêm motivado toda semana. É viciante! E aprender competindo é muito mais eficiente.',
+    id: 'unlimited', icon: Crown, iconBg: '#FFFBEB', iconColor: '#D97706',
+    name: 'Ilimitado', price: 'R$19,90', period: '/mês',
+    desc: 'Poder total. Zero restrições.',
+    features: ['Gerações ilimitadas', 'Tudo do Pro', 'Upload até 50 MB', 'Acesso antecipado a novos recursos'],
+    nope: [] as string[],
+    cta: 'Assinar Ilimitado', highlight: false,
   },
 ];
 
-function Testimonials() {
+function Pricing() {
   return (
-    <div className="bg-slate-50 py-1">
-      <Section className="py-24 px-6 max-w-5xl mx-auto">
-        <motion.div variants={fadeUp} className="text-center mb-14">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
-            O que nossos estudantes dizem
+    <section id="pricing" style={{ background: D.bg, fontFamily: D.fontDisplay }}>
+      <div className="max-w-5xl mx-auto px-6 md:px-14 py-28">
+        <Reveal className="text-center mb-14">
+          <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: D.textMuted }}>
+            Planos
+          </p>
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-3" style={{ color: D.text }}>
+            Simples. Justo. Sem surpresas.
           </h2>
-          <p className="text-slate-500">Resultados reais de quem usa o Cognora no dia a dia.</p>
-        </motion.div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {TESTIMONIALS.map((t) => (
-            <motion.div
-              key={t.name}
-              variants={fadeUp}
-              className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all"
-            >
-              <div className="flex mb-3">
-                {[...Array(5)].map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />)}
-              </div>
-              <p className="text-sm text-slate-600 leading-relaxed mb-4">"{t.text}"</p>
-              <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{t.avatar}</span>
+          <p className="text-lg" style={{ color: D.textSub, fontFamily: D.fontBody }}>
+            Comece grátis. Faça upgrade quando precisar. Cancele quando quiser.
+          </p>
+        </Reveal>
+
+        <div className="grid md:grid-cols-3 gap-5 items-start">
+          {PLANS.map((p, i) => (
+            <Reveal key={p.id} delay={i * 0.1}>
+              <div className="relative rounded-2xl p-7 flex flex-col gap-5"
+                style={{
+                  background: p.highlight ? D.accent : D.surface,
+                  border: `1px solid ${p.highlight ? D.accent : D.border}`,
+                  boxShadow: p.highlight ? '0 20px 48px rgba(37,99,235,0.22)' : undefined,
+                }}>
+                {p.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge variant="default"
+                      className="text-[11px] font-bold px-3 py-0.5"
+                      style={{ background: D.dark, color: '#fff', border: 'none' }}>
+                      {p.badge}
+                    </Badge>
+                  </div>
+                )}
+
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{t.name}</p>
-                  <p className="text-xs text-slate-400">{t.role}</p>
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="h-9 w-9 rounded-xl flex items-center justify-center"
+                      style={{ background: p.highlight ? 'rgba(255,255,255,0.15)' : p.iconBg }}>
+                      <p.icon className="h-4.5 w-4.5" style={{ color: p.highlight ? '#fff' : p.iconColor }} />
+                    </div>
+                    <span className="font-bold" style={{ color: p.highlight ? '#fff' : D.text }}>{p.name}</span>
+                  </div>
+                  <div className="flex items-end gap-1 mb-1">
+                    <span className="text-4xl font-extrabold" style={{ color: p.highlight ? '#fff' : D.text }}>
+                      {p.price}
+                    </span>
+                    <span className="text-sm mb-1.5" style={{ color: p.highlight ? 'rgba(255,255,255,0.6)' : D.textMuted }}>
+                      {p.period}
+                    </span>
+                  </div>
+                  <p className="text-sm" style={{ color: p.highlight ? 'rgba(255,255,255,0.7)' : D.textSub, fontFamily: D.fontBody }}>
+                    {p.desc}
+                  </p>
                 </div>
+
+                <Link to="/login">
+                  <Button className="w-full font-semibold rounded-xl py-5"
+                    style={p.highlight
+                      ? { background: '#fff', color: D.accent }
+                      : { background: D.accent, color: '#fff' }}>
+                    {p.cta}
+                  </Button>
+                </Link>
+
+                <ul className="space-y-2.5" style={{ fontFamily: D.fontBody }}>
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-center gap-2.5 text-sm">
+                      <div className="h-4 w-4 rounded-full flex items-center justify-center shrink-0"
+                        style={{ background: p.highlight ? 'rgba(255,255,255,0.2)' : D.successLt }}>
+                        <Check className="h-2.5 w-2.5" style={{ color: p.highlight ? '#fff' : D.success }} />
+                      </div>
+                      <span style={{ color: p.highlight ? 'rgba(255,255,255,0.85)' : D.textSub }}>{f}</span>
+                    </li>
+                  ))}
+                  {p.nope.map((f) => (
+                    <li key={f} className="flex items-center gap-2.5 text-sm">
+                      <div className="h-4 w-4 rounded-full flex items-center justify-center shrink-0"
+                        style={{ background: '#F3F4F6' }}>
+                        <X className="h-2.5 w-2.5 text-slate-400" />
+                      </div>
+                      <span style={{ color: D.textMuted }}>{f}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </motion.div>
+            </Reveal>
           ))}
         </div>
-      </Section>
-    </div>
+      </div>
+    </section>
   );
 }
 
 /* ─── Final CTA ──────────────────────────────────────────────────────────── */
 function FinalCTA() {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-100px' });
+  const inView = useInView(ref, { once: true, margin: '-80px' });
   return (
-    <section ref={ref} className="py-32 px-6">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={inView ? { opacity: 1, scale: 1 } : {}}
-        transition={{ duration: 0.7 }}
-        className="max-w-3xl mx-auto rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-indigo-700 p-12 text-center relative overflow-hidden shadow-2xl shadow-indigo-200"
-      >
-        <div
-          className="absolute inset-0 pointer-events-none opacity-20"
-          style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }}
-        />
-        <div className="relative z-10">
-          <div className="h-14 w-14 rounded-2xl bg-white/15 flex items-center justify-center mx-auto mb-5">
-            <GraduationCap className="h-7 w-7 text-white" />
+    <section ref={ref} style={{ background: D.dark, fontFamily: D.fontDisplay }}>
+      <div className="max-w-3xl mx-auto px-6 text-center py-32">
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div className="inline-flex h-16 w-16 rounded-2xl items-center justify-center mx-auto mb-6"
+            style={{ background: D.darkSurf, border: `1px solid ${D.borderDark}` }}>
+            <GraduationCap className="h-8 w-8" style={{ color: D.textDark }} />
           </div>
-          <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight mb-4">
-            Pronto para estudar de verdade?
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-5 leading-tight"
+            style={{ color: D.textDark }}>
+            Seu próximo simulado pode ser amanhã.
           </h2>
-          <p className="text-indigo-100 text-lg mb-8 max-w-lg mx-auto">
-            Junte-se a centenas de estudantes que já usam IA para aprender mais em menos tempo.
+          <p className="text-lg mb-10 max-w-lg mx-auto" style={{ color: D.textDarkSub, fontFamily: D.fontBody }}>
+            Crie sua conta grátis agora e comece a estudar de forma inteligente ainda hoje.
           </p>
           <Link to="/login">
-            <Button size="lg" className="bg-white text-indigo-700 hover:bg-indigo-50 px-10 py-6 text-base font-semibold rounded-xl gap-2 shadow-lg">
+            <Button size="lg" className="font-semibold rounded-xl px-10 py-6 text-base gap-2"
+              style={{
+                background: D.textDark,
+                color: D.dark,
+                boxShadow: '0 0 40px rgba(240,239,233,0.12)',
+              }}>
               Criar conta grátis
               <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-          <p className="text-xs text-indigo-300 mt-4">Sem cartão de crédito. Sempre gratuito para começar.</p>
-        </div>
-      </motion.div>
+          <p className="text-xs mt-4" style={{ color: '#3D3D3B', fontFamily: D.fontBody }}>
+            Sem cartão de crédito. Gratuito para sempre no plano Free.
+          </p>
+        </motion.div>
+      </div>
     </section>
   );
 }
@@ -647,18 +778,19 @@ function FinalCTA() {
 /* ─── Footer ─────────────────────────────────────────────────────────────── */
 function Footer() {
   return (
-    <footer className="border-t border-slate-200 px-6 py-8 bg-white">
-      <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-400">
+    <footer style={{ background: D.dark, borderTop: `1px solid ${D.borderDark}`, fontFamily: D.fontBody }}>
+      <div className="max-w-5xl mx-auto px-6 md:px-14 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm"
+        style={{ color: '#3D3D3B' }}>
         <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-lg bg-indigo-600 flex items-center justify-center">
+          <div className="h-6 w-6 rounded-lg flex items-center justify-center" style={{ background: D.accent }}>
             <GraduationCap className="h-3.5 w-3.5 text-white" />
           </div>
-          <span className="text-slate-600 font-semibold">Cognora</span>
+          <span className="font-semibold" style={{ color: D.textDarkSub }}>Cognora</span>
         </div>
         <p>© 2025 Cognora. Todos os direitos reservados.</p>
-        <div className="flex gap-5">
-          <Link to="/login" className="hover:text-slate-600 transition-colors">Entrar</Link>
-          <a href="#pricing" className="hover:text-slate-600 transition-colors">Preços</a>
+        <div className="flex gap-6">
+          <Link to="/login" className="transition-colors hover:text-white">Entrar</Link>
+          <a href="#pricing" className="transition-colors hover:text-white">Planos</a>
         </div>
       </div>
     </footer>
@@ -667,16 +799,23 @@ function Footer() {
 
 /* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function Landing() {
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = FONT_URL;
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div style={{ background: D.bg }}>
       <NavBar />
       <div className="pt-16">
         <Hero />
-        <HorizontalScroll />
-        <HowItWorks />
+        <Problem />
+        <Solution />
         <Stats />
-        <PricingPreview />
-        <Testimonials />
+        <Pricing />
         <FinalCTA />
         <Footer />
       </div>
