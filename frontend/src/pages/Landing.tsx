@@ -250,24 +250,29 @@ function Hero() {
   );
 }
 
-/* ─── Features (floating cards) ─────────────────────────────────────────── */
-const FEATURE_CARDS = [
-  { icon: Brain,    color: 'text-indigo-600', bg: 'bg-indigo-50',  title: 'Questões por IA',        desc: 'Múltipla escolha e V/F gerados automaticamente do seu PDF.', float: 'floatA', dur: '5s',   delay: '0s',    pos: 'top-4 left-0' },
-  { icon: FileText, color: 'text-violet-600', bg: 'bg-violet-50',  title: 'Resumo inteligente',     desc: 'Resumo estruturado do conteúdo, sem você escrever uma palavra.', float: 'floatB', dur: '6s',   delay: '0.5s',  pos: 'top-0 right-4' },
-  { icon: BookX,    color: 'text-rose-500',   bg: 'bg-rose-50',    title: 'Caderno de Erros',       desc: 'Erros salvos automaticamente. Revisão no momento certo.', float: 'floatC', dur: '4.5s', delay: '0.2s',  pos: 'top-52 left-8' },
-  { icon: Swords,   color: 'text-amber-500',  bg: 'bg-amber-50',   title: 'Competições ao vivo',    desc: 'Duele com colegas em tempo real. A pressão fixa o conteúdo.', float: 'floatA', dur: '5.5s', delay: '1s',    pos: 'top-44 right-0' },
-  { icon: BarChart3,color: 'text-emerald-600',bg: 'bg-emerald-50', title: 'Progresso & XP',         desc: 'Nível, streak e taxa de acerto por matéria. Você sabe onde está.', float: 'floatB', dur: '5s',   delay: '0.8s',  pos: 'bottom-20 left-4' },
-  { icon: Target,   color: 'text-cyan-600',   bg: 'bg-cyan-50',    title: 'Revisão automática',     desc: 'O sistema prioriza o que você precisa rever com base nos seus erros.', float: 'floatC', dur: '6.5s', delay: '0.3s',  pos: 'bottom-8 right-4' },
+/* ─── Features (floating cards — symmetric 3+3) ──────────────────────────── */
+const LEFT_FEATURES = [
+  { icon: Brain,     color: 'text-indigo-600', bg: 'bg-indigo-50',  title: 'Questões por IA',     desc: 'MCQ e V/F gerados automaticamente do seu PDF pela IA.', anim: 'fc1', dur: '5.2s', delay: '0s' },
+  { icon: BookX,     color: 'text-rose-500',   bg: 'bg-rose-50',    title: 'Caderno de Erros',    desc: 'Todo erro salvo automaticamente para revisão no momento certo.', anim: 'fc3', dur: '6.4s', delay: '0.6s' },
+  { icon: BarChart3, color: 'text-emerald-600',bg: 'bg-emerald-50', title: 'Progresso & XP',      desc: 'Nível, streak e taxa de acerto por matéria em tempo real.', anim: 'fc5', dur: '5.8s', delay: '1.1s' },
 ];
+const RIGHT_FEATURES = [
+  { icon: FileText, color: 'text-violet-600', bg: 'bg-violet-50', title: 'Resumo Inteligente',  desc: 'Resumo estruturado do conteúdo gerado sem você escrever uma linha.', anim: 'fc2', dur: '4.8s', delay: '0.8s' },
+  { icon: Swords,   color: 'text-amber-500',  bg: 'bg-amber-50',  title: 'Competições ao vivo', desc: 'Duele com colegas em tempo real. A pressão do duelo fixa o conteúdo.', anim: 'fc4', dur: '5.6s', delay: '0.3s' },
+  { icon: Target,   color: 'text-cyan-600',   bg: 'bg-cyan-50',   title: 'Revisão automática',  desc: 'O sistema prioriza o que você mais precisa rever baseado nos seus erros.', anim: 'fc6', dur: '6.2s', delay: '0.9s' },
+];
+
+/* vertical anchors: top / middle / bottom — 3 cards, evenly spaced in 560px */
+const V_TOPS = [20, 200, 380];
 
 function Features() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section id="features" className="py-28 overflow-hidden bg-white" ref={ref}>
+    <section id="features" className="py-28 overflow-hidden bg-white">
       <div className="max-w-6xl mx-auto px-6 md:px-14">
-        <Reveal className="text-center mb-20" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" } as React.CSSProperties}>
+        <Reveal className="text-center mb-16" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" } as React.CSSProperties}>
           <p className="text-xs font-semibold tracking-widest uppercase text-slate-400 mb-3">Recursos</p>
           <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
             Tudo que você precisa para{' '}
@@ -280,18 +285,24 @@ function Features() {
           </p>
         </Reveal>
 
-        {/* Desktop: floating cards layout */}
-        <div className="hidden md:block relative h-[520px]">
-          {FEATURE_CARDS.map((f, i) => (
+        {/* ── Desktop: 3 | logo | 3 ── */}
+        <div ref={ref} className="hidden md:block relative" style={{ height: 560 }}>
+
+          {/* Left column */}
+          {LEFT_FEATURES.map((f, i) => (
             <motion.div key={f.title}
-              initial={{ opacity: 0, y: 32 }}
-              animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.55, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, x: -24 }}
+              animate={inView ? { opacity: 1, x: 0 } : {}}
+              transition={{ duration: 0.55, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
               style={{
                 position: 'absolute',
-                animation: `${f.float} ${f.dur} ease-in-out ${f.delay} infinite`,
+                top: V_TOPS[i],
+                left: 0,
+                width: 220,
+                animation: inView ? `${f.anim} ${f.dur} ease-in-out ${f.delay} infinite` : 'none',
               }}
-              className={`absolute ${f.pos} w-56 rounded-2xl p-5 bg-white border border-slate-100 shadow-md`}>
+              className="rounded-2xl p-5 bg-white border border-slate-100 shadow-md"
+            >
               <div className={`h-10 w-10 rounded-xl ${f.bg} flex items-center justify-center mb-3`}>
                 <f.icon className={`h-5 w-5 ${f.color}`} />
               </div>
@@ -301,19 +312,59 @@ function Features() {
             </motion.div>
           ))}
 
-          {/* Central anchor */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-40 h-40 rounded-3xl bg-indigo-600 flex flex-col items-center justify-center shadow-2xl shadow-indigo-200">
-              <GraduationCap className="h-10 w-10 text-white mb-2" />
-              <span className="text-white font-bold text-sm"
+          {/* Center logo */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={inView ? { opacity: 1, scale: 1 } : {}}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          >
+            <div className="w-44 h-44 rounded-3xl bg-indigo-600 flex flex-col items-center justify-center shadow-2xl shadow-indigo-200"
+              style={{ animation: 'fc0 7s ease-in-out infinite' }}>
+              <GraduationCap className="h-11 w-11 text-white mb-2" />
+              <span className="text-white font-bold text-base"
                 style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>Cognora</span>
             </div>
-          </div>
+          </motion.div>
+
+          {/* Right column */}
+          {RIGHT_FEATURES.map((f, i) => (
+            <motion.div key={f.title}
+              initial={{ opacity: 0, x: 24 }}
+              animate={inView ? { opacity: 1, x: 0 } : {}}
+              transition={{ duration: 0.55, delay: i * 0.15 + 0.1, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                position: 'absolute',
+                top: V_TOPS[i],
+                right: 0,
+                width: 220,
+                animation: inView ? `${f.anim} ${f.dur} ease-in-out ${f.delay} infinite` : 'none',
+              }}
+              className="rounded-2xl p-5 bg-white border border-slate-100 shadow-md"
+            >
+              <div className={`h-10 w-10 rounded-xl ${f.bg} flex items-center justify-center mb-3`}>
+                <f.icon className={`h-5 w-5 ${f.color}`} />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900 mb-1"
+                style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>{f.title}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
+            </motion.div>
+          ))}
+
+          <style>{`
+            @keyframes fc0 { 0%,100%{transform:translateY(0)}   50%{transform:translateY(-8px)}  }
+            @keyframes fc1 { 0%,100%{transform:translateY(0)}   50%{transform:translateY(-14px)} }
+            @keyframes fc2 { 0%,100%{transform:translateY(0)}   50%{transform:translateY(12px)}  }
+            @keyframes fc3 { 0%,100%{transform:translateY(0)}   50%{transform:translateY(-10px)} }
+            @keyframes fc4 { 0%,100%{transform:translateY(0)}   50%{transform:translateY(14px)}  }
+            @keyframes fc5 { 0%,100%{transform:translateY(0)}   50%{transform:translateY(-12px)} }
+            @keyframes fc6 { 0%,100%{transform:translateY(0)}   50%{transform:translateY(10px)}  }
+          `}</style>
         </div>
 
-        {/* Mobile: simple grid */}
+        {/* ── Mobile: grid ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
-          {FEATURE_CARDS.map((f) => (
+          {[...LEFT_FEATURES, ...RIGHT_FEATURES].map((f) => (
             <Reveal key={f.title}>
               <div className="rounded-2xl p-5 bg-white border border-slate-100 shadow-sm">
                 <div className={`h-10 w-10 rounded-xl ${f.bg} flex items-center justify-center mb-3`}>
