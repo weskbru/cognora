@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import {
   Check, Zap, Crown, Sparkles, Loader2,
-  BookOpen, FileText, Brain, Trophy, AlertCircle,
+  BookOpen, Brain, Trophy, AlertCircle,
 } from 'lucide-react';
 
 interface Plan {
@@ -51,7 +51,7 @@ const PLANS: Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 'R$19,90',
+    price: 'R$9,90',
     period: 'por mês',
     description: 'Para estudantes que levam o aprendizado a sério.',
     icon: Zap,
@@ -74,7 +74,7 @@ const PLANS: Plan[] = [
   {
     id: 'unlimited',
     name: 'Ilimitado',
-    price: 'R$39,90',
+    price: 'R$19,90',
     period: 'por mês',
     description: 'Poder total da IA, sem nenhuma restrição.',
     icon: Crown,
@@ -96,7 +96,7 @@ const PLANS: Plan[] = [
 ];
 
 export default function Pricing() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
@@ -122,7 +122,7 @@ export default function Pricing() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const { data: subStatus, refetch: refetchSub } = useQuery({
+  const { data: subStatus } = useQuery({
     queryKey: ['subscription-status'],
     queryFn: () => base44.subscriptions.getStatus(),
     enabled: isAuthenticated,
@@ -203,7 +203,7 @@ export default function Pricing() {
         {/* Plano atual badge */}
         {isAuthenticated && currentPlan !== 'free' && (
           <div className="flex items-center justify-center gap-2 mt-2">
-            <Badge className={`${currentPlan === 'unlimited' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'}`}>
+            <Badge variant="outline" className={`${currentPlan === 'unlimited' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'}`}>
               {currentPlan === 'unlimited' ? <Crown className="h-3 w-3 mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
               Você está no plano {currentPlan === 'unlimited' ? 'Ilimitado' : 'Pro'}
             </Badge>
@@ -238,7 +238,7 @@ export default function Pricing() {
             >
               {plan.badge && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-indigo-600 text-white text-xs px-3">
+                  <Badge variant="default" className="bg-indigo-600 text-white text-xs px-3">
                     {plan.badge}
                   </Badge>
                 </div>
