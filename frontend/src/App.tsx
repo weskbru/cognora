@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound';
 import Login from '@/pages/Login';
 import ResetPassword from '@/pages/ResetPassword';
+import Pricing from '@/pages/Pricing';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import Dashboard from '@/pages/Dashboard';
@@ -53,6 +54,7 @@ const ProtectedRoutes = () => {
           <Route path="/competitions" element={<Competitions />} />
           <Route path="/competitions/:id" element={<CompetitionDetail />} />
           <Route path="/error-notebook" element={<ErrorNotebook />} />
+          <Route path="/pricing" element={<Pricing />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />
       </Routes>

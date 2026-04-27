@@ -14,3 +14,4 @@ pypdf
 supabase
 resend
 google-auth
+stripe

@@ -20,6 +20,10 @@ class Settings:
     resend_api_key: str | None = os.getenv("RESEND_API_KEY")
     google_client_id: str | None = os.getenv("GOOGLE_CLIENT_ID")
     app_url: str = os.getenv("APP_URL", "http://localhost:5173")
+    stripe_secret_key: str | None = os.getenv("STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str | None = os.getenv("STRIPE_WEBHOOK_SECRET")
+    stripe_price_id_pro: str | None = os.getenv("STRIPE_PRICE_ID_PRO")
+    stripe_price_id_unlimited: str | None = os.getenv("STRIPE_PRICE_ID_UNLIMITED")
     # ALLOWED_ORIGINS: lista separada por vírgula, ex: "https://app.com,https://www.app.com"
     # Em desenvolvimento, deixe vazio ou use "*" (qualquer origem)
     allowed_origins: list[str] = [

@@ -116,7 +116,9 @@ class UserProgress(Base):
     display_name = Column(String, nullable=True)
     avatar_emoji = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
-    # Freemium
+    # Freemium / Subscription
     plan = Column(String, default="free")
     daily_generations_used = Column(Integer, default=0)
     last_generation_date = Column(Date, nullable=True)
+    stripe_customer_id = Column(String, nullable=True, unique=True)
+    stripe_subscription_id = Column(String, nullable=True)

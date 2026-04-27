@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from core.config.settings import settings
-from api.routes import auth, entities, upload, nlp, limits
+from api.routes import auth, entities, upload, nlp, limits, subscriptions
 
 
 def _run_migrations():
@@ -28,6 +28,9 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_users_google_id ON users (google_id)",
         "CREATE INDEX IF NOT EXISTS ix_prt_user_email ON password_reset_tokens (user_email)",
         "CREATE INDEX IF NOT EXISTS ix_prt_token ON password_reset_tokens (token)",
+        # Stripe subscription columns
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR UNIQUE",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -74,6 +77,7 @@ app.include_router(auth.router)
 app.include_router(upload.router)
 app.include_router(nlp.router)
 app.include_router(limits.router)
+app.include_router(subscriptions.router)
 app.include_router(entities.router)
 
 os.makedirs(settings.upload_dir, exist_ok=True)

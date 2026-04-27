@@ -120,6 +120,18 @@ export const base44 = {
     },
   },
 
+  subscriptions: {
+    async createCheckout(plan) {
+      return request('POST', '/api/subscriptions/checkout', { plan })
+    },
+    async openPortal() {
+      return request('POST', '/api/subscriptions/portal')
+    },
+    async getStatus() {
+      return request('GET', '/api/subscriptions/status')
+    },
+  },
+
   auth: {
     async me() {
       return request('GET', '/api/auth/me')
