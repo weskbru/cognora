@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import Login from '@/pages/Login';
 import ResetPassword from '@/pages/ResetPassword';
@@ -23,10 +23,9 @@ import CompetitionDetail from '@/pages/CompetitionDetail';
 import ErrorNotebook from '@/pages/ErrorNotebook';
 import { RewardsProvider } from '@/context/RewardsContext';
 
-// Rotas protegidas — mostra Landing na raiz para nao autenticados, redireciona demais para /login
+// Rotas protegidas — redireciona nao autenticados para /login
 const ProtectedRoutes = () => {
   const { isLoadingAuth, isAuthenticated } = useAuth();
-  const location = useLocation();
 
   if (isLoadingAuth) {
     return (
@@ -37,7 +36,6 @@ const ProtectedRoutes = () => {
   }
 
   if (!isAuthenticated) {
-    if (location.pathname === '/') return <Landing />;
     return <Navigate to="/login" replace />;
   }
 
@@ -45,7 +43,7 @@ const ProtectedRoutes = () => {
     <RewardsProvider>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/subjects/new" element={<NewSubject />} />
           <Route path="/subjects/:id" element={<SubjectDetail />} />
@@ -71,10 +69,12 @@ function App() {
       <QueryClientProvider client={queryClientInstance}>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
-            {/* Rotas publicas — sem verificacao de auth */}
+            {/* Sempre pública — landing page independente de auth */}
+            <Route path="/" element={<Landing />} />
+            {/* Rotas publicas */}
             <Route path="/login" element={<Login />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            {/* Todas as outras rotas sao protegidas */}
+            {/* Rotas protegidas */}
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </Router>
