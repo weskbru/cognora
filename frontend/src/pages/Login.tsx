@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail, Lock, Loader2, Brain, Zap, Trophy,
-  ArrowRight, User, Sparkles, AtSign, CheckCircle2,
+  ArrowRight, User, Sparkles, AtSign, CheckCircle2, Eye, EyeOff,
 } from 'lucide-react';
 // Loader2 é usado no botão de submit
 import { setToken } from '@/lib/tokenStorage';
@@ -93,6 +93,8 @@ export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -224,6 +226,7 @@ export default function Login() {
   };
 
   const inputCls = 'w-full pl-10 pr-4 py-3 text-sm bg-slate-800 border border-slate-700 text-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 placeholder:text-slate-500 transition-colors';
+  const passwordInputCls = 'w-full pl-10 pr-10 py-3 text-sm bg-slate-800 border border-slate-700 text-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 placeholder:text-slate-500 transition-colors';
 
   const FormPanel = (
     <div className="flex flex-col justify-center p-8 lg:p-10 bg-slate-900/90 backdrop-blur-sm h-full">
@@ -305,11 +308,15 @@ export default function Login() {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <input type="password" placeholder="••••••••"
+                  <input type={showPassword ? 'text' : 'password'} placeholder="••••••••"
                     value={password} onChange={e => setPassword(e.target.value)}
                     required minLength={6}
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                    className={inputCls} />
+                    className={passwordInputCls} />
+                  <button type="button" onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
             )}
@@ -319,9 +326,13 @@ export default function Login() {
                 <label className="text-sm font-semibold text-slate-200 tracking-wide">Confirmar senha</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <input type="password" placeholder="••••••••"
+                  <input type={showConfirmPassword ? 'text' : 'password'} placeholder="••••••••"
                     value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                    required minLength={6} autoComplete="new-password" className={inputCls} />
+                    required minLength={6} autoComplete="new-password" className={passwordInputCls} />
+                  <button type="button" onClick={() => setShowConfirmPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
             )}
