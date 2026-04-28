@@ -113,9 +113,9 @@ export default function Login() {
       setToken(data.access_token, remember);
       if (data.is_new_user) {
         setSuccessMsg('Conta criada com sucesso! Redirecionando...');
-        setTimeout(() => { window.location.href = '/'; }, 1500);
+        setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
       } else {
-        window.location.href = '/';
+        window.location.href = '/dashboard';
       }
     } catch {
       setError('Não foi possível conectar ao servidor.');
@@ -217,7 +217,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) { setError(data.detail || 'Erro ao processar solicitação'); return; }
       setToken(data.access_token, remember);
-      window.location.href = '/';
+      window.location.href = '/dashboard';
     } catch {
       setError('Não foi possível conectar ao servidor.');
     } finally {
