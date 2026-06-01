@@ -12,7 +12,7 @@ def _send_reset_email(to_email: str, reset_url: str) -> None:
         import resend
         resend.api_key = settings.resend_api_key
         resend.Emails.send({
-            "from": "Cognora <noreply@cognora.com.br>",
+            "from": "Cognora <onboarding@resend.dev>",
             "to": [to_email],
             "subject": "Redefinição de senha — Cognora",
             "html": f"""
