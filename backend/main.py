@@ -31,6 +31,7 @@ def _run_migrations():
         # Stripe subscription columns
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR UNIQUE",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR",
+        "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS questions_data JSONB DEFAULT '[]'",
     ]
     with engine.connect() as conn:
         for sql in migrations:

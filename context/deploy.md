@@ -6,7 +6,8 @@
 |--------|---------|-----|
 | Frontend | Vercel | https://vercel.com/weskbrus-projects/cognora |
 | Backend API | Render | https://dashboard.render.com/web/srv-d76ldghr0fns73cdk7eg |
-| Banco + Storage | Supabase | https://supabase.com/dashboard/project/okomhmbfthyfdzvfecpl |
+| Banco de dados | Neon | Configure pelo dashboard do Neon |
+| Storage | Supabase | https://supabase.com/dashboard/project/okomhmbfthyfdzvfecpl |
 
 ---
 
@@ -18,7 +19,7 @@ Configure em: Render Dashboard → seu servico → **Environment**
 
 | Variavel | Valor / Onde obter |
 |----------|-------------------|
-| `DATABASE_URL` | Supabase → Project Settings → Database → Connection string (URI) — Transaction pooler |
+| `DATABASE_URL` | Neon → **Connect** → habilite **Connection pooling** → copie a URI completa |
 | `SECRET_KEY` | String aleatoria segura (use `openssl rand -hex 32`) |
 | `OPENROUTER_API_KEY` | https://openrouter.ai/keys |
 | `SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
@@ -69,7 +70,7 @@ Acesse o app em: http://localhost:5173
 
 ### Banco de dados em local
 
-Por padrao o backend local usa o mesmo banco do Supabase (producao).
+Por padrao o backend local usa o mesmo banco Neon de producao.
 Para isolar o ambiente e usar um banco local via Docker:
 
 ```bash
@@ -113,13 +114,13 @@ Vercel faz deploy automatico em cada push no `main`.
 
 Para deploy manual: `vercel --prod` (requer CLI do Vercel instalada)
 
-### Banco de dados (Supabase)
+### Banco de dados (Neon)
 
 Migrations sao gerenciadas pelo arquivo `database/init.sql`.
 
 Para aplicar mudancas no schema em producao:
 1. Edite `database/init.sql`
-2. Va em Supabase Dashboard → **SQL Editor**
+2. Va em Neon Dashboard → **SQL Editor**
 3. Execute o trecho alterado manualmente
 
 ---
@@ -155,9 +156,13 @@ Verificar se `VITE_API_URL` na Vercel aponta para a URL correta do Render (sem b
 
 ### Banco de dados nao conecta
 
-Usar o **Transaction pooler** do Supabase (porta 6543), nao a connection direta (porta 5432), pois o Render nao mantem conexoes persistentes.
+No Neon, clique em **Connect**, habilite **Connection pooling** e copie a URI completa. A URL pooled inclui `-pooler` no hostname e os parametros SSL.
 
-Formato: `postgresql://postgres.[ref]:[senha]@aws-0-[regiao].pooler.supabase.com:6543/postgres`
+Nao monte a URL manualmente e nao versione a credencial. Cadastre a URI apenas como `DATABASE_URL` no ambiente do Render.
+
+Formato de referencia: `postgresql://[usuario]:[senha]@[endpoint]-pooler.[regiao].aws.neon.tech/[banco]?sslmode=require&channel_binding=require`
+
+Ao criar um banco Neon vazio, execute `database/init.sql` no SQL Editor do Neon antes de testar a aplicacao.
 
 ---
 
@@ -168,7 +173,7 @@ Browser → Vercel (React SPA)
              ↓ chamadas HTTP
          Render (FastAPI)
              ↓ queries SQL          ↓ upload/download de arquivos
-         Supabase (PostgreSQL)   Supabase (Storage)
+         Neon (PostgreSQL)       Supabase (Storage)
              ↓ IA
          OpenRouter API
 ```

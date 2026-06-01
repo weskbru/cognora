@@ -4,8 +4,18 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
-    hashed_password TEXT NOT NULL,
+    username TEXT UNIQUE,
+    hashed_password TEXT,
+    google_id TEXT UNIQUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_email TEXT NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    used BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS subjects (
@@ -55,6 +65,7 @@ CREATE TABLE IF NOT EXISTS competitions (
     question_count INTEGER DEFAULT 5,
     time_limit_seconds INTEGER,
     invite_code TEXT UNIQUE,
+    questions_data JSONB DEFAULT '[]',
     created_date TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -92,7 +103,9 @@ CREATE TABLE IF NOT EXISTS user_progress (
     avatar_url TEXT,
     plan TEXT DEFAULT 'free',
     daily_generations_used INTEGER DEFAULT 0,
-    last_generation_date DATE
+    last_generation_date DATE,
+    stripe_customer_id TEXT UNIQUE,
+    stripe_subscription_id TEXT
 );
 
 -- Migração para bancos existentes
@@ -102,4 +115,15 @@ ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS last_generation_date DATE;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_emoji TEXT;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE;
+ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL;
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS questions_data JSONB DEFAULT '[]';
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT UNIQUE;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
 ALTER TABLE subjects ADD COLUMN IF NOT EXISTS owner_email TEXT;
+
+CREATE INDEX IF NOT EXISTS ix_users_username ON users (username);
+CREATE INDEX IF NOT EXISTS ix_users_google_id ON users (google_id);
+CREATE INDEX IF NOT EXISTS ix_prt_user_email ON password_reset_tokens (user_email);
+CREATE INDEX IF NOT EXISTS ix_prt_token ON password_reset_tokens (token);
