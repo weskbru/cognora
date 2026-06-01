@@ -8,13 +8,13 @@
     <!-- Aplica o tema antes do render para evitar flash -->
     <script>
       (function() {
-        var t = localStorage.getItem('cognora_theme') || 'dark';
+        var t = localStorage.getItem('cognora_theme') || 'light';
         if (t === 'dark') document.documentElement.classList.add('dark');
       })();
     </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

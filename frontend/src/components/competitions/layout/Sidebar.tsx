@@ -1,17 +1,44 @@
 import { Link, useLocation } from 'react-router-dom';
+import type { ReactElement } from 'react';
 import {
   LayoutDashboard, BookOpen, FileText, HelpCircle,
   GraduationCap, User, Trophy, Swords, BookX,
   Zap, Sparkles, Crown, CreditCard, ArrowUpCircle,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 
-const NAV_SECTIONS = [
+interface SidebarProps {
+  isOpen?: boolean;
+}
+
+interface NavItem {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+type Plan = 'free' | 'pro' | 'unlimited';
+
+interface GenerationStatus {
+  plan: Plan;
+  used: number;
+  limit: number;
+  remaining: number;
+  has_daily_bonus: boolean;
+}
+
+const NAV_SECTIONS: NavSection[] = [
   {
     label: 'MENU',
     items: [
-      { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { path: '/subjects', label: 'Matérias', icon: BookOpen },
       { path: '/documents', label: 'Documentos', icon: FileText },
       { path: '/quiz', label: 'Questões', icon: HelpCircle },
@@ -40,10 +67,10 @@ const PLAN_LABELS = {
   unlimited: { label: 'Ilimitado', icon: Crown, cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
 };
 
-export default function Sidebar({ isOpen = true }) {
+export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
   const location = useLocation();
 
-  const { data: genStatus } = useQuery({
+  const { data: genStatus } = useQuery<GenerationStatus>({
     queryKey: ['limits-status'],
     queryFn: () => base44.limits.getStatus(),
     staleTime: 30_000,
@@ -57,6 +84,7 @@ export default function Sidebar({ isOpen = true }) {
   const genEmpty = !isUnlimited && genStatus?.remaining === 0;
   const genBonus = genStatus?.has_daily_bonus;
   const planInfo = PLAN_LABELS[plan];
+  const PlanIcon = planInfo?.icon;
 
   return (
     <aside className={`fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col z-30 transition-all duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -68,9 +96,9 @@ export default function Sidebar({ isOpen = true }) {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-lg font-bold text-foreground tracking-tight">Cognora</span>
-          {planInfo && (
+          {planInfo && PlanIcon && (
             <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${planInfo.cls}`}>
-              <planInfo.icon className="h-2.5 w-2.5" />
+              <PlanIcon className="h-2.5 w-2.5" />
               {planInfo.label}
             </span>
           )}
@@ -88,7 +116,7 @@ export default function Sidebar({ isOpen = true }) {
               {section.items.map((item) => {
                 const isActive =
                   location.pathname === item.path ||
-                  (item.path !== '/' && location.pathname.startsWith(item.path));
+                  location.pathname.startsWith(`${item.path}/`);
                 return (
                   <Link
                     key={item.path}

@@ -1,4 +1,4 @@
-# Sistema de Recompensas (XP e Gamificacao)
+# Recompensas (XP e Gamificacao)
 
 ## Onde fica o codigo
 

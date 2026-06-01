@@ -11,6 +11,7 @@ RUN npm ci --prefer-offline
 # Copia o restante do projeto
 COPY . .
 
+# Vite development server
 EXPOSE 5173
 
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
