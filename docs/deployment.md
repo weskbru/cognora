@@ -51,9 +51,11 @@ Nao monte a URL manualmente e nao versione credenciais.
 Configure:
 
 - Root directory: `.`
+- Build command: `npm run build`
+- Output directory: `frontend/dist`
 - Environment variable: `VITE_API_URL=https://SEU-BACKEND.onrender.com`
 
-O `vercel.json` da raiz redireciona rotas da SPA durante o deploy.
+O `vercel.json` da raiz fixa o diretorio publicado e redireciona rotas da SPA durante o deploy.
 
 ## Supabase Storage
 
