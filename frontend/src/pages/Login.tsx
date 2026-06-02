@@ -11,6 +11,10 @@ const API_URL = import.meta.env.VITE_API_URL as string;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
 type Mode = 'login' | 'register' | 'forgot';
+type PublicRankingEntry = {
+  display_name: string;
+  xp: number;
+};
 
 declare global {
   interface Window {
@@ -28,6 +32,23 @@ declare global {
 
 // ── Painel Showcase ───────────────────────────────────────────────────────────
 function ShowcasePanel() {
+  const [ranking, setRanking] = useState<PublicRankingEntry[]>([]);
+  const [rankingLoading, setRankingLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${API_URL}/api/leaderboard/public?limit=2`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => setRanking(Array.isArray(data) ? data : []))
+      .catch(() => {
+        if (!controller.signal.aborted) setRanking([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRankingLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
+
   return (
     <div className="relative hidden lg:flex flex-col p-10 bg-indigo-950/80 backdrop-blur-sm overflow-hidden h-full">
       <div className="absolute -top-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
@@ -63,17 +84,31 @@ function ShowcasePanel() {
           <span className="text-slate-200 text-sm font-semibold">Ranking da Semana</span>
         </div>
         <div className="space-y-2.5">
-          {[
-            { pos: '1', initials: 'VC', name: 'Você', xp: '↗ 2.450 XP', gold: true },
-            { pos: '2', initials: 'MA', name: 'Marcos A.', xp: '2.100 XP', gold: false },
-          ].map(r => (
-            <div key={r.pos} className="flex items-center gap-3">
-              <span className={`font-bold text-sm w-4 ${r.gold ? 'text-amber-400' : 'text-slate-500'}`}>{r.pos}</span>
-              <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs text-white font-bold flex-shrink-0 ${r.gold ? 'bg-gradient-to-br from-indigo-500 to-purple-500' : 'bg-slate-600'}`}>{r.initials}</div>
-              <span className={`text-sm flex-1 ${r.gold ? 'text-slate-200 font-medium' : 'text-slate-300'}`}>{r.name}</span>
-              <span className={`text-xs font-semibold ${r.gold ? 'text-emerald-400' : 'text-slate-400'}`}>{r.xp}</span>
-            </div>
-          ))}
+          {rankingLoading ? (
+            <p className="text-xs text-slate-500">Carregando estudantes...</p>
+          ) : ranking.length > 0 ? (
+            ranking.map((entry, index) => {
+              const gold = index === 0;
+              const initials = entry.display_name
+                .split(/\s+/)
+                .slice(0, 2)
+                .map(part => part[0])
+                .join('')
+                .toUpperCase();
+              return (
+                <div key={`${entry.display_name}-${index}`} className="flex items-center gap-3">
+                  <span className={`font-bold text-sm w-4 ${gold ? 'text-amber-400' : 'text-slate-500'}`}>{index + 1}</span>
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs text-white font-bold flex-shrink-0 ${gold ? 'bg-gradient-to-br from-indigo-500 to-purple-500' : 'bg-slate-600'}`}>{initials}</div>
+                  <span className={`text-sm flex-1 truncate ${gold ? 'text-slate-200 font-medium' : 'text-slate-300'}`}>{entry.display_name}</span>
+                  <span className={`text-xs font-semibold ${gold ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    {entry.xp.toLocaleString('pt-BR')} XP
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-xs text-slate-500">O ranking começa com o próximo estudante.</p>
+          )}
         </div>
       </div>
       <div className="relative mt-auto pt-8">

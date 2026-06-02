@@ -102,6 +102,27 @@ def list_entities(
     return [row_to_dict(r) for r in repo.list(sort=sort, limit=limit, **filters)]
 
 
+@router.get("/leaderboard/public")
+def public_leaderboard(
+    limit: int = Query(2, ge=1, le=10),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(UserProgress, User.username)
+        .outerjoin(User, User.email == UserProgress.user_email)
+        .order_by(desc(UserProgress.xp))
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "display_name": progress.display_name or username or "Estudante",
+            "xp": progress.xp or 0,
+        }
+        for progress, username in rows
+    ]
+
+
 @router.get("/{entity}/{item_id}")
 def get_entity(
     entity: str,
