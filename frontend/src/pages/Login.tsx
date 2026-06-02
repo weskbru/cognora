@@ -459,12 +459,18 @@ export default function Login() {
                 Plot twist: faltou o domínio.
               </h2>
               <p className="mb-3 text-sm leading-relaxed text-slate-300">
-                O Cognora é um projeto solo, criado com código, teimosia e um orçamento no plano Free.
-                Para enviar emails de recuperação com segurança, ainda preciso contratar um domínio próprio.
+                O Cognora é um projeto solo feito por uma pessoa só, muito café e zero investidores 😭
               </p>
-              <p className="mb-6 text-sm leading-relaxed text-slate-400">
-                Quer ajudar este botão a deixar de ser decorativo? Assine um plano e financie oficialmente
-                o domínio mais aguardado desta tela.
+              <p className="mb-3 text-sm leading-relaxed text-slate-400">
+                Pra existir recuperação de senha por email, eu ainda preciso pagar um domínio próprio e o
+                serviço que envia os emails.
+              </p>
+              <p className="mb-3 text-sm leading-relaxed text-slate-400">
+                Então sim... nesse exato momento o botão “esqueci minha senha” ainda depende da minha conta
+                bancária ou da sua ajuda.
+              </p>
+              <p className="mb-6 text-sm font-medium leading-relaxed text-slate-300">
+                Quer ajudar esse botão a parar de ser enfeite?
               </p>
 
               <a
@@ -472,7 +478,7 @@ export default function Login() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
               >
                 <Sparkles className="h-4 w-4" />
-                Ver planos e salvar o domínio
+                Ver planos e financiar o domínio mais aguardado do Cognora
               </a>
               <button
                 type="button"
