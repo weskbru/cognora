@@ -1,44 +1,103 @@
 import {
-  type KeyboardEvent,
   type ReactElement,
   useCallback,
   useEffect,
   useRef,
   useState,
 } from 'react';
+import { RotateCcw } from 'lucide-react';
 
 interface DinoLoadingGameProps {
   compact?: boolean;
   progress?: number;
 }
 
-const DINO = String.fromCodePoint(0x1f996);
-const CACTUS = String.fromCodePoint(0x1f335);
-const START_X = 104;
+const GRAVITY = 2200;
+const DINO_LEFT_RATIO = 0.12;
+
+function DinoSprite({ runningFrame }: { runningFrame: number }): ReactElement {
+  return (
+    <svg aria-hidden="true" className="h-full w-full" viewBox="0 0 44 47" shapeRendering="crispEdges">
+      <path
+        fill="currentColor"
+        d="M22 0h15v3h4v3h3v12H27v3h10v4H25v4h-3v3h-3v3h-3v3h-3v9H8v-6H5v-6H2v-5H0v-9h4v5h4v3h7v-3h3V8h4z"
+      />
+      <path fill="currentColor" d={runningFrame === 0 ? 'M8 38h5v6H8zM18 36h5v11h-5z' : 'M7 38h6v9H7zM18 36h5v7h-5z'} />
+      <rect x="32" y="4" width="3" height="3" fill="#f7f7f7" className="dark:fill-slate-950" />
+    </svg>
+  );
+}
+
+function CactusSprite(): ReactElement {
+  return (
+    <svg aria-hidden="true" className="h-full w-full" viewBox="0 0 25 50" shapeRendering="crispEdges">
+      <path
+        fill="currentColor"
+        d="M9 0h7v19h3v-8h6v15h-6v5h-3v19H9V28H5v-5H0V10h6v12h3z"
+      />
+    </svg>
+  );
+}
+
+function CloudSprite({ className }: { className: string }): ReactElement {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 46 14" shapeRendering="crispEdges">
+      <path fill="none" stroke="currentColor" d="M0 12h45M4 11V8h4V5h7V3h13v2h7v3h6v3" />
+    </svg>
+  );
+}
+
+function formatScore(score: number): string {
+  return String(score).padStart(5, '0');
+}
 
 export default function DinoLoadingGame({ compact = false, progress }: DinoLoadingGameProps): ReactElement {
-  const [dinoY, setDinoY] = useState(0);
-  const [obstacleX, setObstacleX] = useState(START_X);
-  const [score, setScore] = useState(0);
-  const [running, setRunning] = useState(true);
+  const gameRef = useRef<HTMLButtonElement>(null);
+  const dinoRef = useRef<HTMLSpanElement>(null);
+  const obstacleRef = useRef<HTMLSpanElement>(null);
+  const groundRef = useRef<HTMLSpanElement>(null);
+  const frameRequestRef = useRef<number | null>(null);
+  const previousTimeRef = useRef<number | null>(null);
   const dinoYRef = useRef(0);
   const velocityRef = useRef(0);
-  const obstacleXRef = useRef(START_X);
-  const scoreRef = useRef(0);
+  const obstacleXRef = useRef(0);
+  const groundOffsetRef = useRef(0);
   const runningRef = useRef(true);
-  const frameRef = useRef<number | null>(null);
+  const scoreRef = useRef(0);
+  const [running, setRunning] = useState(true);
+  const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(0);
+  const [runningFrame, setRunningFrame] = useState(0);
+
+  const gameWidth = useCallback((): number => gameRef.current?.clientWidth || (compact ? 448 : 960), [compact]);
+
+  const drawFrame = useCallback((): void => {
+    if (dinoRef.current) {
+      dinoRef.current.style.transform = `translate3d(0, -${dinoYRef.current}px, 0)`;
+    }
+    if (obstacleRef.current) {
+      obstacleRef.current.style.transform = `translate3d(${obstacleXRef.current}px, 0, 0)`;
+    }
+    if (groundRef.current) {
+      groundRef.current.style.backgroundPositionX = `${groundOffsetRef.current}px`;
+    }
+  }, []);
+
+  const resetObstacle = useCallback((): void => {
+    obstacleXRef.current = gameWidth() + 80 + Math.random() * 120;
+  }, [gameWidth]);
 
   const restart = useCallback((): void => {
     dinoYRef.current = 0;
     velocityRef.current = 0;
-    obstacleXRef.current = START_X;
+    groundOffsetRef.current = 0;
     scoreRef.current = 0;
     runningRef.current = true;
-    setDinoY(0);
-    setObstacleX(START_X);
     setScore(0);
     setRunning(true);
-  }, []);
+    resetObstacle();
+    drawFrame();
+  }, [drawFrame, resetObstacle]);
 
   const jump = useCallback((): void => {
     if (!runningRef.current) {
@@ -46,9 +105,16 @@ export default function DinoLoadingGame({ compact = false, progress }: DinoLoadi
       return;
     }
     if (dinoYRef.current === 0) {
-      velocityRef.current = compact ? 8.5 : 10;
+      velocityRef.current = compact ? 700 : 780;
+      dinoYRef.current = 1;
+      drawFrame();
     }
-  }, [compact, restart]);
+  }, [compact, drawFrame, restart]);
+
+  useEffect(() => {
+    resetObstacle();
+    drawFrame();
+  }, [drawFrame, resetObstacle]);
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent): void => {
@@ -62,107 +128,116 @@ export default function DinoLoadingGame({ compact = false, progress }: DinoLoadi
   }, [jump]);
 
   useEffect(() => {
-    let previousTime = performance.now();
+    const interval = window.setInterval(() => {
+      if (runningRef.current && dinoYRef.current === 0) {
+        setRunningFrame(current => (current + 1) % 2);
+      }
+    }, 120);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     const tick = (time: number): void => {
-      const delta = Math.min((time - previousTime) / 16.67, 2);
-      previousTime = time;
+      const previousTime = previousTimeRef.current ?? time;
+      const delta = Math.min((time - previousTime) / 1000, 0.05);
+      previousTimeRef.current = time;
 
       if (runningRef.current) {
         if (dinoYRef.current > 0 || velocityRef.current > 0) {
-          velocityRef.current -= 0.72 * delta;
+          velocityRef.current -= GRAVITY * delta;
           dinoYRef.current = Math.max(0, dinoYRef.current + velocityRef.current * delta);
           if (dinoYRef.current === 0) velocityRef.current = 0;
         }
 
-        obstacleXRef.current -= (compact ? 0.72 : 0.62) * delta;
-        if (obstacleXRef.current < -8) {
-          obstacleXRef.current = START_X + Math.random() * 20;
+        const speed = compact ? 310 : 390;
+        obstacleXRef.current -= speed * delta;
+        groundOffsetRef.current -= speed * delta;
+
+        if (obstacleXRef.current < -40) {
+          resetObstacle();
           scoreRef.current += 1;
           setScore(scoreRef.current);
         }
 
-        const hitObstacle = obstacleXRef.current > 10
-          && obstacleXRef.current < 22
-          && dinoYRef.current < (compact ? 20 : 24);
+        const dinoLeft = gameWidth() * DINO_LEFT_RATIO;
+        const hitObstacle = obstacleXRef.current < dinoLeft + 40
+          && obstacleXRef.current > dinoLeft - 18
+          && dinoYRef.current < 42;
         if (hitObstacle) {
           runningRef.current = false;
           setRunning(false);
+          setHighScore(current => Math.max(current, scoreRef.current));
         }
 
-        setDinoY(dinoYRef.current);
-        setObstacleX(obstacleXRef.current);
+        drawFrame();
       }
 
-      frameRef.current = requestAnimationFrame(tick);
+      frameRequestRef.current = requestAnimationFrame(tick);
     };
 
-    frameRef.current = requestAnimationFrame(tick);
+    frameRequestRef.current = requestAnimationFrame(tick);
     return () => {
-      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      if (frameRequestRef.current !== null) cancelAnimationFrame(frameRequestRef.current);
     };
-  }, [compact]);
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
-    if (event.code === 'Space' || event.code === 'ArrowUp') jump();
-  };
+  }, [compact, drawFrame, gameWidth, resetObstacle]);
 
   return (
-    <div className={`w-full overflow-hidden rounded-2xl border border-amber-200 bg-white text-slate-700 shadow-lg shadow-amber-100/60 dark:border-primary/20 dark:bg-slate-950 dark:text-slate-100 dark:shadow-primary/10 ${
+    <div className={`w-full overflow-hidden border border-slate-200 bg-[#f7f7f7] text-[#535353] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 ${
       compact ? 'max-w-md' : 'max-w-5xl'
     }`}>
-      <div className="flex items-center justify-between border-b border-amber-200 bg-amber-50/80 px-4 py-2 text-[10px] uppercase tracking-[0.2em] text-amber-700 dark:border-white/10 dark:bg-slate-950 dark:text-primary">
-        <span>Dino em espera</span>
-        <span className="flex items-center gap-3 tabular-nums text-slate-600 dark:text-slate-300">
-          {progress !== undefined && <span>Carregando: {progress}%</span>}
-          <span>Pontos: {score}</span>
+      <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-2 font-mono text-[10px] tracking-[0.18em] dark:border-slate-800">
+        <span>DINO GAME</span>
+        <span className="flex items-center gap-4 tabular-nums">
+          {progress !== undefined && <span>LOAD {String(progress).padStart(3, '0')}%</span>}
+          <span>HI {formatScore(highScore)} {formatScore(score)}</span>
         </span>
       </div>
+
       <button
+        ref={gameRef}
         type="button"
-        aria-label="Pular obstaculo no jogo do dinossauro"
+        aria-label="Pular ou reiniciar o jogo do dinossauro"
         onClick={jump}
-        onKeyDown={handleKeyDown}
-        className={`relative block w-full overflow-hidden bg-gradient-to-b from-sky-100 via-amber-50 to-orange-100 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 ${
-          compact ? 'h-40' : 'h-72 md:h-80'
+        className={`relative block w-full overflow-hidden bg-[#f7f7f7] text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-slate-400 dark:bg-slate-950 dark:focus:ring-slate-600 ${
+          compact ? 'h-44' : 'h-72 md:h-80'
         }`}
       >
-        <span className="absolute right-[12%] top-8 h-12 w-12 rounded-full bg-amber-300 shadow-[0_0_28px_rgba(251,191,36,0.45)] dark:bg-indigo-200 dark:shadow-[0_0_28px_rgba(199,210,254,0.3)]" />
-        <span className="absolute right-[13%] top-7 hidden h-12 w-12 translate-x-3 -translate-y-1 rounded-full bg-slate-950 dark:block" />
-        <span className="absolute left-[9%] top-12 h-3 w-24 rounded-full bg-white/70 shadow-sm dark:bg-white/10" />
-        <span className="absolute left-[14%] top-9 h-5 w-12 rounded-full bg-white/80 dark:bg-white/10" />
-        <span className="absolute right-[31%] top-20 h-3 w-28 rounded-full bg-white/60 shadow-sm dark:bg-white/10" />
-        <span className="absolute right-[37%] top-16 h-5 w-14 rounded-full bg-white/70 dark:bg-white/10" />
-        <span className="absolute -bottom-4 left-[-8%] h-32 w-[45%] rotate-6 rounded-[50%] bg-orange-300/60 dark:bg-indigo-900/70" />
-        <span className="absolute -bottom-6 left-[22%] h-28 w-[42%] -rotate-3 rounded-[50%] bg-amber-300/60 dark:bg-slate-800/90" />
-        <span className="absolute -bottom-5 right-[-8%] h-36 w-[48%] -rotate-6 rounded-[50%] bg-orange-200/90 dark:bg-indigo-950/90" />
-        <span className="absolute bottom-7 left-0 h-px w-full bg-amber-700/55 dark:bg-primary/35" />
-        <span className="absolute bottom-7 left-[42%] h-8 w-1 rounded-t-full bg-emerald-700/60 dark:bg-emerald-500/40" />
-        <span className="absolute bottom-7 left-[41.5%] h-3 w-3 -translate-x-2 rounded-full bg-emerald-600/60 dark:bg-emerald-500/35" />
-        <span className="absolute bottom-7 right-[17%] h-12 w-1 rounded-t-full bg-emerald-700/60 dark:bg-emerald-500/40" />
-        <span className="absolute bottom-16 right-[15.5%] h-3 w-4 rounded-full bg-emerald-600/60 dark:bg-emerald-500/35" />
+        <CloudSprite className="absolute left-[21%] top-[27%] h-[14px] w-[46px] text-slate-300 dark:text-slate-700" />
+        <CloudSprite className="absolute right-[24%] top-[38%] h-[14px] w-[46px] text-slate-300 dark:text-slate-700" />
+
+        <span className="absolute bottom-12 left-[8%] right-[8%] h-px bg-[#535353] dark:bg-slate-400" />
         <span
-          className={`absolute bottom-7 left-[12%] select-none leading-none drop-shadow-[0_0_10px_rgba(245,158,11,0.3)] dark:drop-shadow-[0_0_10px_rgba(129,140,248,0.5)] ${
-            compact ? 'text-4xl' : 'text-5xl'
-          }`}
-          style={{ transform: `translateY(-${dinoY}px) scaleX(-1)` }}
+          ref={groundRef}
+          className="absolute bottom-10 left-[8%] right-[8%] h-1 opacity-60"
+          style={{ backgroundImage: 'repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 11px)' }}
+        />
+        <span
+          ref={dinoRef}
+          data-testid="dino"
+          className={`absolute bottom-12 left-[12%] block ${compact ? 'h-[47px] w-[44px]' : 'h-[56px] w-[53px]'}`}
         >
-          {DINO}
+          <DinoSprite runningFrame={runningFrame} />
         </span>
         <span
-          className={`absolute bottom-7 select-none leading-none ${compact ? 'text-3xl' : 'text-4xl'}`}
-          style={{ left: `${obstacleX}%` }}
+          ref={obstacleRef}
+          data-testid="cactus"
+          className={`absolute bottom-12 left-0 block ${compact ? 'h-[50px] w-[25px]' : 'h-[60px] w-[30px]'}`}
         >
-          {CACTUS}
+          <CactusSprite />
         </span>
+
         {!running && (
-          <span className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 text-center text-xs text-slate-600 backdrop-blur-[1px] dark:bg-slate-950/70 dark:text-slate-300">
-            <strong className="text-sm font-medium text-primary">Tente novamente</strong>
-            Toque para reiniciar
+          <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <span className="font-mono text-sm tracking-[0.45em] sm:text-base">GAME OVER</span>
+            <span className="flex h-8 w-9 items-center justify-center rounded-sm bg-[#535353] text-[#f7f7f7] dark:bg-slate-300 dark:text-slate-950">
+              <RotateCcw className="h-5 w-5" strokeWidth={3} />
+            </span>
           </span>
         )}
       </button>
-      <p className="bg-amber-50/80 px-4 py-2 text-center text-[11px] text-slate-500 dark:bg-slate-950 dark:text-slate-400">
-        Pressione espaco, seta para cima ou toque para pular
+
+      <p className="border-t border-slate-200 px-4 py-2 text-center font-mono text-[10px] tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-500">
+        ESPAÇO, SETA PARA CIMA OU TOQUE PARA PULAR
       </p>
     </div>
   );
