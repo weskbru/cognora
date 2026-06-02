@@ -146,21 +146,21 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1.5">
                 {genBonus && !genEmpty
-                  ? <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
-                  : <Sparkles className={`h-3.5 w-3.5 ${genEmpty ? 'text-red-400' : 'text-muted-foreground'}`} />
+                  ? <Zap className="h-3.5 w-3.5 fill-primary text-primary" />
+                  : <Sparkles className={`h-3.5 w-3.5 ${genEmpty ? 'text-red-400' : 'text-primary'}`} />
                 }
-                <span className={`text-xs font-medium ${genEmpty ? 'text-red-500' : 'text-muted-foreground'}`}>
+                <span className={`text-xs font-medium ${genEmpty ? 'text-red-500' : 'text-primary'}`}>
                   Gerações hoje
                 </span>
               </div>
-              <span className={`text-xs font-bold tabular-nums ${genEmpty ? 'text-red-500' : 'text-foreground'}`}>
+              <span className={`text-xs font-bold tabular-nums ${genEmpty ? 'text-red-500' : 'text-primary'}`}>
                 {genStatus.remaining}/{genStatus.limit}
               </span>
             </div>
             <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
-                  genEmpty ? 'bg-red-400' : genBonus ? 'bg-amber-400' : 'bg-primary'
+                  genEmpty ? 'bg-red-400' : 'bg-primary'
                 }`}
                 style={{ width: `${Math.max(genEmpty ? 0 : 4, genUsedPct)}%` }}
               />

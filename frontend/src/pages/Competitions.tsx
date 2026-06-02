@@ -1,4 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import {
+  type ComponentType,
+  type HTMLAttributes,
+  type MouseEvent,
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -16,7 +25,81 @@ import CreateCompetitionDialog from '@/components/competitions/CreateCompetition
 import JoinCompetitionDialog from '@/components/competitions/JoinCompetitionDialog';
 import { getLevelInfo } from '@/hooks/useRewards';
 
-const MODE_CONFIG = {
+type CompetitionMode = 'duel' | 'time_attack' | 'weekly_league';
+type CompetitionStatus = 'waiting' | 'active' | 'finished';
+
+interface Participant {
+  email: string;
+  display_name?: string;
+  score?: number;
+  correct?: number;
+  wrong?: number;
+}
+
+interface Competition {
+  id: string;
+  mode?: string;
+  status: string;
+  created_date: string;
+  host_email?: string;
+  participants?: Participant[];
+  question_count?: number;
+  title?: string;
+  winner_email?: string;
+}
+
+interface User {
+  email: string;
+}
+
+interface ProgressEntry {
+  id: string;
+  user_email: string;
+  display_name?: string;
+  email?: string;
+  xp?: number;
+  streak_days?: number;
+}
+
+interface NamedEntry {
+  display_name?: string;
+  user_email?: string;
+  email?: string;
+}
+
+interface ModeConfig {
+  label: string;
+  shortLabel: string;
+  icon: ComponentType<{ className?: string }>;
+  badge: string;
+  description: string;
+  meta: string;
+  duration: string;
+  accent: string;
+  card: string;
+  iconBox: string;
+  button: string;
+  progress: string;
+}
+
+interface EntityApi<T> {
+  list: (sort?: string, limit?: number) => Promise<T[]>;
+  delete: (id: string) => Promise<unknown>;
+}
+
+const competitionApi = base44.entities.Competition as unknown as EntityApi<Competition>;
+const progressApi = base44.entities.UserProgress as unknown as EntityApi<ProgressEntry>;
+const authApi = base44.auth as unknown as { me: () => Promise<User> };
+const TypedBadge = Badge as ComponentType<HTMLAttributes<HTMLDivElement>>;
+const TypedAlertDialogContent = AlertDialogContent as ComponentType<PropsWithChildren>;
+const TypedAlertDialogHeader = AlertDialogHeader as ComponentType<PropsWithChildren<{ className?: string }>>;
+const TypedAlertDialogTitle = AlertDialogTitle as ComponentType<PropsWithChildren>;
+const TypedAlertDialogDescription = AlertDialogDescription as ComponentType<PropsWithChildren>;
+const TypedAlertDialogFooter = AlertDialogFooter as ComponentType<PropsWithChildren<{ className?: string }>>;
+const TypedAlertDialogCancel = AlertDialogCancel as ComponentType<PropsWithChildren>;
+const TypedAlertDialogAction = AlertDialogAction as ComponentType<PropsWithChildren<{ className?: string; onClick?: () => void }>>;
+
+const MODE_CONFIG: Record<CompetitionMode, ModeConfig> = {
   duel: {
     label: 'Duelo Rápido',
     shortLabel: 'Duelo',
@@ -39,11 +122,11 @@ const MODE_CONFIG = {
     description: 'Responda o máximo em 5 ou 10 minutos. Vence quem pontuar mais!',
     meta: 'Solo',
     duration: '5 - 10 min',
-    accent: 'orange',
-    card: 'border-orange-300 bg-card hover:border-orange-500 dark:border-orange-500/40',
-    iconBox: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
-    button: 'bg-orange-600 hover:bg-orange-500',
-    progress: 'from-orange-500 to-amber-400',
+    accent: 'ring',
+    card: 'border-ring/40 bg-card hover:border-ring/80',
+    iconBox: 'bg-ring/15 text-ring',
+    button: 'bg-ring hover:bg-ring/80',
+    progress: 'from-ring to-ring/60',
   },
   weekly_league: {
     label: 'Liga Semanal',
@@ -53,25 +136,27 @@ const MODE_CONFIG = {
     description: 'Competição semanal com ranking acumulado. Melhor desempenho da semana!',
     meta: 'Todos',
     duration: '7 dias',
-    accent: 'emerald',
-    card: 'border-emerald-300 bg-card hover:border-emerald-500 dark:border-emerald-500/40',
-    iconBox: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-    button: 'bg-emerald-700 hover:bg-emerald-600',
-    progress: 'from-emerald-500 to-lime-400',
+    accent: 'ring',
+    card: 'border-ring/40 bg-card hover:border-ring/80',
+    iconBox: 'bg-ring/15 text-ring',
+    button: 'bg-ring hover:bg-ring/80',
+    progress: 'from-ring to-ring/60',
   },
 };
+const MODE_ENTRIES = Object.entries(MODE_CONFIG) as [CompetitionMode, ModeConfig][];
 
 const STATUS_CONFIG = {
   waiting: { label: 'Aguardando', cls: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30' },
   active: { label: 'Ao vivo', cls: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-500/20 dark:text-red-200 dark:border-red-500/30' },
   finished: { label: 'Encerrada', cls: 'bg-secondary text-muted-foreground border-border' },
 };
+const BOT_EMAIL = 'bot@studyai.app';
 
-function getName(entry) {
+function getName(entry?: NamedEntry): string {
   return entry?.display_name || entry?.user_email?.split('@')[0] || entry?.email?.split('@')[0] || 'Estudante';
 }
 
-function getInitials(name) {
+function getInitials(name: string): string {
   return name
     .split(/\s+/)
     .slice(0, 2)
@@ -80,21 +165,35 @@ function getInitials(name) {
     .toUpperCase();
 }
 
-export default function Competitions() {
+function getModeConfig(mode?: string): ModeConfig {
+  return MODE_CONFIG[mode as CompetitionMode] || MODE_CONFIG.duel;
+}
+
+export function countOnlineStudents(competitions: Competition[]): number {
+  return new Set(
+    competitions
+      .filter(c => c.status === 'active')
+      .flatMap(c => (c.participants || [])
+        .filter(p => p.email !== BOT_EMAIL)
+        .map(p => p.email))
+  ).size;
+}
+
+export default function Competitions(): ReactElement {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
-  const [selectedMode, setSelectedMode] = useState(null);
+  const [selectedMode, setSelectedMode] = useState<CompetitionMode | null>(null);
   const [joinCode, setJoinCode] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
-  const { data: competitions = [], isLoading, refetch } = useQuery({
+  const { data: user } = useQuery<User>({ queryKey: ['me'], queryFn: () => authApi.me() });
+  const { data: competitions = [], isLoading, refetch } = useQuery<Competition[]>({
     queryKey: ['competitions'],
-    queryFn: () => base44.entities.Competition.list('-created_date', 30),
+    queryFn: () => competitionApi.list('-created_date', 30),
   });
-  const { data: allProgress = [] } = useQuery({
+  const { data: allProgress = [] } = useQuery<ProgressEntry[]>({
     queryKey: ['leaderboard'],
-    queryFn: () => base44.entities.UserProgress.list('-xp', 50),
+    queryFn: () => progressApi.list('-xp', 50),
   });
 
   useEffect(() => {
@@ -104,7 +203,7 @@ export default function Competitions() {
       c.status === 'waiting' && new Date(c.created_date).getTime() < cutoff
     );
     if (!stale.length) return;
-    Promise.all(stale.map(c => base44.entities.Competition.delete(c.id)))
+    Promise.all(stale.map(c => competitionApi.delete(c.id)))
       .then(() => queryClient.invalidateQueries({ queryKey: ['competitions'] }));
   }, [competitions, queryClient]);
 
@@ -124,11 +223,9 @@ export default function Competitions() {
     c.host_email !== user?.email &&
     !c.participants?.some(p => p.email === user?.email)
   );
-  const onlineStudents = new Set(
-    activeCompetitions.flatMap(c => (c.participants || []).map(p => p.email))
-  ).size;
+  const onlineStudents = countOnlineStudents(competitions);
 
-  const handleJoinOpen = (code = '') => {
+  const handleJoinOpen = (code = ''): void => {
     setJoinCode(code);
     setJoinOpen(true);
   };
@@ -138,8 +235,8 @@ export default function Competitions() {
       <div className="mx-auto max-w-7xl space-y-7">
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-300 ring-1 ring-amber-300/25">
-              <Trophy className="h-8 w-8 fill-amber-300/30" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ring/10 text-ring ring-1 ring-ring/25">
+              <Trophy className="h-8 w-8 fill-ring/30" />
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-ring">Arena competitiva</p>
@@ -195,7 +292,7 @@ export default function Competitions() {
         <section>
           <SectionTitle icon={Gamepad2} title="Modos de competição" />
           <div className="grid gap-4 md:grid-cols-3">
-            {Object.entries(MODE_CONFIG).map(([mode, cfg]) => (
+            {MODE_ENTRIES.map(([mode, cfg]) => (
               <ModeCard
                 key={mode}
                 mode={mode}
@@ -286,7 +383,16 @@ export default function Competitions() {
   );
 }
 
-function ArenaStat({ icon: Icon, iconClass, label, value, detail, last = false }) {
+interface ArenaStatProps {
+  icon: ComponentType<{ className?: string }>;
+  iconClass: string;
+  label: string;
+  value: string;
+  detail: string;
+  last?: boolean;
+}
+
+function ArenaStat({ icon: Icon, iconClass, label, value, detail, last = false }: ArenaStatProps): ReactElement {
   return (
     <div className={`min-w-0 ${last ? '' : 'sm:border-r sm:border-ring/20 sm:pr-5'}`}>
       <p className="flex items-center gap-2 text-xs font-semibold text-slate-400">
@@ -298,7 +404,14 @@ function ArenaStat({ icon: Icon, iconClass, label, value, detail, last = false }
   );
 }
 
-function SectionTitle({ icon: Icon, title, action, actionPath }) {
+interface SectionTitleProps {
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  action?: string;
+  actionPath?: string;
+}
+
+function SectionTitle({ icon: Icon, title, action, actionPath }: SectionTitleProps): ReactElement {
   const content = action && (
     <span className="inline-flex items-center gap-1 text-xs font-bold text-primary transition-colors hover:text-primary/80">
       {action} <ArrowRight className="h-3.5 w-3.5" />
@@ -314,7 +427,13 @@ function SectionTitle({ icon: Icon, title, action, actionPath }) {
   );
 }
 
-function ModeCard({ mode, cfg, onClick }) {
+interface ModeCardProps {
+  mode: CompetitionMode;
+  cfg: ModeConfig;
+  onClick: () => void;
+}
+
+function ModeCard({ mode, cfg, onClick }: ModeCardProps): ReactElement {
   const isLeague = mode === 'weekly_league';
   return (
     <div className={`rounded-2xl border p-5 transition-all hover:-translate-y-1 hover:shadow-xl ${cfg.card}`}>
@@ -343,8 +462,12 @@ function ModeCard({ mode, cfg, onClick }) {
   );
 }
 
-function LiveCompetitionCard({ competition }) {
-  const cfg = MODE_CONFIG[competition.mode] || MODE_CONFIG.duel;
+interface LiveCompetitionCardProps {
+  competition: Competition;
+}
+
+function LiveCompetitionCard({ competition }: LiveCompetitionCardProps): ReactElement {
+  const cfg = getModeConfig(competition.mode);
   const participants = competition.participants || [];
   const first = participants[0];
   const second = participants[1];
@@ -355,7 +478,7 @@ function LiveCompetitionCard({ competition }) {
     <Link to={`/competitions/${competition.id}`} className="rounded-2xl border border-border bg-card p-4 transition-all hover:border-ring/60 hover:bg-secondary">
       <div className="flex items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-xs font-bold text-ring"><cfg.icon className="h-3.5 w-3.5" /> {cfg.shortLabel}</p>
-        <Badge className="border border-red-500/30 bg-red-500/20 text-[10px] font-black uppercase text-red-200 hover:bg-red-500/20">Ao vivo</Badge>
+        <TypedBadge className="border border-red-500/30 bg-red-500/20 text-[10px] font-black uppercase text-red-200 hover:bg-red-500/20">Ao vivo</TypedBadge>
       </div>
       <div className="mt-4 flex items-center justify-between gap-3">
         <PlayerMini participant={first} />
@@ -372,7 +495,12 @@ function LiveCompetitionCard({ competition }) {
   );
 }
 
-function PlayerMini({ participant, fallback = '—' }) {
+interface PlayerMiniProps {
+  participant?: Participant;
+  fallback?: string;
+}
+
+function PlayerMini({ participant, fallback = '—' }: PlayerMiniProps): ReactElement {
   const name = participant ? getName(participant) : 'Aguardando';
   return (
     <div className="min-w-0 text-center">
@@ -385,7 +513,14 @@ function PlayerMini({ participant, fallback = '—' }) {
   );
 }
 
-function LeagueRow({ entry, rank, isCurrentUser, topXP }) {
+interface LeagueRowProps {
+  entry: ProgressEntry;
+  rank: number;
+  isCurrentUser: boolean;
+  topXP: number;
+}
+
+function LeagueRow({ entry, rank, isCurrentUser, topXP }: LeagueRowProps): ReactElement {
   const name = getName(entry);
   const level = getLevelInfo(entry.xp || 0);
   const width = Math.max(8, Math.round(((entry.xp || 0) / topXP) * 100));
@@ -403,24 +538,30 @@ function LeagueRow({ entry, rank, isCurrentUser, topXP }) {
           <div className="h-full rounded-full bg-ring" style={{ width: `${width}%` }} />
         </div>
       </div>
-      <p className="shrink-0 text-sm font-black text-amber-300">{(entry.xp || 0).toLocaleString('pt-BR')} XP</p>
+      <p className="shrink-0 text-sm font-black text-ring">{(entry.xp || 0).toLocaleString('pt-BR')} XP</p>
     </div>
   );
 }
 
-function CompetitionRow({ competition: c, userEmail, onJoin }) {
-  const cfg = MODE_CONFIG[c.mode] || MODE_CONFIG.duel;
-  const status = STATUS_CONFIG[c.status] || STATUS_CONFIG.waiting;
+interface CompetitionRowProps {
+  competition: Competition;
+  userEmail?: string;
+  onJoin?: (code?: string) => void;
+}
+
+function CompetitionRow({ competition: c, userEmail, onJoin }: CompetitionRowProps): ReactElement {
+  const cfg = getModeConfig(c.mode);
+  const status = STATUS_CONFIG[c.status as CompetitionStatus] || STATUS_CONFIG.waiting;
   const isHost = c.host_email === userEmail;
   const isMember = isHost || !!c.participants?.some(p => p.email === userEmail);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const queryClient = useQueryClient();
   const deleteMutation = useMutation({
-    mutationFn: () => base44.entities.Competition.delete(c.id),
+    mutationFn: () => competitionApi.delete(c.id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['competitions'] }),
   });
 
-  const handleClick = (e) => {
+  const handleClick = (e: MouseEvent<HTMLAnchorElement>): void => {
     if (!isMember) {
       e.preventDefault();
       onJoin?.('');
@@ -430,29 +571,29 @@ function CompetitionRow({ competition: c, userEmail, onJoin }) {
   return (
     <>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir competição</AlertDialogTitle>
-            <AlertDialogDescription>
+        <TypedAlertDialogContent>
+          <TypedAlertDialogHeader>
+            <TypedAlertDialogTitle>Excluir competição</TypedAlertDialogTitle>
+            <TypedAlertDialogDescription>
               Tem certeza que deseja excluir <span className="font-semibold text-foreground">"{c.title || cfg.label}"</span>?
               Todos os dados e participantes serão perdidos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteMutation.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            </TypedAlertDialogDescription>
+          </TypedAlertDialogHeader>
+          <TypedAlertDialogFooter>
+            <TypedAlertDialogCancel>Cancelar</TypedAlertDialogCancel>
+            <TypedAlertDialogAction onClick={() => deleteMutation.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deleteMutation.isPending ? 'Excluindo...' : 'Sim, excluir'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+            </TypedAlertDialogAction>
+          </TypedAlertDialogFooter>
+        </TypedAlertDialogContent>
       </AlertDialog>
       <Link to={`/competitions/${c.id}`} onClick={handleClick} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-all hover:border-ring/60 hover:bg-secondary">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${cfg.iconBox}`}><cfg.icon className="h-5 w-5" /></div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-bold text-foreground">{c.title || cfg.label}</p>
-            <Badge className={`border text-[10px] uppercase ${status.cls}`}>{status.label}</Badge>
-            {isHost && <Badge className="border border-ring/20 bg-ring/10 text-[10px] text-ring">HOST</Badge>}
+            <TypedBadge className={`border text-[10px] uppercase ${status.cls}`}>{status.label}</TypedBadge>
+            {isHost && <TypedBadge className="border border-ring/20 bg-ring/10 text-[10px] text-ring">HOST</TypedBadge>}
           </div>
           <p className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {c.participants?.length || 0}</span>
@@ -478,8 +619,13 @@ function CompetitionRow({ competition: c, userEmail, onJoin }) {
   );
 }
 
-function RecentCompetitionCard({ competition, userEmail }) {
-  const cfg = MODE_CONFIG[competition.mode] || MODE_CONFIG.duel;
+interface RecentCompetitionCardProps {
+  competition: Competition;
+  userEmail?: string;
+}
+
+function RecentCompetitionCard({ competition, userEmail }: RecentCompetitionCardProps): ReactElement {
+  const cfg = getModeConfig(competition.mode);
   const myParticipant = competition.participants?.find(p => p.email === userEmail);
   const won = competition.winner_email === userEmail;
   return (
@@ -497,7 +643,13 @@ function RecentCompetitionCard({ competition, userEmail }) {
   );
 }
 
-function EmptyArena({ text, action, onAction }) {
+interface EmptyArenaProps {
+  text: string;
+  action?: string;
+  onAction?: () => void;
+}
+
+function EmptyArena({ text, action, onAction }: EmptyArenaProps): ReactElement {
   return (
     <div className="rounded-2xl border border-dashed border-ring/30 bg-card px-5 py-8 text-center">
       <Swords className="mx-auto mb-3 h-8 w-8 text-ring/50" />

@@ -1,10 +1,17 @@
-import { useMemo } from 'react';
+import {
+  type ComponentProps,
+  type ComponentType,
+  type HTMLAttributes,
+  type ReactElement,
+  useMemo,
+} from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { getLevelInfo, getXpProgressPercent } from '@/hooks/useRewards';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   ArrowUp, Bolt, CalendarDays, ChevronUp, Crown, Flame,
   Medal, Shield, Sparkles, Star, Target, Trophy, Users,
@@ -14,19 +21,19 @@ const LEVEL_ICONS = ['🌱', '📖', '💡', '🎯', '🚀', '⚡', '🏆', '�
 
 const RANK_STYLES = {
   1: {
-    badge: 'bg-amber-400 text-amber-950 shadow-amber-200',
-    avatar: 'from-amber-300 to-orange-500 ring-amber-200',
-    progress: 'from-amber-400 to-orange-500',
+    badge: 'bg-ring text-white shadow-ring/20',
+    avatar: 'from-ring to-ring/70 ring-ring/25',
+    progress: 'from-ring to-ring/70',
   },
   2: {
-    badge: 'bg-slate-300 text-slate-800 shadow-slate-200',
-    avatar: 'from-slate-300 to-slate-500 ring-slate-200',
-    progress: 'from-slate-400 to-slate-600',
+    badge: 'bg-ring/80 text-white shadow-ring/20',
+    avatar: 'from-ring/80 to-ring/50 ring-ring/20',
+    progress: 'from-ring/80 to-ring/50',
   },
   3: {
-    badge: 'bg-orange-700 text-orange-50 shadow-orange-200',
-    avatar: 'from-orange-400 to-orange-700 ring-orange-200',
-    progress: 'from-orange-500 to-orange-700',
+    badge: 'bg-ring/65 text-white shadow-ring/20',
+    avatar: 'from-ring/65 to-ring/40 ring-ring/15',
+    progress: 'from-ring/65 to-ring/40',
   },
 };
 
@@ -36,11 +43,42 @@ const DEFAULT_STYLE = {
   progress: 'from-ring to-ring/60',
 };
 
-function getName(entry) {
+interface ProgressEntry {
+  id: string;
+  user_email: string;
+  display_name?: string;
+  avatar_url?: string;
+  xp?: number;
+}
+
+interface User {
+  email: string;
+}
+
+interface RankStyle {
+  badge: string;
+  avatar: string;
+  progress: string;
+}
+
+interface EntityApi<T> {
+  list: (sort?: string, limit?: number) => Promise<T[]>;
+}
+
+const progressApi = base44.entities.UserProgress as unknown as EntityApi<ProgressEntry>;
+const authApi = base44.auth as unknown as { me: () => Promise<User> };
+const TypedCard = Card as ComponentType<HTMLAttributes<HTMLDivElement>>;
+const TypedSkeleton = Skeleton as ComponentType<HTMLAttributes<HTMLDivElement>>;
+const TypedBadge = Badge as ComponentType<HTMLAttributes<HTMLDivElement>>;
+const TypedAvatar = Avatar as ComponentType<ComponentProps<'span'>>;
+const TypedAvatarImage = AvatarImage as ComponentType<ComponentProps<'img'>>;
+const TypedAvatarFallback = AvatarFallback as ComponentType<ComponentProps<'span'>>;
+
+function getName(entry?: ProgressEntry): string {
   return entry?.display_name || entry?.user_email?.split('@')[0] || 'Estudante';
 }
 
-function getInitials(name) {
+function getInitials(name: string): string {
   return name
     .split(/\s+/)
     .slice(0, 2)
@@ -49,22 +87,46 @@ function getInitials(name) {
     .toUpperCase();
 }
 
-function PodiumPlayer({ entry, rank, currentUserEmail }) {
+interface UserAvatarProps {
+  entry: ProgressEntry;
+  className: string;
+  fallbackClassName: string;
+}
+
+function UserAvatar({ entry, className, fallbackClassName }: UserAvatarProps): ReactElement {
+  const name = getName(entry);
+  return (
+    <TypedAvatar className={className}>
+      <TypedAvatarImage src={entry.avatar_url} alt={`Foto de ${name}`} className="object-cover" />
+      <TypedAvatarFallback className={fallbackClassName}>{getInitials(name)}</TypedAvatarFallback>
+    </TypedAvatar>
+  );
+}
+
+interface PodiumPlayerProps {
+  entry?: ProgressEntry;
+  rank: 1 | 2 | 3;
+  currentUserEmail?: string;
+}
+
+function PodiumPlayer({ entry, rank, currentUserEmail }: PodiumPlayerProps): ReactElement {
   if (!entry) return <div className="w-24 sm:w-32" />;
   const name = getName(entry);
   const isCurrentUser = entry.user_email === currentUserEmail;
-  const style = RANK_STYLES[rank];
+  const style: RankStyle = RANK_STYLES[rank];
   const heights = { 1: 'h-24 sm:h-28', 2: 'h-16 sm:h-20', 3: 'h-12 sm:h-16' };
   const sizes = { 1: 'h-16 w-16 text-lg', 2: 'h-12 w-12 text-sm', 3: 'h-12 w-12 text-sm' };
 
   return (
     <div className="flex w-24 flex-col items-center sm:w-32">
       <div className="mb-2 flex h-6 items-center">
-        {rank === 1 ? <Crown className="h-6 w-6 fill-amber-300 text-amber-500" /> : <Medal className="h-5 w-5 text-slate-400" />}
+        {rank === 1 ? <Crown className="h-6 w-6 fill-ring/30 text-ring" /> : <Medal className="h-5 w-5 text-ring/70" />}
       </div>
-      <div className={`flex ${sizes[rank]} items-center justify-center rounded-2xl bg-gradient-to-br ${style.avatar} font-extrabold text-white shadow-lg ring-4`}>
-        {getInitials(name)}
-      </div>
+      <UserAvatar
+        entry={entry}
+        className={`${sizes[rank]} rounded-2xl shadow-lg ring-4 ${style.avatar}`}
+        fallbackClassName={`rounded-2xl bg-gradient-to-br ${style.avatar} font-extrabold text-white`}
+      />
       <p className="mt-2 max-w-full truncate text-xs font-bold text-slate-800 dark:text-slate-100">{name}</p>
       <p className="text-[11px] font-semibold text-slate-500">{(entry.xp || 0).toLocaleString('pt-BR')} XP</p>
       {isCurrentUser && <span className="mt-1 rounded-full bg-ring/15 px-2 py-0.5 text-[10px] font-bold text-ring">VOCÊ</span>}
@@ -75,10 +137,17 @@ function PodiumPlayer({ entry, rank, currentUserEmail }) {
   );
 }
 
-function ArenaRow({ entry, rank, currentUserEmail, topXP }) {
+interface ArenaRowProps {
+  entry: ProgressEntry;
+  rank: number;
+  currentUserEmail?: string;
+  topXP: number;
+}
+
+function ArenaRow({ entry, rank, currentUserEmail, topXP }: ArenaRowProps): ReactElement {
   const xp = entry.xp || 0;
   const level = getLevelInfo(xp);
-  const style = RANK_STYLES[rank] || DEFAULT_STYLE;
+  const style: RankStyle = RANK_STYLES[rank as keyof typeof RANK_STYLES] || DEFAULT_STYLE;
   const name = getName(entry);
   const isCurrentUser = entry.user_email === currentUserEmail;
   const relativeProgress = topXP > 0 ? Math.max(6, Math.round((xp / topXP) * 100)) : 0;
@@ -93,13 +162,15 @@ function ArenaRow({ entry, rank, currentUserEmail, topXP }) {
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black shadow-sm ${style.badge}`}>
           {rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : `#${rank}`}
         </div>
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${style.avatar} text-sm font-extrabold text-white ring-2`}>
-          {getInitials(name)}
-        </div>
+        <UserAvatar
+          entry={entry}
+          className={`h-11 w-11 rounded-2xl ring-2 ${style.avatar}`}
+          fallbackClassName={`rounded-2xl bg-gradient-to-br ${style.avatar} text-sm font-extrabold text-white`}
+        />
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
             <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{name}</p>
-            {isCurrentUser && <Badge className="bg-ring px-1.5 py-0 text-[9px] text-white hover:bg-ring/80">VOCÊ</Badge>}
+            {isCurrentUser && <TypedBadge className="bg-ring px-1.5 py-0 text-[9px] text-white hover:bg-ring/80">VOCÊ</TypedBadge>}
             <span className="text-[11px] font-semibold text-slate-400">
               {LEVEL_ICONS[level.level - 1]} Nv. {level.level} {level.name}
             </span>
@@ -120,15 +191,15 @@ function ArenaRow({ entry, rank, currentUserEmail, topXP }) {
   );
 }
 
-export default function Leaderboard() {
-  const { data: allProgress = [], isLoading } = useQuery({
+export default function Leaderboard(): ReactElement {
+  const { data: allProgress = [], isLoading } = useQuery<ProgressEntry[]>({
     queryKey: ['leaderboard'],
-    queryFn: () => base44.entities.UserProgress.list('-xp', 50),
+    queryFn: () => progressApi.list('-xp', 50),
   });
 
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<User>({
     queryKey: ['me'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => authApi.me(),
   });
 
   const ranked = useMemo(
@@ -150,10 +221,10 @@ export default function Leaderboard() {
   if (isLoading) {
     return (
       <div className="mx-auto max-w-5xl space-y-5">
-        <Skeleton className="h-36 rounded-3xl" />
-        <Skeleton className="h-64 rounded-3xl" />
+        <TypedSkeleton className="h-36 rounded-3xl" />
+        <TypedSkeleton className="h-64 rounded-3xl" />
         <div className="space-y-3">
-          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+          {[1, 2, 3, 4].map(i => <TypedSkeleton key={i} className="h-20 rounded-2xl" />)}
         </div>
       </div>
     );
@@ -167,8 +238,8 @@ export default function Leaderboard() {
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-200">
-                <Flame className="h-3.5 w-3.5 fill-amber-300" /> Liga semanal
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-ring/30 bg-ring/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-ring">
+                <Flame className="h-3.5 w-3.5 fill-ring/30" /> Liga semanal
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/80">
                 <CalendarDays className="h-3.5 w-3.5" /> Temporada em andamento
@@ -186,20 +257,20 @@ export default function Leaderboard() {
             </div>
             <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
               <p className="text-[10px] font-bold uppercase tracking-widest text-white/75">Sua posição</p>
-              <p className="mt-1 flex items-center gap-1.5 text-xl font-black"><Trophy className="h-4 w-4 text-amber-300" /> {currentUserRank || '—'}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-xl font-black"><Trophy className="h-4 w-4 text-ring" /> {currentUserRank || '—'}</p>
             </div>
           </div>
         </div>
       </section>
 
       <div className="grid gap-5 lg:grid-cols-[1.35fr_0.9fr]">
-        <Card className="overflow-hidden border-slate-200 bg-gradient-to-b from-amber-50/80 to-white p-4 dark:border-slate-800 dark:from-slate-900 dark:to-slate-950 sm:p-5">
+        <TypedCard className="overflow-hidden border-ring/25 bg-gradient-to-b from-ring/10 to-white p-4 dark:from-ring/10 dark:to-slate-950 sm:p-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-600">Zona de glória</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ring">Zona de glória</p>
               <h2 className="text-lg font-black text-slate-900 dark:text-white">Pódio da semana</h2>
             </div>
-            <Trophy className="h-7 w-7 text-amber-500" />
+            <Trophy className="h-7 w-7 text-ring" />
           </div>
           {top3.length > 0 ? (
             <div className="flex items-end justify-center gap-2 pt-3 sm:gap-5">
@@ -210,9 +281,9 @@ export default function Leaderboard() {
           ) : (
             <div className="py-14 text-center text-sm text-slate-500">O primeiro lugar ainda está esperando por alguém.</div>
           )}
-        </Card>
+        </TypedCard>
 
-        <Card className="border-ring/30 bg-ring/10 p-5">
+        <TypedCard className="border-ring/30 bg-ring/10 p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ring">Seu próximo alvo</p>
@@ -250,7 +321,7 @@ export default function Leaderboard() {
             <Bolt className="h-4 w-4 fill-ring text-ring" />
             Responda questões e envie materiais para acelerar sua subida.
           </div>
-        </Card>
+        </TypedCard>
       </div>
 
       <section>
@@ -265,10 +336,10 @@ export default function Leaderboard() {
         </div>
 
         {ranked.length === 0 ? (
-          <Card className="py-14 text-center">
+          <TypedCard className="py-14 text-center">
             <Sparkles className="mx-auto mb-3 h-8 w-8 text-ring/50" />
             <p className="text-sm font-semibold text-slate-500">Ainda não há competidores. Conquiste o primeiro lugar.</p>
-          </Card>
+          </TypedCard>
         ) : (
           <div className="space-y-2.5">
             {ranked.map((entry, index) => (
@@ -285,9 +356,9 @@ export default function Leaderboard() {
       </section>
 
       <div className="flex flex-wrap items-center justify-center gap-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-amber-300 text-amber-400" /> XP atualizado em tempo real</span>
+        <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-ring/30 text-ring" /> XP atualizado em tempo real</span>
         <span className="flex items-center gap-1"><ChevronUp className="h-3.5 w-3.5 text-ring" /> Cada sessão pode mudar o ranking</span>
-        <span className="flex items-center gap-1"><ArrowUp className="h-3.5 w-3.5 text-emerald-500" /> Continue avançando</span>
+        <span className="flex items-center gap-1"><ArrowUp className="h-3.5 w-3.5 text-ring" /> Continue avançando</span>
       </div>
     </div>
   );
