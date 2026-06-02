@@ -2,7 +2,7 @@ import React from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { BookOpen, FileText, HelpCircle, Sparkles, ArrowRight, Clock } from 'lucide-react';
+import { BookOpen, FileText, HelpCircle, Sparkles, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import StatCard from '@/components/shared/StatCard';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
-import { format } from 'date-fns';
 
 const statusMap = {
   pending: { label: 'Pendente', class: 'bg-amber-100 text-amber-700' },
@@ -82,7 +81,7 @@ export default function Dashboard() {
                 title="Nenhum documento ainda"
                 description="Faça upload do seu primeiro PDF para começar a estudar com IA"
                 actionLabel="Enviar PDF"
-                actionPath="/documents"
+                actionPath={subjects.length === 0 ? '/subjects/new' : '/documents'}
               />
             ) : (
               <div className="space-y-3">

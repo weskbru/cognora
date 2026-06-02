@@ -147,8 +147,17 @@ def create_entity(
     if entity == "subjects":
         check_subject_limit(current_user.email, db)
         data = {**data, "owner_email": current_user.email}
-    elif entity == "documents" and "subject_id" in data:
-        check_document_limit(data["subject_id"], current_user.email, db)
+    elif entity == "documents":
+        subject_id = data.get("subject_id")
+        if not subject_id:
+            raise HTTPException(status_code=400, detail="Selecione uma matéria para enviar o documento.")
+        subject = db.query(Subject).filter(
+            Subject.id == subject_id,
+            Subject.owner_email == current_user.email,
+        ).first()
+        if not subject:
+            raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+        check_document_limit(subject_id, current_user.email, db)
     elif entity == "competitions":
         check_competition_limit(current_user.email, db)
     return row_to_dict(_repo(entity, db).create(data))

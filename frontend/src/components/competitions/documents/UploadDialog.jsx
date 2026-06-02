@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRewardsContext } from '@/context/RewardsContext';
 import { Upload, FileText, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 export default function UploadDialog({ open, onOpenChange, subjectId: preSelectedSubjectId }) {
   const [file, setFile] = useState(null);
@@ -18,8 +19,9 @@ export default function UploadDialog({ open, onOpenChange, subjectId: preSelecte
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { addXPForDocument } = useRewardsContext();
+  const navigate = useNavigate();
 
-  const { data: subjects = [] } = useQuery({
+  const { data: subjects = [], isLoading: loadingSubjects } = useQuery({
     queryKey: ['subjects'],
     queryFn: () => base44.entities.Subject.list('-created_date'),
   });
@@ -58,12 +60,32 @@ export default function UploadDialog({ open, onOpenChange, subjectId: preSelecte
     }
   };
 
+  const createSubject = () => {
+    onOpenChange(false);
+    navigate('/subjects/new');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Enviar PDF</DialogTitle>
         </DialogHeader>
+        {loadingSubjects && !preSelectedSubjectId ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Carregando matérias...
+          </div>
+        ) : subjects.length === 0 && !preSelectedSubjectId ? (
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-muted-foreground">
+              Crie uma matéria antes de enviar um PDF. Assim o documento fica organizado no lugar certo.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button onClick={createSubject}>Criar matéria</Button>
+            </div>
+          </div>
+        ) : (
         <div className="space-y-4 mt-2">
           <div>
             <label className="text-sm font-medium mb-2 block">Arquivo PDF</label>
@@ -120,6 +142,7 @@ export default function UploadDialog({ open, onOpenChange, subjectId: preSelecte
             </Button>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FileText, Upload, Search, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,16 +26,26 @@ export default function Documents() {
   const [search, setSearch] = useState('');
   const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, loading: false });
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ['documents'],
     queryFn: () => base44.entities.Document.list('-created_date'),
   });
 
-  const { data: subjects = [] } = useQuery({
+  const { data: subjects = [], isLoading: loadingSubjects } = useQuery({
     queryKey: ['subjects'],
     queryFn: () => base44.entities.Subject.list(),
   });
+
+  const openUpload = () => {
+    if (loadingSubjects) return;
+    if (subjects.length === 0) {
+      navigate('/subjects/new');
+      return;
+    }
+    setUploadOpen(true);
+  };
 
   const handleDelete = async (e, docId) => {
     e.preventDefault();
@@ -73,7 +83,7 @@ export default function Documents() {
   return (
     <div>
       <PageHeader title="Documentos" description="Todos os seus PDFs enviados">
-        <Button className="gap-2" onClick={() => setUploadOpen(true)}>
+        <Button className="gap-2" onClick={openUpload} disabled={loadingSubjects}>
           <Upload className="h-4 w-4" /> Enviar PDF
         </Button>
       </PageHeader>
@@ -96,7 +106,7 @@ export default function Documents() {
           title="Nenhum documento"
           description="Envie seu primeiro PDF para começar"
           actionLabel="Enviar PDF"
-          onAction={() => setUploadOpen(true)}
+          onAction={openUpload}
         />
       ) : filtered.length === 0 ? (
         <p className="text-center py-8 text-muted-foreground">Nenhum documento encontrado</p>
