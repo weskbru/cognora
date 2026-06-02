@@ -5,6 +5,8 @@ Cobre: POST /api/upload
 import io
 
 import pytest
+from fastapi.testclient import TestClient
+from main import app
 
 
 class TestUploadRoute:
@@ -91,3 +93,24 @@ class TestUploadRoute:
         )
         assert response.status_code == 200
         assert response.json()["file_url"].endswith(".pdf")
+
+    def test_upload_preserva_cors_em_erro_inesperado(self, auth_headers, monkeypatch):
+        origin = "https://cognora-pi.vercel.app"
+
+        def raise_unexpected_error(*_args, **_kwargs):
+            raise RuntimeError("falha simulada")
+
+        monkeypatch.setattr(
+            "domain.use_cases.limits.check_upload_size",
+            raise_unexpected_error,
+        )
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.post(
+                "/api/upload",
+                files={"file": ("test.pdf", io.BytesIO(b"content"), "application/pdf")},
+                headers={**auth_headers, "Origin": origin},
+            )
+
+        assert response.status_code == 500
+        assert response.headers["access-control-allow-origin"] == origin

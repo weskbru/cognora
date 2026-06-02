@@ -1,4 +1,5 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,8 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from core.config.settings import settings
 from api.routes import auth, entities, upload, nlp, limits, subscriptions
+
+logger = logging.getLogger(__name__)
 
 
 def _run_migrations():
@@ -28,9 +31,17 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_users_google_id ON users (google_id)",
         "CREATE INDEX IF NOT EXISTS ix_prt_user_email ON password_reset_tokens (user_email)",
         "CREATE INDEX IF NOT EXISTS ix_prt_token ON password_reset_tokens (token)",
+        # Profile and freemium columns
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS display_name VARCHAR",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_emoji VARCHAR",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_url VARCHAR",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan VARCHAR DEFAULT 'free'",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS daily_generations_used INTEGER DEFAULT 0",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS last_generation_date DATE",
         # Stripe subscription columns
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR UNIQUE",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR",
+        "ALTER TABLE subjects ADD COLUMN IF NOT EXISTS owner_email VARCHAR",
         "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS questions_data JSONB DEFAULT '[]'",
     ]
     with engine.connect() as conn:
@@ -38,7 +49,7 @@ def _run_migrations():
             try:
                 conn.execute(text(sql))
             except Exception:
-                pass
+                logger.exception("Falha ao executar migração idempotente: %s", sql)
         conn.commit()
 
 
@@ -47,26 +58,14 @@ async def lifespan(app: FastAPI):
     try:
         _run_migrations()
     except Exception:
-        pass
+        logger.exception("Falha ao executar migrações de startup")
     yield
 
 
-app = FastAPI(title="Cognora API", lifespan=lifespan)
-
-_wildcard_origins = settings.allowed_origins == ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins,
-    # allow_credentials=True é incompatível com allow_origins=["*"] (spec CORS).
-    # Este projeto usa JWT via header Authorization (não cookies),
-    # então credentials só é necessário em produção com origem específica.
-    allow_credentials=not _wildcard_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+api = FastAPI(title="Cognora API", lifespan=lifespan)
 
 
-@app.exception_handler(RequestValidationError)
+@api.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = []
     for error in exc.errors():
@@ -74,12 +73,25 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=422, content={"detail": errors})
 
 
-app.include_router(auth.router)
-app.include_router(upload.router)
-app.include_router(nlp.router)
-app.include_router(limits.router)
-app.include_router(subscriptions.router)
-app.include_router(entities.router)
+api.include_router(auth.router)
+api.include_router(upload.router)
+api.include_router(nlp.router)
+api.include_router(limits.router)
+api.include_router(subscriptions.router)
+api.include_router(entities.router)
 
 os.makedirs(settings.upload_dir, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+api.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+
+_wildcard_origins = settings.allowed_origins == ["*"]
+app = CORSMiddleware(
+    app=api,
+    allow_origins=settings.allowed_origins,
+    # O wrapper global mantém headers CORS até em respostas 500 inesperadas.
+    # JWT é enviado via Authorization, sem cookies.
+    allow_credentials=not _wildcard_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# Mantém compatibilidade com testes e overrides de dependência do FastAPI.
+app.dependency_overrides = api.dependency_overrides
