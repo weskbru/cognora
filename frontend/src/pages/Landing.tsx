@@ -886,6 +886,14 @@ export default function Landing() {
     return () => { document.head.removeChild(link); };
   }, []);
 
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       <NavBar t={t} lang={lang} setLang={setLang} />
