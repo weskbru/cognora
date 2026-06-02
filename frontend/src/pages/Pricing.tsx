@@ -172,7 +172,7 @@ export default function Pricing() {
   const isCurrentPlan = (id: string) => id === currentPlan;
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto">
+    <div className="space-y-8 max-w-5xl mx-auto font-inter">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all
@@ -221,7 +221,7 @@ export default function Pricing() {
       </div>
 
       {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
         {PLANS.map((plan) => {
           const Icon = plan.icon;
           const isCurrent = isCurrentPlan(plan.id);
@@ -230,7 +230,7 @@ export default function Pricing() {
           return (
             <Card
               key={plan.id}
-              className={`relative flex flex-col p-6 transition-all
+              className={`h-full relative flex flex-col p-6 transition-all
                 ${plan.highlighted
                   ? 'border-indigo-500 shadow-lg shadow-indigo-500/10 dark:border-indigo-500'
                   : 'border-border'}
