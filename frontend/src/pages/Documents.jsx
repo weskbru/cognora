@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { FileText, Upload, Search, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog';
 import UploadDialog from '@/components/documents/UploadDialog';
+import CreateSubjectDialog from '@/components/documents/CreateSubjectDialog';
 import { format } from 'date-fns';
 
 const statusMap = {
@@ -23,10 +24,11 @@ const statusMap = {
 
 export default function Documents() {
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [createSubjectOpen, setCreateSubjectOpen] = useState(false);
+  const [uploadSubjectId, setUploadSubjectId] = useState(undefined);
   const [search, setSearch] = useState('');
   const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, loading: false });
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ['documents'],
@@ -41,10 +43,21 @@ export default function Documents() {
   const openUpload = () => {
     if (loadingSubjects) return;
     if (subjects.length === 0) {
-      navigate('/subjects/new');
+      setCreateSubjectOpen(true);
       return;
     }
+    setUploadSubjectId(undefined);
     setUploadOpen(true);
+  };
+
+  const handleSubjectCreated = (subject) => {
+    setUploadSubjectId(subject.id);
+    setUploadOpen(true);
+  };
+
+  const handleUploadOpenChange = (open) => {
+    setUploadOpen(open);
+    if (!open) setUploadSubjectId(undefined);
   };
 
   const handleDelete = async (e, docId) => {
@@ -153,7 +166,18 @@ export default function Documents() {
         isLoading={deleteDialog.loading}
       />
 
-      <UploadDialog open={uploadOpen} onOpenChange={setUploadOpen} subjectId={undefined} />
+      <CreateSubjectDialog
+        open={createSubjectOpen}
+        onOpenChange={setCreateSubjectOpen}
+        onCreated={handleSubjectCreated}
+      />
+
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={handleUploadOpenChange}
+        subjectId={uploadSubjectId}
+        onCreateSubject={() => setCreateSubjectOpen(true)}
+      />
     </div>
   );
 }

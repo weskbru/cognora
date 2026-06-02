@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 
-export default function UploadDialog({ open, onOpenChange, subjectId: preSelectedSubjectId }) {
+export default function UploadDialog({ open, onOpenChange, subjectId: preSelectedSubjectId, onCreateSubject }) {
   const [file, setFile] = useState(null);
   const [name, setName] = useState('');
   const [subjectId, setSubjectId] = useState(preSelectedSubjectId || '');
@@ -62,7 +62,11 @@ export default function UploadDialog({ open, onOpenChange, subjectId: preSelecte
 
   const createSubject = () => {
     onOpenChange(false);
-    navigate('/subjects/new');
+    if (onCreateSubject) {
+      onCreateSubject();
+    } else {
+      navigate('/subjects/new');
+    }
   };
 
   return (

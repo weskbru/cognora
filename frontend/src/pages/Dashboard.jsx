@@ -81,7 +81,7 @@ export default function Dashboard() {
                 title="Nenhum documento ainda"
                 description="Faça upload do seu primeiro PDF para começar a estudar com IA"
                 actionLabel="Enviar PDF"
-                actionPath={subjects.length === 0 ? '/subjects/new' : '/documents'}
+                actionPath="/documents"
               />
             ) : (
               <div className="space-y-3">
