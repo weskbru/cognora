@@ -1,6 +1,7 @@
 import os
 import uuid
 import logging
+from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from api.dependencies import get_current_user
@@ -18,7 +19,26 @@ logger = logging.getLogger(__name__)
 def _get_supabase():
     if not settings.supabase_url or not settings.supabase_key:
         raise HTTPException(status_code=503, detail="Supabase não configurado no servidor.")
-    return create_client(settings.supabase_url, settings.supabase_key)
+    parsed_url = urlparse(settings.supabase_url)
+    if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "SUPABASE_URL inválida no servidor. No Render, configure somente "
+                "a URL HTTPS do projeto Supabase, sem o prefixo SUPABASE_URL=."
+            ),
+        )
+    try:
+        return create_client(settings.supabase_url, settings.supabase_key)
+    except Exception as exc:
+        logger.exception("Falha ao inicializar cliente Supabase Storage")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Não foi possível inicializar o Supabase Storage. "
+                "Verifique SUPABASE_URL e SUPABASE_KEY no Render."
+            ),
+        ) from exc
 
 
 @router.post("/upload")

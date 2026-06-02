@@ -4,6 +4,18 @@ import os
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+def _clean_env(name: str) -> str | None:
+    """Remove artefatos comuns ao colar variáveis em painéis de deploy."""
+    value = os.getenv(name)
+    if value is None:
+        return None
+    value = value.strip().strip("\"'")
+    prefix = f"{name}="
+    if value.upper().startswith(prefix):
+        value = value[len(prefix):].strip().strip("\"'")
+    return value or None
+
+
 class Settings:
     database_url: str = os.getenv(
         "DATABASE_URL", "postgresql://cognora:cognora@db:5432/cognora"
@@ -15,8 +27,8 @@ class Settings:
     gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
     nvidia_api_key: str | None = os.getenv("NVIDIA_API_KEY")
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
-    supabase_url: str | None = os.getenv("SUPABASE_URL")
-    supabase_key: str | None = os.getenv("SUPABASE_KEY")
+    supabase_url: str | None = _clean_env("SUPABASE_URL")
+    supabase_key: str | None = _clean_env("SUPABASE_KEY")
     resend_api_key: str | None = os.getenv("RESEND_API_KEY")
     google_client_id: str | None = os.getenv("GOOGLE_CLIENT_ID")
     app_url: str = os.getenv("APP_URL", "http://localhost:5173")

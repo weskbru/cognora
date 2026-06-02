@@ -24,7 +24,7 @@ Variaveis obrigatorias:
 |----------|--------|
 | `DATABASE_URL` | Neon -> Connect -> habilite Connection pooling -> copie a URI completa |
 | `SECRET_KEY` | Valor aleatorio seguro |
-| `SUPABASE_URL` | Supabase -> Project Settings -> API |
+| `SUPABASE_URL` | Supabase -> Project Settings -> API -> Project URL |
 | `SUPABASE_KEY` | Supabase -> service_role key |
 | `ALLOWED_ORIGINS` | URL publica do frontend Vercel |
 
@@ -60,3 +60,11 @@ O `vercel.json` da raiz fixa o diretorio publicado e redireciona rotas da SPA du
 ## Supabase Storage
 
 O bucket esperado e `cognora-storage`. O backend usa `SUPABASE_URL` e `SUPABASE_KEY` para upload; o PostgreSQL da aplicacao fica no Neon.
+
+No Render, informe apenas o valor da URL HTTPS do projeto em `SUPABASE_URL`, no formato:
+
+```text
+https://[project-ref].supabase.co
+```
+
+Nao inclua `SUPABASE_URL=` no valor e nao use a connection string do PostgreSQL.

@@ -239,8 +239,8 @@ export default function Competitions(): ReactElement {
               <Trophy className="h-8 w-8 fill-ring/30" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-ring">Arena competitiva</p>
-              <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">Competições</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-ring">Arena competitiva</p>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">Competições</h1>
               <p className="mt-1 text-sm text-muted-foreground">Desafie outros estudantes e teste seu conhecimento.</p>
             </div>
           </div>
@@ -419,7 +419,7 @@ function SectionTitle({ icon: Icon, title, action, actionPath }: SectionTitlePro
   );
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h2 className="flex items-center gap-2 text-lg font-black text-foreground">
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
         <Icon className="h-5 w-5 text-ring" /> {title}
       </h2>
       {actionPath ? <Link to={actionPath}>{content}</Link> : content}
@@ -441,20 +441,20 @@ function ModeCard({ mode, cfg, onClick }: ModeCardProps): ReactElement {
         <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${cfg.iconBox}`}>
           <cfg.icon className="h-7 w-7" />
         </div>
-        <span className={`rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wider ${cfg.iconBox}`}>{cfg.badge}</span>
+        <span className={`rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${cfg.iconBox}`}>{cfg.badge}</span>
       </div>
-      <h3 className="mt-4 text-lg font-black text-foreground">{cfg.label}</h3>
+      <h3 className="mt-4 text-lg font-semibold text-foreground">{cfg.label}</h3>
       <p className="mt-2 min-h-14 text-sm leading-relaxed text-muted-foreground">{cfg.description}</p>
       <div className="mt-4 flex items-center gap-4 text-xs font-semibold text-muted-foreground">
         <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> {cfg.meta}</span>
         <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {cfg.duration}</span>
       </div>
       {isLeague ? (
-        <Link to="/leaderboard" className={`mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-black text-white transition-colors ${cfg.button}`}>
+        <Link to="/leaderboard" className={`mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-colors ${cfg.button}`}>
           <BarChart3 className="h-4 w-4" /> Ver ranking
         </Link>
       ) : (
-        <button onClick={onClick} className={`mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-black text-white transition-colors ${cfg.button}`}>
+        <button onClick={onClick} className={`mt-5 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-colors ${cfg.button}`}>
           <Zap className="h-4 w-4" /> Jogar agora
         </button>
       )}
@@ -507,7 +507,7 @@ function PlayerMini({ participant, fallback = '—' }: PlayerMiniProps): ReactEl
       <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-ring/60 bg-ring text-sm font-black text-white">
         {participant ? getInitials(name) : fallback}
       </div>
-      <p className="mt-1 max-w-20 truncate text-xs font-bold text-foreground">{name}</p>
+      <p className="mt-1 max-w-20 truncate text-xs font-medium text-foreground">{name}</p>
       {participant && <p className="text-[10px] text-amber-300">{participant.score || 0} pts</p>}
     </div>
   );
@@ -530,7 +530,7 @@ function LeagueRow({ entry, rank, isCurrentUser, topXP }: LeagueRowProps): React
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ring text-xs font-black text-white">{getInitials(name)}</div>
       <div className="min-w-0 flex-1">
         <div className="mb-1.5 flex items-center gap-2">
-          <p className="truncate text-sm font-bold text-foreground">{name}</p>
+          <p className="truncate text-sm font-medium text-foreground">{name}</p>
           {isCurrentUser && <span className="rounded-full bg-ring/20 px-2 py-0.5 text-[9px] font-black uppercase text-ring">Você</span>}
           <span className="hidden text-[11px] text-muted-foreground sm:inline">Nv. {level.level}</span>
         </div>
@@ -591,7 +591,7 @@ function CompetitionRow({ competition: c, userEmail, onJoin }: CompetitionRowPro
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${cfg.iconBox}`}><cfg.icon className="h-5 w-5" /></div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-bold text-foreground">{c.title || cfg.label}</p>
+            <p className="truncate text-sm font-medium text-foreground">{c.title || cfg.label}</p>
             <TypedBadge className={`border text-[10px] uppercase ${status.cls}`}>{status.label}</TypedBadge>
             {isHost && <TypedBadge className="border border-ring/20 bg-ring/10 text-[10px] text-ring">HOST</TypedBadge>}
           </div>

@@ -95,7 +95,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
           <GraduationCap className="h-5 w-5 text-primary-foreground" />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-foreground tracking-tight">Cognora</span>
+          <span className="text-lg font-semibold text-foreground tracking-tight">Cognora</span>
           {planInfo && PlanIcon && (
             <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${planInfo.cls}`}>
               <PlanIcon className="h-2.5 w-2.5" />
@@ -109,7 +109,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
       <nav className="flex-1 px-4 py-4 overflow-y-auto space-y-5">
         {NAV_SECTIONS.map((section) => (
           <div key={section.label}>
-            <p className="text-[11px] font-semibold text-muted-foreground/60 tracking-widest mb-2 px-2">
+            <p className="text-[11px] font-medium text-muted-foreground/60 tracking-widest mb-2 px-2">
               {section.label}
             </p>
             <div className="space-y-0.5">

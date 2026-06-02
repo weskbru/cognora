@@ -127,7 +127,7 @@ function PodiumPlayer({ entry, rank, currentUserEmail }: PodiumPlayerProps): Rea
         className={`${sizes[rank]} rounded-2xl shadow-lg ring-4 ${style.avatar}`}
         fallbackClassName={`rounded-2xl bg-gradient-to-br ${style.avatar} font-extrabold text-white`}
       />
-      <p className="mt-2 max-w-full truncate text-xs font-bold text-slate-800 dark:text-slate-100">{name}</p>
+      <p className="mt-2 max-w-full truncate text-xs font-medium text-slate-700 dark:text-slate-200">{name}</p>
       <p className="text-[11px] font-semibold text-slate-500">{(entry.xp || 0).toLocaleString('pt-BR')} XP</p>
       {isCurrentUser && <span className="mt-1 rounded-full bg-ring/15 px-2 py-0.5 text-[10px] font-bold text-ring">VOCÊ</span>}
       <div className={`mt-2 flex w-full items-start justify-center rounded-t-xl bg-gradient-to-b ${style.progress} pt-2 text-sm font-black text-white shadow-lg ${heights[rank]}`}>
@@ -169,7 +169,7 @@ function ArenaRow({ entry, rank, currentUserEmail, topXP }: ArenaRowProps): Reac
         />
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-            <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{name}</p>
+            <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{name}</p>
             {isCurrentUser && <TypedBadge className="bg-ring px-1.5 py-0 text-[9px] text-white hover:bg-ring/80">VOCÊ</TypedBadge>}
             <span className="text-[11px] font-semibold text-slate-400">
               {LEVEL_ICONS[level.level - 1]} Nv. {level.level} {level.name}
@@ -245,7 +245,7 @@ export default function Leaderboard(): ReactElement {
                 <CalendarDays className="h-3.5 w-3.5" /> Temporada em andamento
               </span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Arena de Estudos</h1>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Arena de Estudos</h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/75 sm:text-base">
               Ganhe XP estudando, suba posições e termine a semana no topo da liga.
             </p>
@@ -268,7 +268,7 @@ export default function Leaderboard(): ReactElement {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ring">Zona de glória</p>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">Pódio da semana</h2>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Pódio da semana</h2>
             </div>
             <Trophy className="h-7 w-7 text-ring" />
           </div>
@@ -287,7 +287,7 @@ export default function Leaderboard(): ReactElement {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ring">Seu próximo alvo</p>
-              <h2 className="mt-1 text-lg font-black text-slate-900 dark:text-white">
+              <h2 className="mt-1 text-lg font-semibold text-slate-800 dark:text-slate-100">
                 {nextStudent ? `Ultrapasse ${getName(nextStudent)}` : 'Você está no topo'}
               </h2>
             </div>
@@ -328,7 +328,7 @@ export default function Leaderboard(): ReactElement {
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ring">Classificação atual</p>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white">Disputa pela liderança</h2>
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Disputa pela liderança</h2>
           </div>
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
             <Shield className="h-4 w-4 text-ring" /> Top 3 entra na zona de glória

@@ -9,6 +9,7 @@
   :root {
     --font-inter: 'Inter', sans-serif;
     --radius: 0.75rem;
+    --app-emphasis: 245 58% 55%;
 
     --background: 0 0% 100%;
     --foreground: 222 84% 5%;
@@ -58,6 +59,7 @@
   .dark {
     --background: 222 84% 5%;
     --foreground: 0 0% 100%;
+    --app-emphasis: 245 78% 74%;
 
     --card: 222 47% 8%;
     --card-foreground: 214 32% 91%;
@@ -108,4 +110,56 @@
   body {
     @apply bg-background text-foreground font-inter;
   }
+}
+
+/*
+ * The authenticated app uses color instead of heavy weights for emphasis.
+ * Explicit semantic and inverted colors remain untouched.
+ */
+.app-typography :is(.font-semibold, .font-bold, .font-extrabold, .font-black) {
+  font-weight: 400;
+}
+
+.app-typography :is(h1, h2, h3).font-semibold:not([class*='text-']),
+.app-typography :is(h1, h2, h3).font-bold:not([class*='text-']),
+.app-typography :is(h1, h2, h3).font-extrabold:not([class*='text-']),
+.app-typography :is(h1, h2, h3).font-black:not([class*='text-']),
+.app-typography :is(.font-semibold, .font-bold, .font-extrabold, .font-black):is(.text-foreground, .text-slate-800, .text-slate-900) {
+  color: hsl(var(--app-emphasis));
+}
+
+/*
+ * Legacy semantic surfaces were created for the light theme. Keep their
+ * meaning in dark mode without rendering pale buttons over a dark canvas.
+ */
+.dark .app-typography .bg-emerald-50 {
+  background-color: rgb(2 44 34 / 0.5);
+}
+
+.dark .app-typography .bg-red-50 {
+  background-color: rgb(69 10 10 / 0.5);
+}
+
+.dark .app-typography .bg-amber-100 {
+  background-color: rgb(69 26 3 / 0.55);
+}
+
+.dark .app-typography .bg-emerald-100 {
+  background-color: rgb(2 44 34 / 0.55);
+}
+
+.dark .app-typography .bg-red-100 {
+  background-color: rgb(69 10 10 / 0.55);
+}
+
+.dark .app-typography :is(.text-emerald-700, .text-emerald-800) {
+  color: rgb(110 231 183);
+}
+
+.dark .app-typography :is(.text-red-700, .text-red-800) {
+  color: rgb(252 165 165);
+}
+
+.dark .app-typography .text-amber-700 {
+  color: rgb(252 211 77);
 }
