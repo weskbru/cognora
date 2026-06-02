@@ -39,7 +39,7 @@ export default function AILoadingCard({ title, subtitle }: AILoadingCardProps): 
 
   return (
     <Card className="flex flex-col items-center justify-center gap-5 p-6 text-center md:p-8">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-5xl">
         <div className="mb-4 flex items-end justify-between gap-4 text-left">
           <div>
             <p className="text-sm text-foreground">Seu jogo vai iniciar enquanto preparamos o conteúdo.</p>
