@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { format, subDays } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { useRewardsContext } from '@/context/RewardsContext';
@@ -10,52 +11,47 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Flame, Star, Zap, FileText, CheckCircle2, Trophy,
-  TrendingUp, Crown, HardDrive, Sparkles, ArrowRight, Clock,
-  X, Check, Camera,
+  ArrowRight, CalendarDays, Camera, Check, CheckCircle2, Crown, FileText,
+  Flame, Gift, Lock, Mail, Pencil, Sparkles, Trophy, X, Zap,
 } from 'lucide-react';
-import { format, subDays, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 const LEVEL_ICONS = ['🌱', '📖', '💡', '🎯', '🚀', '⚡', '🏆', '🧠', '🌟', '👑'];
 const AVATAR_OPTIONS = ['🧑‍🎓', '👩‍🎓', '🦊', '🐼', '🦁', '🐯', '🦄', '🐉', '🤖', '👾', '🧙', '🦸'];
+const WEEK_DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 const ACTIVITY_MAP = [
-  { key: 'resumo',    icon: Sparkles,     color: 'bg-primary/10 text-primary' },
-  { key: 'resposta',  icon: CheckCircle2, color: 'bg-emerald-100 text-emerald-600' },
-  { key: 'documento', icon: FileText,     color: 'bg-blue-100 text-blue-600' },
-  { key: 'login',     icon: Flame,        color: 'bg-orange-100 text-orange-600' },
-  { key: 'acesso',    icon: Flame,        color: 'bg-orange-100 text-orange-600' },
+  { key: 'resumo', icon: Sparkles, color: 'bg-primary/10 text-primary' },
+  { key: 'resposta', icon: CheckCircle2, color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400' },
+  { key: 'documento', icon: FileText, color: 'bg-blue-100 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400' },
+  { key: 'login', icon: Flame, color: 'bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400' },
+  { key: 'acesso', icon: Flame, color: 'bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400' },
 ];
 
 function getActivityStyle(reason) {
   const lower = reason?.toLowerCase() || '';
-  const match = ACTIVITY_MAP.find(a => lower.includes(a.key));
-  return match || { icon: Star, color: 'bg-amber-100 text-amber-600' };
+  return ACTIVITY_MAP.find(activity => lower.includes(activity.key)) || {
+    icon: Zap,
+    color: 'bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400',
+  };
 }
 
-// Build last 35 days activity from xp_history
-function buildActivityGrid(xpHistory) {
-  const activeDates = new Set(
-    (xpHistory || []).map(h => h.date).filter(Boolean)
-  );
-  const today = new Date();
-  const days = [];
-  for (let i = 34; i >= 0; i--) {
-    const date = subDays(today, i);
+function getInitials(entry) {
+  const value = entry?.display_name || entry?.user_email?.split('@')[0] || '?';
+  return value.slice(0, 2).toUpperCase();
+}
+
+function getWeekActivity(xpHistory) {
+  const activeDates = new Set((xpHistory || []).map(entry => entry.date).filter(Boolean));
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = subDays(new Date(), 6 - index);
     const key = format(date, 'yyyy-MM-dd');
-    days.push({ date, key, active: activeDates.has(key), isToday: i === 0 });
-  }
-  return days;
+    return { key, active: activeDates.has(key), today: index === 6 };
+  });
 }
-
-// Streak milestones (Duolingo-style)
-const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100];
 
 export default function Profile() {
   const { progress, loading, updateProfile } = useRewardsContext();
   const { user } = useAuth();
-  const [showAllActivities, setShowAllActivities] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
@@ -67,12 +63,10 @@ export default function Profile() {
     queryKey: ['leaderboard'],
     queryFn: () => base44.entities.UserProgress.list('-xp', 50),
   });
-
   const { data: documents = [] } = useQuery({
     queryKey: ['documents'],
     queryFn: () => base44.entities.Document.list(),
   });
-
   const { data: subjects = [] } = useQuery({
     queryKey: ['subjects'],
     queryFn: () => base44.entities.Subject.list(),
@@ -85,15 +79,15 @@ export default function Profile() {
     setEditOpen(true);
   };
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const handlePhotoUpload = async (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
     setUploadingPhoto(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       setEditAvatarUrl(file_url);
-    } catch (err) {
-      console.error('Erro ao fazer upload da foto:', err);
+    } catch (error) {
+      console.error('Erro ao fazer upload da foto:', error);
     } finally {
       setUploadingPhoto(false);
     }
@@ -112,553 +106,279 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Skeleton className="h-52 rounded-2xl" />
-          <Skeleton className="h-40 rounded-2xl" />
-          <Skeleton className="h-72 rounded-2xl" />
-        </div>
-        <div className="space-y-6">
-          <Skeleton className="h-36 rounded-2xl" />
-          <Skeleton className="h-52 rounded-2xl" />
-          <Skeleton className="h-48 rounded-2xl" />
-        </div>
+      <div className="grid gap-5 xl:grid-cols-12">
+        <Skeleton className="h-64 rounded-2xl xl:col-span-9" />
+        <Skeleton className="h-64 rounded-2xl xl:col-span-3" />
+        <Skeleton className="h-36 rounded-2xl xl:col-span-9" />
       </div>
     );
   }
 
   if (!progress) return null;
 
-  const level = getLevelInfo(progress.xp || 0);
-  const percent = getXpProgressPercent(progress.xp || 0);
-  const nextLevel = LEVELS.find(l => l.level === level.level + 1);
-  const xpToNext = nextLevel ? nextLevel.minXP - (progress.xp || 0) : 0;
-
-  const allHistory = [...(progress.xp_history || [])].reverse();
-  const visibleActivities = showAllActivities ? allHistory : allHistory.slice(0, 6);
-
+  const xp = progress.xp || 0;
+  const level = getLevelInfo(xp);
+  const percent = getXpProgressPercent(xp);
+  const nextLevel = LEVELS.find(item => item.level === level.level + 1);
+  const xpToNext = nextLevel ? Math.max(0, nextLevel.minXP - xp) : 0;
   const ranked = [...allProgress].sort((a, b) => (b.xp || 0) - (a.xp || 0));
   const top5 = ranked.slice(0, 5);
-  const userRank = ranked.findIndex(p => p.user_email === progress.user_email) + 1;
-  const userInTop5 = top5.some(e => e.user_email === progress.user_email);
-
+  const top3 = ranked.slice(0, 3);
+  const userRank = ranked.findIndex(item => item.user_email === progress.user_email) + 1;
   const displayName = progress.display_name || user?.email?.split('@')[0] || 'Estudante';
   const avatarEmoji = progress.avatar_emoji || LEVEL_ICONS[level.level - 1] || '🌱';
-  const starCount = Math.min(Math.ceil(level.level / 2.5), 4);
   const streak = progress.streak_days || 0;
-
-  const activityGrid = buildActivityGrid(progress.xp_history);
-  const nextMilestone = STREAK_MILESTONES.find(m => m > streak) || STREAK_MILESTONES[STREAK_MILESTONES.length - 1];
-  const milestonePercent = Math.min(100, Math.round((streak / nextMilestone) * 100));
+  const activities = [...(progress.xp_history || [])].reverse().slice(0, 3);
+  const weekActivity = getWeekActivity(progress.xp_history);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      {/* Edit Profile Modal */}
+    <div className="-m-4 min-h-[calc(100vh-70px)] bg-background p-4 text-foreground md:-m-8 md:p-8">
       {editOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <Card className="w-full max-w-sm p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-lg">Editar Perfil</h3>
-              <button onClick={() => setEditOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Photo upload */}
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">Foto de perfil</p>
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-2xl overflow-hidden bg-secondary flex items-center justify-center shrink-0 border border-border">
-                  {editAvatarUrl ? (
-                    <img src={editAvatarUrl} alt="avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-3xl">{editAvatar}</span>
-                  )}
-                </div>
-                <div className="flex flex-col gap-2 flex-1">
-                  <label className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-primary/40 text-sm text-primary cursor-pointer hover:bg-primary/5 transition-colors ${uploadingPhoto ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <Camera className="h-4 w-4" />
-                    {uploadingPhoto ? 'Enviando...' : 'Enviar foto'}
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                  </label>
-                  {editAvatarUrl && (
-                    <button
-                      onClick={() => setEditAvatarUrl('')}
-                      className="text-xs text-red-400 hover:text-red-600 transition-colors"
-                    >
-                      Remover foto
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Emoji avatar picker — only when no photo */}
-            {!editAvatarUrl && (
-              <div>
-                <p className="text-sm font-medium text-foreground mb-2">Ou escolha um avatar</p>
-                <div className="grid grid-cols-6 gap-2">
-                  {AVATAR_OPTIONS.map(emoji => (
-                    <button
-                      key={emoji}
-                      onClick={() => setEditAvatar(emoji)}
-                      className={`h-10 w-10 rounded-xl text-xl flex items-center justify-center transition-all ${
-                        editAvatar === emoji
-                          ? 'bg-primary/15 ring-2 ring-primary scale-110'
-                          : 'bg-secondary hover:bg-secondary/80'
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Name */}
-            <div>
-              <p className="text-sm font-medium text-foreground mb-1.5">Nome de exibição</p>
-              <input
-                type="text"
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                maxLength={30}
-                placeholder="Como quer ser chamado?"
-                className="w-full px-3 py-2 text-sm border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-              />
-              <p className="text-xs text-muted-foreground mt-1 text-right">{editName.length}/30</p>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button variant="outline" className="flex-1" onClick={() => setEditOpen(false)}>
-                Cancelar
-              </Button>
-              <Button className="flex-1 gap-1.5" onClick={handleSaveEdit} disabled={saving || !editName.trim()}>
-                <Check className="h-4 w-4" /> {saving ? 'Salvando...' : 'Salvar'}
-              </Button>
-            </div>
-          </Card>
-        </div>
+        <EditProfileModal
+          avatar={editAvatar}
+          avatarUrl={editAvatarUrl}
+          editName={editName}
+          onAvatarChange={setEditAvatar}
+          onAvatarUrlChange={setEditAvatarUrl}
+          onClose={() => setEditOpen(false)}
+          onNameChange={setEditName}
+          onPhotoUpload={handlePhotoUpload}
+          onSave={handleSaveEdit}
+          saving={saving}
+          uploadingPhoto={uploadingPhoto}
+        />
       )}
 
-      {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
-      <div className="lg:col-span-2 space-y-6">
+      <div className="mx-auto max-w-7xl space-y-5">
+        <header>
+          <h1 className="text-xl font-black">👋 Fala, {displayName}!</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Continue evoluindo e chegue ao topo.</p>
+        </header>
 
-        {/* Hero Card */}
-        <Card className="overflow-hidden border-0 shadow-md">
-          <div className="bg-gradient-to-br from-primary via-primary to-primary/80 p-6 text-white relative">
-            <div className="flex items-start gap-5">
-              {/* Avatar — click to edit */}
-              <div className="relative shrink-0 group cursor-pointer" onClick={handleOpenEdit}>
-                <div className="h-20 w-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-4xl border-2 border-white/30 shadow-xl overflow-hidden">
-                  {progress.avatar_url ? (
-                    <img src={progress.avatar_url} alt="avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    avatarEmoji
-                  )}
-                </div>
-                {/* Camera overlay on hover */}
-                <div className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Camera className="h-6 w-6 text-white" />
-                </div>
-                <div className="absolute -bottom-2 -right-2 h-7 w-7 rounded-full bg-white text-primary text-xs font-bold flex items-center justify-center shadow-md border-2 border-white/20">
-                  {level.level}
-                </div>
-              </div>
+        <div className="grid gap-5 xl:grid-cols-12">
+          <HeroCard
+            avatarEmoji={avatarEmoji}
+            displayName={displayName}
+            level={level}
+            onEdit={handleOpenEdit}
+            percent={percent}
+            progress={progress}
+            rank={userRank}
+            user={user}
+            xp={xp}
+            xpToNext={xpToNext}
+          />
+          <WeeklyLeague entries={top5} progress={progress} />
+          <StreakCard streak={streak} weekActivity={weekActivity} />
+          <RecentActivities entries={activities} />
+          <XpRules />
+          <RankingPreview entries={top3} progress={progress} rank={userRank} />
+          <PlanCard documents={documents} subjects={subjects} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-0.5">
-                  {level.name}
-                </p>
-                <h2 className="text-2xl font-bold text-white mb-3 capitalize">{displayName}</h2>
-
-                {/* XP bar */}
-                <div className="mb-3">
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-white/70">Nível {level.level}</span>
-                    <span className="text-white font-semibold">{(progress.xp || 0).toLocaleString('pt-BR')} XP</span>
-                  </div>
-                  <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-                    <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${percent}%` }} />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 text-sm text-white/80">
-                  <span className="truncate max-w-[200px] text-xs">{user?.email}</span>
-                  {streak > 0 && (
-                    <span className="flex items-center gap-1 bg-white/15 px-2.5 py-0.5 rounded-full text-xs shrink-0">
-                      <Flame className="h-3 w-3 text-orange-300" />
-                      {streak} dias seguidos
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Rank badge */}
-              {userRank > 0 && (
-                <div className="hidden sm:flex flex-col items-end gap-3 shrink-0">
-                  {nextLevel && (
-                    <div className="text-right">
-                      <p className="text-white/60 text-xs">Próximo nível</p>
-                      <p className="text-white font-semibold text-sm">{xpToNext.toLocaleString('pt-BR')} XP</p>
-                    </div>
-                  )}
-                  <div className="bg-white/20 px-4 py-2 rounded-xl text-center min-w-[60px]">
-                    <p className="text-white/70 text-xs">Ranking</p>
-                    <p className="text-white font-bold text-xl leading-tight">#{userRank}</p>
-                  </div>
-                </div>
-              )}
-            </div>
+function HeroCard({ avatarEmoji, level, onEdit, percent, progress, rank, user, xp, xpToNext }) {
+  const levelLimit = level.maxXP ?? xp;
+  return (
+    <Card className="relative overflow-hidden border-violet-500/30 bg-gradient-to-br from-violet-950 via-[#10112d] to-indigo-950 p-6 text-white shadow-lg shadow-violet-950/20 xl:col-span-9">
+      <div className="absolute -right-12 top-4 text-8xl opacity-20">🪐</div>
+      <div className="flex flex-col gap-6 md:flex-row md:items-center">
+        <button onClick={onEdit} className="group relative mx-auto shrink-0 md:mx-0" title="Editar perfil">
+          <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-violet-400/70 bg-violet-900/80 text-6xl shadow-lg shadow-violet-900/60">
+            {progress.avatar_url ? <img src={progress.avatar_url} alt="avatar" className="h-full w-full object-cover" /> : avatarEmoji}
           </div>
-        </Card>
+          <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border border-violet-400/60 bg-[#111329] text-violet-200 transition-colors group-hover:bg-violet-700">
+            <Pencil className="h-3.5 w-3.5" />
+          </span>
+          <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 rounded-b-xl bg-violet-600 px-3 py-1 text-center text-[10px] font-black uppercase tracking-wide">
+            Nível <strong className="block text-xl leading-5">{level.level}</strong>
+          </span>
+        </button>
 
-        {/* Streak Calendar */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-base flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-500" />
-              Sequência de Atividade
-            </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-orange-500">{streak}</span>
-              <span className="text-xs text-muted-foreground leading-tight">dias<br/>seguidos</span>
+        <div className="min-w-0 flex-1 pt-6 md:pt-0">
+          <h2 className="text-2xl font-black">{avatarEmoji} {level.name}</h2>
+          <p className="mt-3 text-sm text-violet-200">Nível {level.level}</p>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/15">
+              <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400" style={{ width: `${percent}%` }} />
             </div>
+            <span className="text-xs font-bold">{xp.toLocaleString('pt-BR')} / {levelLimit === Infinity ? '∞' : levelLimit.toLocaleString('pt-BR')} XP</span>
           </div>
+          <p className="mt-2 text-sm text-violet-200">{nextLevelText(xpToNext)}</p>
+        </div>
 
-          {/* 35-day grid */}
-          <div className="grid grid-cols-7 gap-1.5 mb-4">
-            {['D','S','T','Q','Q','S','S'].map((d, i) => (
-              <p key={i} className="text-center text-[10px] text-muted-foreground font-medium">{d}</p>
-            ))}
-            {activityGrid.map(({ key, active, isToday }) => (
-              <div
-                key={key}
-                title={format(parseISO(key), "d 'de' MMMM", { locale: ptBR })}
-                className={`h-8 w-full rounded-md flex items-center justify-center text-xs font-medium transition-all ${
-                  isToday
-                    ? active
-                      ? 'bg-orange-500 text-white ring-2 ring-orange-300 ring-offset-1'
-                      : 'ring-2 ring-primary/40 ring-offset-1 bg-secondary text-muted-foreground'
-                    : active
-                    ? 'bg-orange-400 text-white'
-                    : 'bg-secondary text-muted-foreground/40'
-                }`}
-              >
-                {active ? '🔥' : ''}
-              </div>
-            ))}
-          </div>
-
-          {/* Progress to next milestone */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Próxima conquista: <span className="font-semibold text-orange-500">{nextMilestone} dias 🏅</span></span>
-              <span>{streak}/{nextMilestone}</span>
-            </div>
-            <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-full transition-all duration-700"
-                style={{ width: `${milestonePercent}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Milestone badges */}
-          <div className="flex gap-2 mt-4 flex-wrap">
-            {STREAK_MILESTONES.map(m => {
-              const unlocked = streak >= m;
-              return (
-                <div
-                  key={m}
-                  title={`${m} dias seguidos`}
-                  className={`flex flex-col items-center px-2.5 py-2 rounded-xl border transition-all ${
-                    unlocked
-                      ? 'bg-orange-50 border-orange-200 text-orange-700'
-                      : 'bg-secondary border-border text-muted-foreground/40'
-                  }`}
-                >
-                  <span className="text-lg">{unlocked ? '🏅' : '🔒'}</span>
-                  <span className="text-[10px] font-semibold mt-0.5">{m}d</span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Recent Activities */}
-        {allHistory.length > 0 && (
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-semibold text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                Atividades Recentes
-              </h3>
-              {allHistory.length > 6 && (
-                <button
-                  onClick={() => setShowAllActivities(v => !v)}
-                  className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1 transition-colors"
-                >
-                  {showAllActivities ? 'Ver menos' : 'Ver Todos'}
-                  <ArrowRight className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              {visibleActivities.map((entry, i) => {
-                const { icon: Icon, color } = getActivityStyle(entry.reason);
-                return (
-                  <div key={`${i}-${entry.date}`} className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-secondary/50 transition-colors">
-                    <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{entry.reason}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock className="h-3 w-3" />
-                        {entry.date}
-                      </p>
-                    </div>
-                    <span className="text-sm font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-lg shrink-0 border border-emerald-100">
-                      +{entry.amount} XP
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {showAllActivities && allHistory.length > 6 && (
-              <button onClick={() => setShowAllActivities(false)} className="mt-3 w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-2">
-                Recolher
-              </button>
-            )}
-          </Card>
-        )}
-
-        {/* Ranking preview */}
-        {ranked.length > 0 && (
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-semibold text-base flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-amber-500" />
-                Ranking
-              </h3>
-              {userRank > 0 && <Badge variant="secondary" className="text-xs">Você: #{userRank}</Badge>}
-            </div>
-
-            <div className="space-y-2">
-              {top5.map((entry, i) => {
-                const rank = i + 1;
-                const isMe = entry.user_email === progress.user_email;
-                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
-                return (
-                  <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isMe ? 'bg-primary/8 border border-primary/20' : 'hover:bg-secondary/50'}`}>
-                    <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-sm font-bold ${!medal && (isMe ? 'bg-primary/10 text-primary' : 'bg-secondary text-muted-foreground')}`}>
-                      {medal || rank}
-                    </div>
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {(entry.user_email?.[0] || '?').toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${isMe ? 'text-primary' : 'text-foreground'}`}>
-                        {entry.display_name || entry.user_email?.split('@')[0]}
-                        {isMe && <span className="ml-1.5 text-xs opacity-60">(você)</span>}
-                      </p>
-                    </div>
-                    <span className={`text-sm font-bold shrink-0 ${isMe ? 'text-primary' : 'text-foreground'}`}>
-                      {(entry.xp || 0).toLocaleString('pt-BR')} XP
-                    </span>
-                  </div>
-                );
-              })}
-
-              {!userInTop5 && userRank > 0 && (
-                <>
-                  <div className="text-center py-1 text-xs text-muted-foreground select-none">• • •</div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/8 border border-primary/20">
-                    <div className="h-9 w-9 rounded-full bg-secondary text-muted-foreground flex items-center justify-center text-sm font-bold shrink-0">{userRank}</div>
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {(progress.user_email?.[0] || '?').toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-primary truncate">
-                        {displayName}<span className="ml-1.5 text-xs opacity-60">(você)</span>
-                      </p>
-                    </div>
-                    <span className="text-sm font-bold text-primary shrink-0">{(progress.xp || 0).toLocaleString('pt-BR')} XP</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-border">
-              <Link to="/leaderboard">
-                <Button variant="outline" className="w-full gap-2 text-sm">
-                  Ver Ranking Completo <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </Card>
-        )}
+        <div className="rounded-xl border border-white/5 bg-white/5 px-5 py-4 text-center">
+          <p className="text-xs text-violet-200">Ranking Geral</p>
+          <p className="mt-1 text-2xl font-black">#{rank || '-'}</p>
+        </div>
       </div>
 
-      {/* ── RIGHT SIDEBAR ──────────────────────────────────────────── */}
-      <div className="space-y-5">
+      <div className="mt-8 flex flex-wrap gap-x-8 gap-y-2 border-t border-white/10 pt-4 text-xs text-violet-200">
+        <span className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> {user?.email}</span>
+        <span className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5" /> Continue estudando todos os dias</span>
+        <span className="flex items-center gap-2 text-amber-300"><Zap className="h-3.5 w-3.5" /> Seu foco te aproxima do topo.</span>
+      </div>
+    </Card>
+  );
+}
 
-        {/* Level Progress */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-base">Nível {level.level}</h3>
-            <div className="flex gap-0.5">
-              {[1, 2, 3, 4].map(s => (
-                <Star key={s} className={`h-4 w-4 ${s <= starCount ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted-foreground/20'}`} />
-              ))}
+function nextLevelText(xpToNext) {
+  return xpToNext > 0 ? `Próximo nível: faltam ${xpToNext.toLocaleString('pt-BR')} XP` : 'Você chegou ao nível máximo.';
+}
+
+function WeeklyLeague({ entries, progress }) {
+  return (
+    <Card className="p-5 xl:col-span-3 xl:row-span-2">
+      <div className="mb-5">
+        <h2 className="flex items-center gap-2 text-base font-black"><Trophy className="h-5 w-5 text-amber-500" /> Liga Semanal</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Dispute XP e alcance o pódio.</p>
+      </div>
+      <div className="space-y-2">
+        {entries.length > 0 ? entries.map((entry, index) => (
+          <LeagueRow key={entry.id || entry.user_email} entry={entry} isMe={entry.user_email === progress.user_email} rank={index + 1} />
+        )) : <p className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">O ranking começa com o próximo estudante.</p>}
+      </div>
+      <Link to="/leaderboard" className="mt-5 flex items-center justify-center gap-2 rounded-lg border border-primary/40 px-3 py-2.5 text-xs font-bold text-primary transition-colors hover:bg-primary/10">
+        Ver ranking completo <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
+    </Card>
+  );
+}
+
+function LeagueRow({ entry, isMe, rank }) {
+  return (
+    <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${isMe ? 'bg-primary/15 ring-1 ring-primary/30' : 'bg-secondary/70'}`}>
+      <span className="w-5 text-center text-sm font-black">{rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}</span>
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-[10px] font-black text-white">{getInitials(entry)}</span>
+      <span className="min-w-0 flex-1 truncate text-xs font-bold">{entry.display_name || entry.user_email?.split('@')[0]}{isMe ? ' (você)' : ''}</span>
+      <span className="whitespace-nowrap text-xs font-black">{(entry.xp || 0).toLocaleString('pt-BR')} XP</span>
+    </div>
+  );
+}
+
+function StreakCard({ streak, weekActivity }) {
+  const rewardDays = streak < 7 ? 7 : Math.ceil((streak + 1) / 7) * 7;
+  return (
+    <Card className="p-5 xl:col-span-9">
+      <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-center">
+        <div>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-black"><Flame className="h-5 w-5 text-orange-500" /> Sequência de Atividade</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Estude todos os dias e mantenha sua sequência!</p>
             </div>
+            <p className="text-right text-2xl font-black text-orange-500">{streak} <span className="text-sm text-foreground">dias</span></p>
           </div>
-
-          <div className="text-center mb-5">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-3xl mx-auto mb-3 shadow-md overflow-hidden">
-              {progress.avatar_url ? (
-                <img src={progress.avatar_url} alt="avatar" className="h-full w-full object-cover" />
-              ) : (
-                avatarEmoji
-              )}
-            </div>
-            <p className="font-bold text-lg text-foreground">{level.name}</p>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {(progress.xp || 0).toLocaleString('pt-BR')} / {nextLevel?.minXP?.toLocaleString('pt-BR') || '∞'} XP
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden">
-              <div className="h-full bg-primary rounded-full transition-all duration-700" style={{ width: `${percent}%` }} />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{Math.round(percent)}% concluído</span>
-              {nextLevel && <span>faltam {xpToNext.toLocaleString('pt-BR')} XP</span>}
-            </div>
-          </div>
-
-          <button
-            onClick={handleOpenEdit}
-            className="mt-4 w-full text-xs text-primary hover:text-primary/80 font-medium flex items-center justify-center gap-1.5 transition-colors py-1.5 border border-primary/20 rounded-lg hover:bg-primary/5"
-          >
-            <Camera className="h-3 w-3" /> Editar perfil
-          </button>
-        </Card>
-
-        {/* Como Ganhar XP */}
-        <Card className="p-6">
-          <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
-            Como Ganhar XP
-          </h3>
-          <div className="space-y-3">
-            {[
-              { icon: CheckCircle2, label: 'Resposta correta',  xp: XP_REWARDS.CORRECT_ANSWER,    color: 'text-emerald-600 bg-emerald-100' },
-              { icon: Sparkles,     label: 'Resumo gerado',     xp: XP_REWARDS.SUMMARY_GENERATED, color: 'text-primary bg-primary/10'      },
-              { icon: FileText,     label: 'Documento enviado', xp: XP_REWARDS.DOCUMENT_UPLOADED, color: 'text-blue-600 bg-blue-100'        },
-              { icon: Flame,        label: 'Login diário',      xp: XP_REWARDS.DAILY_LOGIN,       color: 'text-orange-600 bg-orange-100'   },
-            ].map(item => (
-              <div key={item.label} className="flex items-center gap-3">
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${item.color}`}>
-                  <item.icon className="h-4 w-4" />
+          <div className="mt-4 grid max-w-xl grid-cols-7 gap-3">
+            {weekActivity.map((day, index) => (
+              <div key={day.key} className="text-center">
+                <p className="mb-1 text-[10px] text-muted-foreground">{WEEK_DAYS[index]}</p>
+                <div className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full border text-xs ${day.active ? 'border-orange-500 bg-orange-500/15 text-orange-500' : 'border-border bg-secondary text-muted-foreground'}`}>
+                  {day.active ? <Check className="h-4 w-4" /> : <Lock className="h-3 w-3 opacity-60" />}
                 </div>
-                <span className="text-sm flex-1 text-foreground">{item.label}</span>
-                <span className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-lg whitespace-nowrap">
-                  +{item.xp} XP
-                </span>
               </div>
             ))}
           </div>
-        </Card>
-
-        {/* Mini Ranking */}
-        {top5.length > 0 && (
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-base flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-amber-500" />
-                Rank
-              </h3>
-              {userRank > 0 && <Badge variant="outline" className="text-xs">#{userRank}</Badge>}
-            </div>
-            <div className="space-y-1.5">
-              {top5.map((entry, i) => {
-                const rank = i + 1;
-                const isMe = entry.user_email === progress.user_email;
-                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null;
-                return (
-                  <div key={entry.id} className={`flex items-center gap-2.5 p-2 rounded-lg transition-colors ${isMe ? 'bg-primary/8' : 'hover:bg-secondary/50'}`}>
-                    <span className="text-sm w-5 text-center shrink-0">{medal || <span className="text-xs text-muted-foreground font-medium">{rank}</span>}</span>
-                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {(entry.user_email?.[0] || '?').toUpperCase()}
-                    </div>
-                    <p className={`text-xs flex-1 truncate font-medium ${isMe ? 'text-primary' : 'text-foreground'}`}>
-                      {entry.display_name || entry.user_email?.split('@')[0]}
-                    </p>
-                    <span className={`text-xs font-bold whitespace-nowrap ${isMe ? 'text-primary' : 'text-foreground'}`}>
-                      {(entry.xp || 0).toLocaleString('pt-BR')} XP
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <Link to="/leaderboard" className="block mt-4">
-              <Button variant="ghost" size="sm" className="w-full text-xs gap-1 text-muted-foreground hover:text-foreground">
-                Ver Rank Completo <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          </Card>
-        )}
-
-        {/* Assinatura */}
-        <Card className="p-6">
-          <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
-            <HardDrive className="h-4 w-4 text-primary" />
-            Minha Assinatura
-          </h3>
-
-          <div className="flex items-center justify-between mb-5">
-            <span className="text-sm font-semibold text-foreground">Plano Atual: Básico</span>
-            <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">Grátis</Badge>
-          </div>
-
-          <div className="space-y-4 mb-5">
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground flex items-center gap-1.5"><FileText className="h-3 w-3" /> PDFs enviados</span>
-                <span className="font-semibold text-foreground">{documents.length} / 25</span>
-              </div>
-              <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-primary/70 rounded-full transition-all" style={{ width: `${Math.min((documents.length / 25) * 100, 100)}%` }} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground flex items-center gap-1.5"><Zap className="h-3 w-3" /> Matérias</span>
-                <span className="font-semibold text-foreground">{subjects.length} / 10</span>
-              </div>
-              <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-primary/50 rounded-full transition-all" style={{ width: `${Math.min((subjects.length / 10) * 100, 100)}%` }} />
-              </div>
-            </div>
-          </div>
-
-          <Button className="w-full gap-2 text-sm shadow-sm">
-            <Crown className="h-4 w-4" /> Ver Planos
-          </Button>
-
-          <button className="w-full mt-3 text-xs text-red-400 hover:text-red-600 transition-colors py-1 flex items-center justify-center gap-1">
-            Excluir Conta
-          </button>
-        </Card>
-
+        </div>
+        <div className="flex min-w-48 items-center gap-3 rounded-xl bg-primary/10 p-4">
+          <Gift className="h-10 w-10 text-orange-500" />
+          <div><p className="text-xs text-muted-foreground">Próxima recompensa</p><p className="mt-1 text-sm font-black">{rewardDays} dias</p></div>
+        </div>
       </div>
+    </Card>
+  );
+}
+
+function RecentActivities({ entries }) {
+  return (
+    <Card className="p-5 xl:col-span-6">
+      <h2 className="mb-4 flex items-center gap-2 text-base font-black"><Sparkles className="h-4 w-4 text-primary" /> Atividades Recentes</h2>
+      <div className="space-y-2">
+        {entries.length > 0 ? entries.map((entry, index) => {
+          const { icon: Icon, color } = getActivityStyle(entry.reason);
+          return (
+            <div key={`${entry.date}-${index}`} className="flex items-center gap-3 rounded-xl bg-secondary/70 px-3 py-2">
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full ${color}`}><Icon className="h-4 w-4" /></span>
+              <div className="min-w-0 flex-1"><p className="truncate text-xs font-bold">{entry.reason}</p><p className="text-[11px] text-muted-foreground">{entry.date}</p></div>
+              <span className="rounded-lg bg-emerald-500/10 px-2 py-1 text-xs font-black text-emerald-600 dark:text-emerald-400">+{entry.amount} XP</span>
+            </div>
+          );
+        }) : <p className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">Suas próximas atividades aparecerão aqui.</p>}
+      </div>
+    </Card>
+  );
+}
+
+function XpRules() {
+  const rules = [
+    { icon: CheckCircle2, label: 'Resposta correta', xp: XP_REWARDS.CORRECT_ANSWER, color: 'text-emerald-500' },
+    { icon: Sparkles, label: 'Resumo gerado', xp: XP_REWARDS.SUMMARY_GENERATED, color: 'text-primary' },
+    { icon: FileText, label: 'Documento enviado', xp: XP_REWARDS.DOCUMENT_UPLOADED, color: 'text-blue-500' },
+    { icon: Flame, label: 'Login diário', xp: XP_REWARDS.DAILY_LOGIN, color: 'text-orange-500' },
+  ];
+  return (
+    <Card className="p-5 xl:col-span-3">
+      <h2 className="mb-4 flex items-center gap-2 text-base font-black"><Zap className="h-4 w-4 text-primary" /> Como Ganhar XP</h2>
+      <div className="space-y-3">
+        {rules.map(({ icon: Icon, label, xp, color }) => (
+          <div key={label} className="flex items-center gap-3 text-xs"><Icon className={`h-4 w-4 ${color}`} /><span className="flex-1 font-semibold">{label}</span><Badge variant="secondary">+{xp} XP</Badge></div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function RankingPreview({ entries, progress, rank }) {
+  return (
+    <Card className="p-5 xl:col-span-7">
+      <div className="mb-4 flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><Trophy className="h-4 w-4 text-amber-500" /> Seu Ranking</h2>{rank > 0 && <Badge variant="secondary">Sua posição: #{rank}</Badge>}</div>
+      <div className="space-y-2">
+        {entries.length > 0 ? entries.map((entry, index) => <LeagueRow key={entry.id || entry.user_email} entry={entry} isMe={entry.user_email === progress.user_email} rank={index + 1} />) : <p className="text-sm text-muted-foreground">Continue estudando para inaugurar o ranking.</p>}
+      </div>
+      <Link to="/leaderboard" className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-primary hover:text-primary/80">Ver ranking completo <ArrowRight className="h-3.5 w-3.5" /></Link>
+    </Card>
+  );
+}
+
+function PlanCard({ documents, subjects }) {
+  return (
+    <Card className="p-5 xl:col-span-5">
+      <h2 className="flex items-center gap-2 text-base font-black"><Crown className="h-4 w-4 text-primary" /> Plano Atual</h2>
+      <div className="mt-4 flex items-center gap-2 text-lg font-black">Básico <Badge variant="outline">Grátis</Badge></div>
+      <Usage label="PDFs enviados" value={documents.length} max={25} />
+      <Usage label="Matérias" value={subjects.length} max={10} />
+      <Link to="/pricing"><Button className="mt-5 w-full gap-2"><Crown className="h-4 w-4" /> Ver planos e benefícios</Button></Link>
+    </Card>
+  );
+}
+
+function Usage({ label, value, max }) {
+  return (
+    <div className="mt-4">
+      <div className="mb-1.5 flex justify-between text-xs text-muted-foreground"><span>{label}</span><span>{value} / {max}</span></div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} /></div>
+    </div>
+  );
+}
+
+function EditProfileModal({ avatar, avatarUrl, editName, onAvatarChange, onAvatarUrlChange, onClose, onNameChange, onPhotoUpload, onSave, saving, uploadingPhoto }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <Card className="w-full max-w-sm space-y-5 p-6 shadow-2xl">
+        <div className="flex items-center justify-between"><h3 className="text-lg font-bold">Editar Perfil</h3><button onClick={onClose}><X className="h-5 w-5 text-muted-foreground" /></button></div>
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-secondary text-3xl">{avatarUrl ? <img src={avatarUrl} alt="avatar" className="h-full w-full object-cover" /> : avatar}</div>
+          <label className={`flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-primary/40 px-3 py-2 text-sm text-primary ${uploadingPhoto ? 'pointer-events-none opacity-50' : ''}`}><Camera className="h-4 w-4" /> {uploadingPhoto ? 'Enviando...' : 'Enviar foto'}<input type="file" accept="image/*" className="hidden" onChange={onPhotoUpload} /></label>
+        </div>
+        {avatarUrl ? <button onClick={() => onAvatarUrlChange('')} className="text-xs text-red-500">Remover foto</button> : (
+          <div className="grid grid-cols-6 gap-2">{AVATAR_OPTIONS.map(emoji => <button key={emoji} onClick={() => onAvatarChange(emoji)} className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl ${avatar === emoji ? 'bg-primary/15 ring-2 ring-primary' : 'bg-secondary'}`}>{emoji}</button>)}</div>
+        )}
+        <input value={editName} onChange={event => onNameChange(event.target.value)} maxLength={30} placeholder="Como quer ser chamado?" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/50" />
+        <div className="flex gap-2"><Button variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button><Button className="flex-1" disabled={saving || !editName.trim()} onClick={onSave}>{saving ? 'Salvando...' : 'Salvar'}</Button></div>
+      </Card>
     </div>
   );
 }
