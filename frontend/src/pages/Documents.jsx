@@ -117,8 +117,10 @@ export default function Documents() {
         <EmptyState
           icon={FileText}
           title="Nenhum documento"
-          description="Envie seu primeiro PDF para começar"
-          actionLabel="Enviar PDF"
+          description={subjects.length === 0
+            ? 'Para fazer seu primeiro upload, crie uma matéria. Assim seus PDFs ficam organizados no lugar certo.'
+            : 'Envie seu primeiro PDF para começar'}
+          actionLabel={subjects.length === 0 ? 'Criar matéria' : 'Enviar PDF'}
           onAction={openUpload}
         />
       ) : filtered.length === 0 ? (
