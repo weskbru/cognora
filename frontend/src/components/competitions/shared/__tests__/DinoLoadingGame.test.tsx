@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import DinoLoadingGame from '../DinoLoadingGame';
+import DinoLoadingGame, { selectObstacleWave } from '../DinoLoadingGame';
 
 const frameCallbacks: FrameRequestCallback[] = [];
 
@@ -46,5 +46,29 @@ describe('DinoLoadingGame', () => {
     runNextFrame(32);
 
     expect(dino.style.transform).toMatch(/translate3d\(0, -[1-9]/);
+  });
+
+  it('changes the dino posture while the duck control is pressed', () => {
+    render(<DinoLoadingGame />);
+    const dino = screen.getByTestId('dino');
+    const duckControl = screen.getByRole('button', { name: 'Agachar dinossauro' });
+
+    fireEvent.pointerDown(duckControl);
+    expect(dino).toHaveAttribute('data-ducking', 'true');
+
+    fireEvent.pointerUp(duckControl);
+    expect(dino).toHaveAttribute('data-ducking', 'false');
+  });
+});
+
+describe('selectObstacleWave', () => {
+  it('adds pterodactyls after the first points', () => {
+    expect(selectObstacleWave(2, () => 0.1)).toEqual([{ kind: 'pterodactyl' }]);
+  });
+
+  it('increases cactus quantity as the score grows', () => {
+    expect(selectObstacleWave(0, () => 0.95)).toHaveLength(1);
+    expect(selectObstacleWave(3, () => 0.95)).toHaveLength(2);
+    expect(selectObstacleWave(6, () => 0.95)).toHaveLength(3);
   });
 });

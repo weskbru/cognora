@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 // Loader2 é usado no botão de submit
 import { setToken } from '@/lib/tokenStorage';
+import { rememberGenerationLimitAfterLogin } from '@/lib/postLoginNotice';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
@@ -150,6 +151,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) { setError(data.detail || 'Erro ao autenticar com Google'); return; }
       setToken(data.access_token, remember);
+      rememberGenerationLimitAfterLogin(data.generations_remaining);
       if (data.is_new_user) {
         setSuccessMsg('Conta criada com sucesso! Redirecionando...');
         setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
@@ -252,6 +254,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) { setError(data.detail || 'Erro ao processar solicitação'); return; }
       setToken(data.access_token, remember);
+      rememberGenerationLimitAfterLogin(data.generations_remaining);
       window.location.href = '/dashboard';
     } catch {
       setError('Não foi possível conectar ao servidor.');
