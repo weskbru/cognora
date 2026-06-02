@@ -25,11 +25,11 @@ const MODE_CONFIG = {
     description: '2 jogadores, 5 ou 10 questões. Quem acertar mais, vence!',
     meta: '2 jogadores',
     duration: '~3 min',
-    accent: 'violet',
-    card: 'border-violet-300 bg-card hover:border-violet-500 dark:border-violet-500/40',
-    iconBox: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
-    button: 'bg-violet-600 hover:bg-violet-500',
-    progress: 'from-violet-500 to-fuchsia-500',
+    accent: 'ring',
+    card: 'border-ring/40 bg-card hover:border-ring/80',
+    iconBox: 'bg-ring/15 text-ring',
+    button: 'bg-ring hover:bg-ring/80',
+    progress: 'from-ring to-ring/60',
   },
   time_attack: {
     label: 'Contra o Tempo',
@@ -142,7 +142,7 @@ export default function Competitions() {
               <Trophy className="h-8 w-8 fill-amber-300/30" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-violet-300">Arena competitiva</p>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-ring">Arena competitiva</p>
               <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">Competições</h1>
               <p className="mt-1 text-sm text-muted-foreground">Desafie outros estudantes e teste seu conhecimento.</p>
             </div>
@@ -151,19 +151,19 @@ export default function Competitions() {
             <Button
               variant="outline"
               onClick={() => handleJoinOpen()}
-              className="gap-2 border-violet-400 bg-transparent text-violet-700 hover:bg-violet-500/10 hover:text-violet-800 dark:text-violet-200 dark:hover:text-white"
+              className="gap-2 border-ring/60 bg-transparent text-ring hover:bg-ring/10 hover:text-ring"
             >
               <Zap className="h-4 w-4" /> Entrar com código
             </Button>
-            <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-violet-600 text-white hover:bg-violet-500">
+            <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-ring text-white hover:bg-ring/80">
               <Plus className="h-4 w-4" /> Nova competição
             </Button>
           </div>
         </header>
 
-        <section className="relative overflow-hidden rounded-2xl border border-violet-500/35 bg-gradient-to-r from-violet-950/80 via-[#10102b] to-indigo-950/80 p-5 shadow-lg shadow-violet-950/30">
-          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-600/25 blur-3xl" />
-          <div className="absolute bottom-0 right-5 text-violet-300/10">
+        <section className="relative overflow-hidden rounded-2xl border border-ring/40 bg-gradient-to-r from-slate-950 via-slate-950 to-ring/50 p-5 shadow-lg shadow-ring/20">
+          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-ring/25 blur-3xl" />
+          <div className="absolute bottom-0 right-5 text-ring/10">
             <Trophy className="h-36 w-36" />
           </div>
           <div className="relative grid gap-5 sm:grid-cols-3">
@@ -288,7 +288,7 @@ export default function Competitions() {
 
 function ArenaStat({ icon: Icon, iconClass, label, value, detail, last = false }) {
   return (
-    <div className={`min-w-0 ${last ? '' : 'sm:border-r sm:border-violet-300/15 sm:pr-5'}`}>
+    <div className={`min-w-0 ${last ? '' : 'sm:border-r sm:border-ring/20 sm:pr-5'}`}>
       <p className="flex items-center gap-2 text-xs font-semibold text-slate-400">
         <Icon className={`h-4 w-4 ${iconClass}`} /> {label}
       </p>
@@ -307,7 +307,7 @@ function SectionTitle({ icon: Icon, title, action, actionPath }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
       <h2 className="flex items-center gap-2 text-lg font-black text-foreground">
-        <Icon className="h-5 w-5 text-violet-300" /> {title}
+        <Icon className="h-5 w-5 text-ring" /> {title}
       </h2>
       {actionPath ? <Link to={actionPath}>{content}</Link> : content}
     </div>
@@ -352,9 +352,9 @@ function LiveCompetitionCard({ competition }) {
   const completed = Math.max(...participants.map(p => (p.correct || 0) + (p.wrong || 0)), 0);
 
   return (
-    <Link to={`/competitions/${competition.id}`} className="rounded-2xl border border-border bg-card p-4 transition-all hover:border-violet-400/60 hover:bg-secondary">
+    <Link to={`/competitions/${competition.id}`} className="rounded-2xl border border-border bg-card p-4 transition-all hover:border-ring/60 hover:bg-secondary">
       <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-bold text-violet-300"><cfg.icon className="h-3.5 w-3.5" /> {cfg.shortLabel}</p>
+        <p className="flex items-center gap-1.5 text-xs font-bold text-ring"><cfg.icon className="h-3.5 w-3.5" /> {cfg.shortLabel}</p>
         <Badge className="border border-red-500/30 bg-red-500/20 text-[10px] font-black uppercase text-red-200 hover:bg-red-500/20">Ao vivo</Badge>
       </div>
       <div className="mt-4 flex items-center justify-between gap-3">
@@ -376,7 +376,7 @@ function PlayerMini({ participant, fallback = '—' }) {
   const name = participant ? getName(participant) : 'Aguardando';
   return (
     <div className="min-w-0 text-center">
-      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-violet-400/60 bg-violet-600 text-sm font-black text-white">
+      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-ring/60 bg-ring text-sm font-black text-white">
         {participant ? getInitials(name) : fallback}
       </div>
       <p className="mt-1 max-w-20 truncate text-xs font-bold text-foreground">{name}</p>
@@ -392,15 +392,15 @@ function LeagueRow({ entry, rank, isCurrentUser, topXP }) {
   return (
     <div className={`flex items-center gap-3 border-b border-border px-4 py-3 last:border-0 ${isCurrentUser ? 'bg-primary/10' : ''}`}>
       <div className="w-7 text-center text-sm font-black text-muted-foreground">{rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}</div>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-600 text-xs font-black text-white">{getInitials(name)}</div>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ring text-xs font-black text-white">{getInitials(name)}</div>
       <div className="min-w-0 flex-1">
         <div className="mb-1.5 flex items-center gap-2">
           <p className="truncate text-sm font-bold text-foreground">{name}</p>
-          {isCurrentUser && <span className="rounded-full bg-violet-500/25 px-2 py-0.5 text-[9px] font-black uppercase text-violet-200">Você</span>}
+          {isCurrentUser && <span className="rounded-full bg-ring/20 px-2 py-0.5 text-[9px] font-black uppercase text-ring">Você</span>}
           <span className="hidden text-[11px] text-muted-foreground sm:inline">Nv. {level.level}</span>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-secondary">
-          <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400" style={{ width: `${width}%` }} />
+          <div className="h-full rounded-full bg-ring" style={{ width: `${width}%` }} />
         </div>
       </div>
       <p className="shrink-0 text-sm font-black text-amber-300">{(entry.xp || 0).toLocaleString('pt-BR')} XP</p>
@@ -446,13 +446,13 @@ function CompetitionRow({ competition: c, userEmail, onJoin }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Link to={`/competitions/${c.id}`} onClick={handleClick} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-all hover:border-violet-500/60 hover:bg-secondary">
+      <Link to={`/competitions/${c.id}`} onClick={handleClick} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-all hover:border-ring/60 hover:bg-secondary">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${cfg.iconBox}`}><cfg.icon className="h-5 w-5" /></div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-bold text-foreground">{c.title || cfg.label}</p>
             <Badge className={`border text-[10px] uppercase ${status.cls}`}>{status.label}</Badge>
-            {isHost && <Badge className="border border-violet-400/20 bg-violet-500/10 text-[10px] text-violet-200">HOST</Badge>}
+            {isHost && <Badge className="border border-ring/20 bg-ring/10 text-[10px] text-ring">HOST</Badge>}
           </div>
           <p className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {c.participants?.length || 0}</span>
@@ -499,10 +499,10 @@ function RecentCompetitionCard({ competition, userEmail }) {
 
 function EmptyArena({ text, action, onAction }) {
   return (
-    <div className="rounded-2xl border border-dashed border-violet-500/25 bg-card px-5 py-8 text-center">
-      <Swords className="mx-auto mb-3 h-8 w-8 text-violet-300/50" />
+    <div className="rounded-2xl border border-dashed border-ring/30 bg-card px-5 py-8 text-center">
+      <Swords className="mx-auto mb-3 h-8 w-8 text-ring/50" />
       <p className="text-sm text-muted-foreground">{text}</p>
-      {action && <Button onClick={onAction} className="mt-4 bg-violet-600 text-white hover:bg-violet-500">{action}</Button>}
+      {action && <Button onClick={onAction} className="mt-4 bg-ring text-white hover:bg-ring/80">{action}</Button>}
     </div>
   );
 }

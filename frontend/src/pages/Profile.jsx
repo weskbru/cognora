@@ -183,40 +183,40 @@ export default function Profile() {
 function HeroCard({ avatarEmoji, level, onEdit, percent, progress, rank, user, xp, xpToNext }) {
   const levelLimit = level.maxXP ?? xp;
   return (
-    <Card className="relative overflow-hidden border-violet-500/30 bg-gradient-to-br from-violet-950 via-[#10112d] to-indigo-950 p-6 text-white shadow-lg shadow-violet-950/20 xl:col-span-9">
+    <Card className="relative overflow-hidden border-ring/40 bg-gradient-to-br from-slate-950 via-slate-950 to-ring/50 p-6 text-white shadow-lg shadow-ring/20 xl:col-span-9">
       <div className="absolute -right-12 top-4 text-8xl opacity-20">🪐</div>
       <div className="flex flex-col gap-6 md:flex-row md:items-center">
         <button onClick={onEdit} className="group relative mx-auto shrink-0 md:mx-0" title="Editar perfil">
-          <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-violet-400/70 bg-violet-900/80 text-6xl shadow-lg shadow-violet-900/60">
+          <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-ring/70 bg-ring/50 text-6xl shadow-lg shadow-ring/30">
             {progress.avatar_url ? <img src={progress.avatar_url} alt="avatar" className="h-full w-full object-cover" /> : avatarEmoji}
           </div>
-          <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border border-violet-400/60 bg-[#111329] text-violet-200 transition-colors group-hover:bg-violet-700">
+          <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border border-ring/60 bg-slate-950 text-white transition-colors group-hover:bg-ring/70">
             <Pencil className="h-3.5 w-3.5" />
           </span>
-          <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 rounded-b-xl bg-violet-600 px-3 py-1 text-center text-[10px] font-black uppercase tracking-wide">
+          <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 rounded-b-xl bg-ring px-3 py-1 text-center text-[10px] font-black uppercase tracking-wide">
             Nível <strong className="block text-xl leading-5">{level.level}</strong>
           </span>
         </button>
 
         <div className="min-w-0 flex-1 pt-6 md:pt-0">
           <h2 className="text-2xl font-black">{avatarEmoji} {level.name}</h2>
-          <p className="mt-3 text-sm text-violet-200">Nível {level.level}</p>
+          <p className="mt-3 text-sm text-white/75">Nível {level.level}</p>
           <div className="mt-2 flex items-center gap-3">
             <div className="h-3 flex-1 overflow-hidden rounded-full bg-white/15">
-              <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-400" style={{ width: `${percent}%` }} />
+              <div className="h-full rounded-full bg-ring" style={{ width: `${percent}%` }} />
             </div>
             <span className="text-xs font-bold">{xp.toLocaleString('pt-BR')} / {levelLimit === Infinity ? '∞' : levelLimit.toLocaleString('pt-BR')} XP</span>
           </div>
-          <p className="mt-2 text-sm text-violet-200">{nextLevelText(xpToNext)}</p>
+          <p className="mt-2 text-sm text-white/75">{nextLevelText(xpToNext)}</p>
         </div>
 
         <div className="rounded-xl border border-white/5 bg-white/5 px-5 py-4 text-center">
-          <p className="text-xs text-violet-200">Ranking Geral</p>
+          <p className="text-xs text-white/75">Ranking Geral</p>
           <p className="mt-1 text-2xl font-black">#{rank || '-'}</p>
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap gap-x-8 gap-y-2 border-t border-white/10 pt-4 text-xs text-violet-200">
+      <div className="mt-8 flex flex-wrap gap-x-8 gap-y-2 border-t border-white/10 pt-4 text-xs text-white/75">
         <span className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> {user?.email}</span>
         <span className="flex items-center gap-2"><CalendarDays className="h-3.5 w-3.5" /> Continue estudando todos os dias</span>
         <span className="flex items-center gap-2 text-amber-300"><Zap className="h-3.5 w-3.5" /> Seu foco te aproxima do topo.</span>
@@ -252,7 +252,7 @@ function LeagueRow({ entry, isMe, rank }) {
   return (
     <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${isMe ? 'bg-primary/15 ring-1 ring-primary/30' : 'bg-secondary/70'}`}>
       <span className="w-5 text-center text-sm font-black">{rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}</span>
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-[10px] font-black text-white">{getInitials(entry)}</span>
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ring text-[10px] font-black text-white">{getInitials(entry)}</span>
       <span className="min-w-0 flex-1 truncate text-xs font-bold">{entry.display_name || entry.user_email?.split('@')[0]}{isMe ? ' (você)' : ''}</span>
       <span className="whitespace-nowrap text-xs font-black">{(entry.xp || 0).toLocaleString('pt-BR')} XP</span>
     </div>
