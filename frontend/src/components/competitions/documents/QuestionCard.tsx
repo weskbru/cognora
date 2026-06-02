@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronDown, ChevronUp, Star } from 'lucide-react';
 
 type QuestionType = 'multiple_choice' | 'true_false' | 'essay';
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -47,8 +47,10 @@ const difficultyConfig: Record<Difficulty, { label: string; className: string }>
   hard: { label: 'Difícil', className: 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300' },
 };
 
-const CORRECT_STATE = 'border-emerald-500 bg-emerald-50 text-emerald-950 dark:border-emerald-500/70 dark:bg-emerald-950/50 dark:text-emerald-100';
-const WRONG_STATE = 'border-red-500 bg-red-50 text-red-950 dark:border-red-500/70 dark:bg-red-950/50 dark:text-red-100';
+const IDLE_STATE = 'border-border hover:border-primary/50 cursor-pointer dark:border-slate-700 dark:bg-slate-950/45 dark:text-slate-200 dark:hover:border-primary/70';
+const CORRECT_STATE = 'border-emerald-500 bg-emerald-50 text-emerald-950 dark:border-emerald-400 dark:bg-emerald-950/55 dark:text-emerald-100 dark:shadow-[0_0_24px_rgba(16,185,129,0.2)]';
+const WRONG_STATE = 'border-red-500 bg-red-50 text-red-950 dark:border-red-400/80 dark:bg-red-950/50 dark:text-red-100';
+const DIMMED_STATE = 'border-border opacity-60 dark:border-slate-800 dark:bg-slate-950/25 dark:text-slate-400';
 
 export default function QuestionCard({ question, index, onAnswer }: QuestionCardProps): ReactElement {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -56,6 +58,8 @@ export default function QuestionCard({ question, index, onAnswer }: QuestionCard
   const diff = question.difficulty ? difficultyConfig[question.difficulty] : difficultyConfig.medium;
   const { addXPForCorrectAnswer, addXPForWrongAnswer } = useRewardsContext() as RewardsContextValue;
   const { user } = useAuth();
+  const selectedAlternative = selectedAnswer === null ? undefined : question.alternatives?.[selectedAnswer];
+  const answeredCorrectly = selectedAlternative?.correct === true;
 
   const handleSelect = (altIndex: number): void => {
     if (selectedAnswer !== null) return;
@@ -74,16 +78,27 @@ export default function QuestionCard({ question, index, onAnswer }: QuestionCard
   };
 
   return (
-    <Card className="p-5">
+    <Card className="p-5 dark:border-slate-800 dark:bg-slate-950/45 dark:shadow-none">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-muted-foreground">Q{index + 1}</span>
           <Badge variant="outline" className="text-xs">{typeLabels[question.type]}</Badge>
           <Badge variant="secondary" className={diff.className}>{diff.label}</Badge>
         </div>
+        {selectedAnswer !== null && (
+          <Badge
+            variant="outline"
+            className={answeredCorrectly
+              ? 'gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
+              : 'gap-1 border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300'}
+          >
+            {answeredCorrectly ? <Star className="h-3.5 w-3.5 fill-current" /> : <XCircle className="h-3.5 w-3.5" />}
+            {answeredCorrectly ? 'Correto!' : 'Revise'}
+          </Badge>
+        )}
       </div>
 
-      <p className="font-medium text-foreground mb-4 leading-relaxed">{question.statement}</p>
+      <p className="font-medium text-foreground mb-5 text-base leading-relaxed dark:text-slate-100">{question.statement}</p>
 
       {question.type === 'multiple_choice' && question.alternatives && (
         <div className="space-y-2 mb-4">
@@ -92,10 +107,10 @@ export default function QuestionCard({ question, index, onAnswer }: QuestionCard
             const isCorrect = alt.correct;
             const showResult = selectedAnswer !== null;
 
-            let borderClass = 'border-border hover:border-primary/50 cursor-pointer';
+            let borderClass = IDLE_STATE;
             if (showResult && isCorrect) borderClass = CORRECT_STATE;
             else if (showResult && isSelected && !isCorrect) borderClass = WRONG_STATE;
-            else if (showResult) borderClass = 'border-border opacity-60';
+            else if (showResult) borderClass = DIMMED_STATE;
 
             return (
               <div
@@ -126,18 +141,20 @@ export default function QuestionCard({ question, index, onAnswer }: QuestionCard
             const isCorrect = alt.correct;
             const showResult = selectedAnswer !== null;
 
-            let cls = 'border-border hover:border-primary/50 cursor-pointer';
+            let cls = IDLE_STATE;
             if (showResult && isCorrect) cls = CORRECT_STATE;
             else if (showResult && isSelected && !isCorrect) cls = WRONG_STATE;
-            else if (showResult) cls = 'border-border opacity-60';
+            else if (showResult) cls = DIMMED_STATE;
 
             return (
               <div
                 key={i}
                 onClick={() => handleSelect(i)}
-                className={`flex-1 text-center p-3 rounded-lg border transition-all ${cls}`}
+                className={`relative flex flex-1 items-center justify-center gap-2 rounded-lg border p-3 text-center transition-all ${cls}`}
               >
                 <span className="text-sm font-medium">{alt.text}</span>
+                {showResult && isCorrect && <CheckCircle2 className="absolute right-3 h-5 w-5 text-emerald-400" />}
+                {showResult && isSelected && !isCorrect && <XCircle className="absolute right-3 h-5 w-5 text-red-400" />}
               </div>
             );
           })}

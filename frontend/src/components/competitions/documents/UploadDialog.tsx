@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
+import DinoLoadingGame from '@/components/shared/DinoLoadingGame';
 
 interface Subject {
   id: string;
@@ -117,7 +118,15 @@ export default function UploadDialog({
         <TypedDialogHeader>
           <TypedDialogTitle>Enviar PDF</TypedDialogTitle>
         </TypedDialogHeader>
-        {loadingSubjects && !preSelectedSubjectId ? (
+        {uploading ? (
+          <div className="flex flex-col items-center gap-4 py-3 text-center">
+            <DinoLoadingGame compact />
+            <div>
+              <p className="text-sm text-foreground">Enviando PDF...</p>
+              <p className="mt-1 text-xs text-muted-foreground">Aproveite a espera para marcar alguns pontos.</p>
+            </div>
+          </div>
+        ) : loadingSubjects && !preSelectedSubjectId ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando matérias...
           </div>
@@ -184,7 +193,7 @@ export default function UploadDialog({
               onClick={handleUpload}
               disabled={!file || !subjectId || !name.trim() || uploading}
             >
-              {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</> : 'Enviar'}
+              Enviar
             </Button>
           </div>
         </div>
