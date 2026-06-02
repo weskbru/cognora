@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail, Lock, Loader2, Brain, Zap, Trophy,
-  ArrowRight, User, Sparkles, AtSign, CheckCircle2, Eye, EyeOff,
+  ArrowRight, User, Sparkles, AtSign, CheckCircle2, Eye, EyeOff, X, Heart,
 } from 'lucide-react';
 // Loader2 é usado no botão de submit
 import { setToken } from '@/lib/tokenStorage';
@@ -99,6 +99,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [showSupportModal, setShowSupportModal] = useState(false);
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const googleInitializedRef = useRef(false);
   const googleCallbackRef = useRef<({ credential }: { credential: string }) => void>(() => {});
@@ -192,19 +193,7 @@ export default function Login() {
     setSuccessMsg('');
 
     if (mode === 'forgot') {
-      setLoading(true);
-      try {
-        await fetch(`${API_URL}/api/auth/forgot-password`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        });
-        setSuccessMsg('Se o email existir, você receberá um link em instantes. Verifique sua caixa de entrada.');
-      } catch {
-        setError('Não foi possível conectar ao servidor.');
-      } finally {
-        setLoading(false);
-      }
+      setShowSupportModal(true);
       return;
     }
 
@@ -434,6 +423,68 @@ export default function Login() {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showSupportModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowSupportModal(false)}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="support-modal-title"
+              className="relative w-full max-w-md rounded-2xl border border-indigo-400/30 bg-slate-900 p-7 shadow-2xl shadow-indigo-950/60"
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 16 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={() => setShowSupportModal(false)}
+                className="absolute right-4 top-4 text-slate-500 transition-colors hover:text-slate-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-indigo-400/30 bg-indigo-500/15">
+                <Heart className="h-6 w-6 text-indigo-300" />
+              </div>
+              <h2 id="support-modal-title" className="mb-3 text-2xl font-extrabold text-white">
+                Plot twist: faltou o domínio.
+              </h2>
+              <p className="mb-3 text-sm leading-relaxed text-slate-300">
+                O Cognora é um projeto solo, criado com código, teimosia e um orçamento no plano Free.
+                Para enviar emails de recuperação com segurança, ainda preciso contratar um domínio próprio.
+              </p>
+              <p className="mb-6 text-sm leading-relaxed text-slate-400">
+                Quer ajudar este botão a deixar de ser decorativo? Assine um plano e financie oficialmente
+                o domínio mais aguardado desta tela.
+              </p>
+
+              <a
+                href="/#pricing"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+              >
+                <Sparkles className="h-4 w-4" />
+                Ver planos e salvar o domínio
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowSupportModal(false)}
+                className="mt-3 w-full py-2 text-sm text-slate-500 transition-colors hover:text-slate-300"
+              >
+                Tudo bem, vou tentar lembrar minha senha
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
