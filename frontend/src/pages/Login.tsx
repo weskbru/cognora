@@ -478,7 +478,7 @@ export default function Login() {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
               >
                 <Sparkles className="h-4 w-4" />
-                Ver planos e financiar o domínio mais aguardado do Cognora
+                Ver planos
               </a>
               <button
                 type="button"
