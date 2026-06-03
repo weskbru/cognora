@@ -449,7 +449,7 @@ function Hero({ t }: { t: T }) {
               </Button>
             </Link>
             <a href="#features" onClick={scrollTo('features')}>
-              <Button size="lg" variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 font-medium rounded-xl px-7 py-6 text-base">
+              <Button size="lg" variant="outline" className="border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-700 font-medium rounded-xl px-7 py-6 text-base">
                 {t.hero.ctaSecondary} <ChevronDown className="h-4 w-4 ml-1" />
               </Button>
             </a>

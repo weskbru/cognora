@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail, Lock, Loader2, Brain, Zap, Trophy,
-  ArrowRight, User, Sparkles, AtSign, CheckCircle2, Eye, EyeOff, X, Heart,
+  ArrowLeft, ArrowRight, User, Sparkles, AtSign, CheckCircle2, Eye, EyeOff, X, Heart,
 } from 'lucide-react';
 // Loader2 é usado no botão de submit
 import { setToken } from '@/lib/tokenStorage';
@@ -64,38 +65,105 @@ function ShowcasePanel() {
   }, []);
 
   return (
-    <div className="relative hidden lg:flex flex-col p-10 bg-indigo-950/80 backdrop-blur-sm overflow-hidden h-full">
-      <div className="absolute -top-24 -left-24 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="relative flex items-center gap-3 mb-7">
-        <div className="h-12 w-12 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center">
-          <Brain className="h-6 w-6 text-indigo-400" />
+    <div className="relative hidden min-h-[590px] overflow-hidden border-r border-indigo-300/20 bg-[#110b31]/90 p-10 lg:flex flex-col">
+      <div
+        className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(circle, rgba(167,139,250,0.45) 1px, transparent 1px)', backgroundSize: '22px 22px' }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'linear-gradient(135deg, rgba(124,58,237,0.18), transparent 42%), radial-gradient(ellipse at 55% 78%, rgba(79,70,229,0.35), transparent 58%)',
+        }}
+      />
+      <Link to="/" className="relative flex items-center gap-3 w-fit">
+        <div className="h-10 w-10 rounded-xl bg-violet-500/15 border border-violet-400/45 flex items-center justify-center shadow-lg shadow-violet-950/40">
+          <Brain className="h-5 w-5 text-violet-300" />
         </div>
-        <span className="text-2xl font-extrabold text-white tracking-tight">Cognora</span>
+        <span className="text-lg font-extrabold text-white tracking-tight">Cognora</span>
+      </Link>
+      <div className="relative mt-9 max-w-md">
+        <h2 className="text-3xl font-extrabold leading-tight tracking-tight text-white">
+          Transforme seus PDFs
+          <br />
+          em <span className="text-violet-400">missões épicas.</span>
+        </h2>
       </div>
-      <p className="relative text-indigo-200/80 text-base leading-relaxed mb-8">
-        Transforme seus PDFs em missões épicas. Gere resumos com IA,
+      <p className="relative mt-4 max-w-sm text-sm leading-6 text-slate-300">
+        Gere resumos com IA,
         responda quizzes e suba no ranking contra seus amigos.
       </p>
-      <div className="w-full bg-white/5 border border-white/10 rounded-xl p-4 mb-4 backdrop-blur-sm -translate-x-2">
-        <div className="flex items-center justify-between mb-2">
+      <motion.div
+        className="relative mt-8 w-full max-w-[330px] rounded-xl border border-indigo-300/20 bg-slate-950/35 p-4 shadow-xl shadow-violet-950/30 backdrop-blur"
+        initial={{ opacity: 0, y: 18, rotate: -1.5 }}
+        animate={{ opacity: 1, y: [0, -8, 0], rotate: [-1.5, -0.5, -1.5] }}
+        transition={{
+          opacity: { duration: 0.45, delay: 0.15 },
+          y: { duration: 5.8, repeat: Infinity, ease: 'easeInOut' },
+          rotate: { duration: 5.8, repeat: Infinity, ease: 'easeInOut' },
+        }}
+      >
+        <motion.div
+          className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-violet-300/70 to-transparent"
+          animate={{ opacity: [0.25, 1, 0.25], x: [-34, 34, -34] }}
+          transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Zap className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-emerald-400 text-xs font-semibold uppercase tracking-widest">IA Ativada</span>
+            <motion.div
+              animate={{ scale: [1, 1.18, 1], rotate: [0, -8, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Zap className="h-3.5 w-3.5 text-violet-400" />
+            </motion.div>
+            <span className="text-violet-400 text-xs font-bold uppercase tracking-widest">IA Ativada</span>
           </div>
-          <span className="text-slate-500 text-xs">Há 2 min</span>
+          <motion.span
+            className="text-slate-500 text-xs"
+            animate={{ opacity: [0.55, 1, 0.55] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            Há 2 min
+          </motion.span>
         </div>
-        <p className="text-slate-200 text-sm font-medium leading-snug">
+        <motion.p
+          className="text-sm font-semibold leading-snug text-white"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.35 }}
+        >
           "Capítulo 4: Fisiologia Humana" resumido em 3 tópicos e 5 flashcards gerados.
-        </p>
-        <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
-          <span>📄 45 págs</span><span>→</span><span>⏱ 5 min de leitura</span>
-        </div>
-      </div>
-      <div className="w-full bg-white/5 border border-white/10 rounded-xl p-4 backdrop-blur-sm translate-x-5">
+        </motion.p>
+        <motion.div
+          className="flex items-center gap-3 mt-4 text-xs text-slate-400"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, delay: 0.55 }}
+        >
+          <motion.span animate={{ y: [0, -2, 0] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}>📄 45 págs</motion.span>
+          <motion.span animate={{ x: [0, 5, 0], opacity: [0.45, 1, 0.45] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>→</motion.span>
+          <motion.span animate={{ y: [0, -2, 0] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay: 0.25 }}>⏱ 5 min de leitura</motion.span>
+        </motion.div>
+      </motion.div>
+      <motion.div
+        className="relative mt-5 w-full max-w-[330px] rounded-xl border border-indigo-300/20 bg-slate-950/35 p-4 shadow-xl shadow-violet-950/20 backdrop-blur"
+        initial={{ opacity: 0, y: 16, rotate: 1.2 }}
+        animate={{ opacity: 1, y: [0, 7, 0], rotate: [1.2, 0.4, 1.2] }}
+        transition={{
+          opacity: { duration: 0.45, delay: 0.35 },
+          y: { duration: 6.4, repeat: Infinity, ease: 'easeInOut' },
+          rotate: { duration: 6.4, repeat: Infinity, ease: 'easeInOut' },
+        }}
+      >
         <div className="flex items-center gap-2 mb-3">
-          <Trophy className="h-4 w-4 text-amber-400" />
-          <span className="text-slate-200 text-sm font-semibold">Ranking da Semana</span>
+          <motion.div
+            animate={{ y: [0, -3, 0], scale: [1, 1.08, 1] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <Trophy className="h-4 w-4 text-violet-400" />
+          </motion.div>
+          <span className="text-white text-sm font-semibold">Ranking da Semana</span>
         </div>
         <div className="space-y-2.5">
           {rankingLoading ? (
@@ -121,13 +189,33 @@ function ShowcasePanel() {
               );
             })
           ) : (
-            <p className="text-xs text-slate-500">O ranking começa com o próximo estudante.</p>
+            <motion.p
+              className="text-xs text-slate-500"
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              O ranking começa com o próximo estudante.
+            </motion.p>
           )}
         </div>
-      </div>
-      <div className="relative mt-auto pt-8">
-        <p className="text-slate-400 text-sm">
-          Junte-se a <span className="text-white font-bold">12.400+</span> estudantes evoluindo agora.
+      </motion.div>
+      <div className="relative mt-auto flex items-center gap-4 pt-10">
+        <div className="flex -space-x-2">
+          {['L', 'A', 'P', 'W'].map((initial, index) => (
+            <div
+              key={`${initial}-${index}`}
+              className="h-9 w-9 rounded-full border-2 border-[#110b31] bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-xs font-bold text-white"
+            >
+              {initial}
+            </div>
+          ))}
+        </div>
+        <p className="text-sm leading-tight text-slate-400">
+          Junte-se a
+          <br />
+          <span className="text-lg font-extrabold text-violet-400">12.400+</span>
+          <br />
+          estudantes evoluindo agora.
         </p>
       </div>
     </div>
@@ -277,11 +365,11 @@ export default function Login() {
     }
   };
 
-  const inputCls = 'w-full pl-10 pr-4 py-3 text-sm bg-slate-800 border border-slate-700 text-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 placeholder:text-slate-500 transition-colors';
-  const passwordInputCls = 'w-full pl-10 pr-10 py-3 text-sm bg-slate-800 border border-slate-700 text-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 placeholder:text-slate-500 transition-colors';
+  const inputCls = 'w-full pl-10 pr-4 py-3 text-sm bg-slate-950/40 border border-slate-700/80 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 placeholder:text-slate-500 transition-colors';
+  const passwordInputCls = 'w-full pl-10 pr-10 py-3 text-sm bg-slate-950/40 border border-slate-700/80 text-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 placeholder:text-slate-500 transition-colors';
 
   const FormPanel = (
-    <div className="flex flex-col justify-center p-8 lg:p-10 bg-slate-900/90 backdrop-blur-sm h-full">
+    <div className="relative flex min-h-[590px] flex-col justify-center bg-slate-950/90 p-8 backdrop-blur-sm lg:p-12">
       <AnimatePresence mode="wait">
         <motion.div
           key={mode}
@@ -292,8 +380,8 @@ export default function Login() {
         >
           {/* Título */}
           <div className="mb-7">
-            <div className="h-14 w-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mb-5">
-              <Brain className="h-7 w-7 text-indigo-400" />
+            <div className="h-12 w-12 rounded-xl bg-violet-500/15 border border-violet-400/40 flex items-center justify-center mb-6 shadow-lg shadow-violet-950/40">
+              <Brain className="h-6 w-6 text-violet-300" />
             </div>
             <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">
               {mode === 'login' && 'Bem-vindo de volta!'}
@@ -407,7 +495,7 @@ export default function Login() {
             )}
 
             <button type="submit" disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-3 rounded-xl transition-colors disabled:opacity-60">
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold py-3 rounded-xl transition-colors shadow-lg shadow-violet-950/40 disabled:opacity-60">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === 'login' ? (
                 <>Entrar na Arena <ArrowRight className="h-4 w-4" /></>
               ) : mode === 'register' ? (
@@ -456,17 +544,27 @@ export default function Login() {
   );
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center bg-slate-950 px-4 py-8"
-      style={{
-        backgroundImage: `
-          linear-gradient(rgba(99,102,241,0.07) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(99,102,241,0.07) 1px, transparent 1px)
-        `,
-        backgroundSize: '40px 40px',
-      }}
-    >
-      <div className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#040817] px-4 py-8">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse at 50% 100%, rgba(79,70,229,0.32), transparent 60%), linear-gradient(180deg, rgba(15,23,42,0.2), rgba(2,6,23,0.85))',
+        }}
+      />
+      <div
+        className="absolute inset-0 opacity-25 pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(circle, rgba(148,163,184,0.42) 1px, transparent 1px)', backgroundSize: '32px 32px' }}
+      />
+      <Link
+        to="/"
+        className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/45 px-3 py-2 text-xs font-semibold text-slate-300 backdrop-blur transition-colors hover:border-violet-400/40 hover:text-white sm:left-6 sm:top-6"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Voltar para inicio
+      </Link>
+
+      <div className="relative z-10 w-full max-w-5xl rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-indigo-200/20 bg-slate-950/60">
         <div className="grid grid-cols-1 lg:grid-cols-2">
           {mode !== 'register' ? (
             <><ShowcasePanel />{FormPanel}</>
