@@ -7,7 +7,35 @@ Entidades testadas: subjects, documents, questions, flashcards,
 import uuid
 
 import pytest
-from infrastructure.database.models import UserProgress
+from core.config.settings import settings
+from infrastructure.database.models import User, UserProgress
+
+
+class TestPublicLeaderboard:
+    def test_ranking_publico_omite_admins(self, client, db, monkeypatch):
+        suffix = uuid.uuid4().hex[:8]
+        admin_role_email = f"admin_role_{suffix}@test.com"
+        admin_env_email = f"admin_env_{suffix}@test.com"
+        student_email = f"student_{suffix}@test.com"
+        monkeypatch.setattr(settings, "admin_emails", [admin_env_email])
+
+        db.add_all([
+            User(email=admin_role_email, username=f"AdminRole_{suffix}", role="admin"),
+            User(email=admin_env_email, username=f"AdminEnv_{suffix}", role="user"),
+            User(email=student_email, username=f"Student_{suffix}", role="user"),
+            UserProgress(user_email=admin_role_email, xp=9000),
+            UserProgress(user_email=admin_env_email, xp=8000),
+            UserProgress(user_email=student_email, xp=100),
+        ])
+        db.commit()
+
+        response = client.get("/api/leaderboard/public?limit=10")
+
+        assert response.status_code == 200
+        names = [row["display_name"] for row in response.json()]
+        assert f"AdminRole_{suffix}" not in names
+        assert f"AdminEnv_{suffix}" not in names
+        assert f"Student_{suffix}" in names
 
 
 class TestSubjects:

@@ -4,6 +4,7 @@ import {
   LayoutDashboard, BookOpen, FileText, HelpCircle,
   GraduationCap, User, Trophy, Swords, BookX,
   Zap, Sparkles, Crown, CreditCard, ArrowUpCircle, ShieldCheck,
+  Users, ScrollText,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -62,6 +63,18 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
+const ADMIN_NAV_SECTIONS: NavSection[] = [
+  {
+    label: 'ADMIN',
+    items: [
+      { path: '/admin', label: 'Painel', icon: LayoutDashboard },
+      { path: '/admin/users', label: 'Usuarios', icon: Users },
+      { path: '/admin/payments', label: 'Pagamentos Pix', icon: ShieldCheck },
+      { path: '/admin/audit', label: 'Auditoria', icon: ScrollText },
+    ],
+  },
+];
+
 const PLAN_LABELS = {
   free: null,
   pro: { label: 'Pro', icon: Zap, cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' },
@@ -71,11 +84,13 @@ const PLAN_LABELS = {
 export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
   const location = useLocation();
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const { data: genStatus } = useQuery<GenerationStatus>({
     queryKey: ['limits-status'],
     queryFn: () => base44.limits.getStatus(),
     staleTime: 30_000,
+    enabled: !isAdmin,
   });
 
   const plan = genStatus?.plan || 'free';
@@ -87,17 +102,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
   const genBonus = genStatus?.has_daily_bonus;
   const planInfo = PLAN_LABELS[plan];
   const PlanIcon = planInfo?.icon;
-  const navSections = user?.role === 'admin'
-    ? [
-        ...NAV_SECTIONS,
-        {
-          label: 'ADMIN',
-          items: [
-            { path: '/admin/payments', label: 'Pagamentos Pix', icon: ShieldCheck },
-          ],
-        },
-      ]
-    : NAV_SECTIONS;
+  const navSections = isAdmin ? ADMIN_NAV_SECTIONS : NAV_SECTIONS;
 
   return (
     <aside className={`fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col z-30 transition-all duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -109,7 +114,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold text-foreground tracking-tight">Cognora</span>
-          {planInfo && PlanIcon && (
+          {!isAdmin && planInfo && PlanIcon && (
             <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${planInfo.cls}`}>
               <PlanIcon className="h-2.5 w-2.5" />
               {planInfo.label}
@@ -129,7 +134,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
               {section.items.map((item) => {
                 const isActive =
                   location.pathname === item.path ||
-                  location.pathname.startsWith(`${item.path}/`);
+                  (item.path !== '/admin' && location.pathname.startsWith(`${item.path}/`));
                 return (
                   <Link
                     key={item.path}
@@ -154,7 +159,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
       <div className="border-t border-border px-4 py-4 space-y-3">
 
         {/* Gerações (só exibe se não for ilimitado) */}
-        {genStatus && !isUnlimited && (
+        {!isAdmin && genStatus && !isUnlimited && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1.5">
@@ -185,7 +190,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
         )}
 
         {/* CTA de upgrade — só no plano free */}
-        {plan === 'free' && (
+        {!isAdmin && plan === 'free' && (
           <Link
             to="/pricing"
             className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold transition-all shadow-sm"

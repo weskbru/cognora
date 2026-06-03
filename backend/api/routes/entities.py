@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, func, or_
 from typing import Optional
+from core.config.settings import settings
 from infrastructure.database.connection import get_db
 from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt
 from infrastructure.repositories.base import BaseRepository, row_to_dict
@@ -50,6 +51,8 @@ def public_leaderboard(
     rows = (
         db.query(UserProgress, User.username)
         .outerjoin(User, User.email == UserProgress.user_email)
+        .filter(or_(User.role.is_(None), User.role != "admin"))
+        .filter(func.lower(UserProgress.user_email).notin_(settings.admin_emails or [""]))
         .order_by(desc(UserProgress.xp))
         .limit(limit)
         .all()

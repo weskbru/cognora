@@ -17,6 +17,19 @@ type PublicRankingEntry = {
   xp: number;
 };
 
+async function resolvePostLoginPath(token: string): Promise<string> {
+  try {
+    const res = await fetch(`${API_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return '/dashboard';
+    const data = await res.json();
+    return data.role === 'admin' ? '/admin' : '/dashboard';
+  } catch {
+    return '/dashboard';
+  }
+}
+
 declare global {
   interface Window {
     google?: {
@@ -152,11 +165,12 @@ export default function Login() {
       if (!res.ok) { setError(data.detail || 'Erro ao autenticar com Google'); return; }
       setToken(data.access_token, remember);
       rememberGenerationLimitAfterLogin(data.generations_remaining);
+      const postLoginPath = await resolvePostLoginPath(data.access_token);
       if (data.is_new_user) {
         setSuccessMsg('Conta criada com sucesso! Redirecionando...');
-        setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
+        setTimeout(() => { window.location.href = postLoginPath; }, 1500);
       } else {
-        window.location.href = '/dashboard';
+        window.location.href = postLoginPath;
       }
     } catch {
       setError('Não foi possível conectar ao servidor.');
@@ -255,7 +269,7 @@ export default function Login() {
       if (!res.ok) { setError(data.detail || 'Erro ao processar solicitação'); return; }
       setToken(data.access_token, remember);
       rememberGenerationLimitAfterLogin(data.generations_remaining);
-      window.location.href = '/dashboard';
+      window.location.href = await resolvePostLoginPath(data.access_token);
     } catch {
       setError('Não foi possível conectar ao servidor.');
     } finally {

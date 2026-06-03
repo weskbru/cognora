@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from core.config.settings import settings
-from api.routes import auth, entities, upload, nlp, limits, subscriptions
+from api.routes import admin, auth, entities, upload, nlp, limits, subscriptions
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +115,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 api.include_router(auth.router)
+api.include_router(admin.router)
 api.include_router(upload.router)
 api.include_router(nlp.router)
 api.include_router(limits.router)

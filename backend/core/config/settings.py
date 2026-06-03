@@ -23,7 +23,7 @@ class Settings:
     secret_key: str = os.getenv("SECRET_KEY", "dev-secret-key-troque-em-producao")
     algorithm: str = "HS256"
     token_expire_days: int = 1   # 1 dia — renovado a cada login
-    upload_dir: str = os.getenv("UPLOAD_DIR", os.path.join(_BACKEND_DIR, "uploads"))
+    upload_dir: str = _clean_env("UPLOAD_DIR") or os.path.join(_BACKEND_DIR, "uploads")
     gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
     nvidia_api_key: str | None = os.getenv("NVIDIA_API_KEY")
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
