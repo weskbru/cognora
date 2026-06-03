@@ -16,9 +16,12 @@ def _run_migrations():
     """Idempotent column additions for new auth fields."""
     from infrastructure.database.connection import engine
     from sqlalchemy import text
+    if engine.dialect.name == "sqlite":
+        return
     migrations = [
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR UNIQUE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR UNIQUE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'user' NOT NULL",
         "ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL",
         """CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,6 +39,9 @@ def _run_migrations():
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_emoji VARCHAR",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_url VARCHAR",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan VARCHAR DEFAULT 'free'",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS subscription_status VARCHAR DEFAULT 'inactive'",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan_started_at TIMESTAMP",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS daily_generations_used INTEGER DEFAULT 0",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS last_generation_date DATE",
         # Stripe subscription columns
@@ -43,6 +49,41 @@ def _run_migrations():
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR",
         "ALTER TABLE subjects ADD COLUMN IF NOT EXISTS owner_email VARCHAR",
         "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS questions_data JSONB DEFAULT '[]'",
+        """CREATE TABLE IF NOT EXISTS pix_payment_requests (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            user_email VARCHAR NOT NULL,
+            user_name VARCHAR,
+            plan VARCHAR NOT NULL,
+            amount_cents INTEGER NOT NULL,
+            pix_reference VARCHAR NOT NULL UNIQUE,
+            pix_payload TEXT NOT NULL,
+            status VARCHAR NOT NULL DEFAULT 'pending',
+            expires_at TIMESTAMP NOT NULL,
+            paid_at TIMESTAMP,
+            approved_at TIMESTAMP,
+            approved_by_admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+            rejected_at TIMESTAMP,
+            admin_note TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS admin_audit_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            admin_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+            admin_email VARCHAR NOT NULL,
+            action VARCHAR NOT NULL,
+            target_user_email VARCHAR,
+            target_type VARCHAR NOT NULL,
+            target_id VARCHAR NOT NULL,
+            metadata JSONB DEFAULT '{}',
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_id ON pix_payment_requests (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_email ON pix_payment_requests (user_email)",
+        "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_status ON pix_payment_requests (status)",
+        "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_reference ON pix_payment_requests (pix_reference)",
+        "CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_admin_email ON admin_audit_logs (admin_email)",
+        "CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_action ON admin_audit_logs (action)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

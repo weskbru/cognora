@@ -6,6 +6,7 @@ from domain.use_cases.auth import AuthUseCases
 from domain.use_cases.limits import apply_daily_bonus, get_status
 from api.schemas.auth import RegisterPayload, LoginPayload, ForgotPasswordPayload, ResetPasswordPayload, GoogleAuthPayload
 from api.dependencies import get_current_user
+from api.dependencies import is_admin_user
 from infrastructure.database.models import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -70,4 +71,5 @@ def me(current_user: User = Depends(get_current_user)):
         "id": str(current_user.id),
         "email": current_user.email,
         "username": current_user.username,
+        "role": "admin" if is_admin_user(current_user) else "user",
     }

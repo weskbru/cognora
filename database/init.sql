@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE,
     hashed_password TEXT,
     google_id TEXT UNIQUE,
+    role TEXT DEFAULT 'user' NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -102,10 +103,44 @@ CREATE TABLE IF NOT EXISTS user_progress (
     avatar_emoji TEXT,
     avatar_url TEXT,
     plan TEXT DEFAULT 'free',
+    subscription_status TEXT DEFAULT 'inactive',
+    plan_started_at TIMESTAMP,
+    plan_expires_at TIMESTAMP,
     daily_generations_used INTEGER DEFAULT 0,
     last_generation_date DATE,
     stripe_customer_id TEXT UNIQUE,
     stripe_subscription_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS pix_payment_requests (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_email TEXT NOT NULL,
+    user_name TEXT,
+    plan TEXT NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    pix_reference TEXT NOT NULL UNIQUE,
+    pix_payload TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    expires_at TIMESTAMP NOT NULL,
+    paid_at TIMESTAMP,
+    approved_at TIMESTAMP,
+    approved_by_admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    rejected_at TIMESTAMP,
+    admin_note TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_audit_logs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    admin_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    admin_email TEXT NOT NULL,
+    action TEXT NOT NULL,
+    target_user_email TEXT,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Migração para bancos existentes
@@ -115,15 +150,25 @@ ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS last_generation_date DATE;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_emoji TEXT;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user' NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE;
 ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL;
 ALTER TABLE competitions ADD COLUMN IF NOT EXISTS questions_data JSONB DEFAULT '[]';
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT UNIQUE;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'inactive';
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan_started_at TIMESTAMP;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP;
 ALTER TABLE subjects ADD COLUMN IF NOT EXISTS owner_email TEXT;
 
 CREATE INDEX IF NOT EXISTS ix_users_username ON users (username);
 CREATE INDEX IF NOT EXISTS ix_users_google_id ON users (google_id);
 CREATE INDEX IF NOT EXISTS ix_prt_user_email ON password_reset_tokens (user_email);
 CREATE INDEX IF NOT EXISTS ix_prt_token ON password_reset_tokens (token);
+CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_id ON pix_payment_requests (user_id);
+CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_email ON pix_payment_requests (user_email);
+CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_status ON pix_payment_requests (status);
+CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_reference ON pix_payment_requests (pix_reference);
+CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_admin_email ON admin_audit_logs (admin_email);
+CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_action ON admin_audit_logs (action);

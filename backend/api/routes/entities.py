@@ -5,7 +5,7 @@ from typing import Optional
 from infrastructure.database.connection import get_db
 from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt
 from infrastructure.repositories.base import BaseRepository, row_to_dict
-from api.dependencies import get_current_user
+from api.dependencies import get_current_user, is_admin_user
 from infrastructure.database.models import User
 
 router = APIRouter(prefix="/api", tags=["entities"])
@@ -20,6 +20,19 @@ ENTITY_MAP = {
     "flashcards": Flashcard,
     "question_attempts": QuestionAttempt,
 }
+
+USER_PROGRESS_PROTECTED_FIELDS = {
+    "plan",
+    "subscription_status",
+    "plan_started_at",
+    "plan_expires_at",
+    "stripe_customer_id",
+    "stripe_subscription_id",
+}
+
+
+def _strip_user_progress_protected_fields(data: dict) -> dict:
+    return {key: value for key, value in data.items() if key not in USER_PROGRESS_PROTECTED_FIELDS}
 
 
 def _repo(entity: str, db: Session) -> BaseRepository:
@@ -128,11 +141,13 @@ def get_entity(
     entity: str,
     item_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     row = _repo(entity, db).get_by_id(item_id)
     if not row:
         raise HTTPException(status_code=404, detail="Not found")
+    if entity == "user_progress" and row.user_email != current_user.email and not is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado.")
     return row_to_dict(row)
 
 
@@ -160,6 +175,9 @@ def create_entity(
         check_document_limit(subject_id, current_user.email, db)
     elif entity == "competitions":
         check_competition_limit(current_user.email, db)
+    elif entity == "user_progress":
+        data = _strip_user_progress_protected_fields(data)
+        data = {**data, "user_email": current_user.email}
     return row_to_dict(_repo(entity, db).create(data))
 
 
@@ -169,8 +187,15 @@ def update_entity(
     item_id: str,
     data: dict,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    if entity == "user_progress":
+        row = _repo(entity, db).get_by_id(item_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Not found")
+        if row.user_email != current_user.email and not is_admin_user(current_user):
+            raise HTTPException(status_code=403, detail="Acesso negado.")
+        data = _strip_user_progress_protected_fields(data)
     row = _repo(entity, db).update(item_id, data)
     if not row:
         raise HTTPException(status_code=404, detail="Not found")
@@ -182,7 +207,13 @@ def delete_entity(
     entity: str,
     item_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    if entity == "user_progress":
+        row = _repo(entity, db).get_by_id(item_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Not found")
+        if row.user_email != current_user.email and not is_admin_user(current_user):
+            raise HTTPException(status_code=403, detail="Acesso negado.")
     if not _repo(entity, db).delete(item_id):
         raise HTTPException(status_code=404, detail="Not found")

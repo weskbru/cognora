@@ -9,7 +9,7 @@ Plataforma de estudos gamificada com IA generativa, documentos, quizzes, flashca
 | Frontend | React + Vite + TypeScript + Tailwind CSS + shadcn/ui |
 | Backend | FastAPI + SQLAlchemy |
 | Banco | Neon PostgreSQL |
-| Storage | Supabase Storage |
+| Storage | Upload local servido pelo backend |
 | Deploy | Vercel + Render |
 
 ## Estrutura
@@ -85,7 +85,7 @@ npm run test
 - Frontend: Vercel
 - Backend: Render
 - PostgreSQL: Neon com URL pooled
-- Arquivos: Supabase Storage
+- Arquivos: storage local do backend em `UPLOAD_DIR`
 
 Para preparar um banco Neon vazio, execute `database/init.sql` no SQL Editor do Neon.
 

@@ -12,6 +12,7 @@ class User(Base):
     username = Column(String, unique=True, nullable=True, index=True)
     hashed_password = Column(String, nullable=True)   # nullable para login Google sem senha
     google_id = Column(String, unique=True, nullable=True, index=True)
+    role = Column(String, default="user", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -118,7 +119,43 @@ class UserProgress(Base):
     avatar_url = Column(String, nullable=True)
     # Freemium / Subscription
     plan = Column(String, default="free")
+    subscription_status = Column(String, default="inactive")
+    plan_started_at = Column(DateTime, nullable=True)
+    plan_expires_at = Column(DateTime, nullable=True)
     daily_generations_used = Column(Integer, default=0)
     last_generation_date = Column(Date, nullable=True)
     stripe_customer_id = Column(String, nullable=True, unique=True)
     stripe_subscription_id = Column(String, nullable=True)
+
+
+class PixPaymentRequest(Base):
+    __tablename__ = "pix_payment_requests"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_email = Column(String, nullable=False, index=True)
+    user_name = Column(String, nullable=True)
+    plan = Column(String, nullable=False)
+    amount_cents = Column(Integer, nullable=False)
+    pix_reference = Column(String, nullable=False, unique=True, index=True)
+    pix_payload = Column(Text, nullable=False)
+    status = Column(String, default="pending", nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    paid_at = Column(DateTime, nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    approved_by_admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    rejected_at = Column(DateTime, nullable=True)
+    admin_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    admin_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    admin_email = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False, index=True)
+    target_user_email = Column(String, nullable=True, index=True)
+    target_type = Column(String, nullable=False)
+    target_id = Column(String, nullable=False)
+    metadata_json = Column("metadata", JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)

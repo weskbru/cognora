@@ -1,15 +1,24 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class RegisterPayload(BaseModel):
     email: str
-    username: str
+    username: str | None = None
     password: str
 
 
 class LoginPayload(BaseModel):
-    identifier: str  # email or username
+    identifier: str | None = None  # email or username
+    email: str | None = None
     password: str
+
+    @model_validator(mode="after")
+    def normalize_identifier(self):
+        if not self.identifier:
+            self.identifier = self.email
+        if not self.identifier:
+            raise ValueError("identifier or email is required")
+        return self
 
 
 class ForgotPasswordPayload(BaseModel):

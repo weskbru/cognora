@@ -4,7 +4,7 @@ Use estes documentos como referencia tecnica:
 
 - `architecture.md`: componentes do sistema e fluxo de dados.
 - `configuration.md`: arquivos de configuracao e comandos locais.
-- `deployment.md`: Vercel, Render, Neon e Supabase Storage.
+- `deployment.md`: Vercel, Render, Neon e storage local do backend.
 - `rewards.md`: regras do sistema de XP e gamificacao.
 
 Fontes canonicas que nao devem ser duplicadas em documentacao:

@@ -27,12 +27,13 @@ class TestCreateToken:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         assert payload["sub"] == email
 
-    def test_expiracao_e_aproximadamente_30_dias(self):
+    def test_expiracao_respeita_configuracao(self):
         token = create_token("user@test.com")
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         exp = datetime.utcfromtimestamp(payload["exp"])
         diff = exp - datetime.utcnow()
-        assert 29 <= diff.days <= 30
+        expected = settings.token_expire_days
+        assert expected - 1 <= diff.days <= expected
 
     def test_tokens_diferentes_para_mesmo_email(self):
         """Tokens gerados em momentos distintos devem diferir (timestamps)."""

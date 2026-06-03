@@ -43,6 +43,19 @@ def _file_url_to_path(file_url: str) -> str:
     import tempfile
     import httpx
 
+    parsed = urllib.parse.urlparse(file_url)
+    if parsed.path.startswith("/uploads/"):
+        filename = os.path.basename(urllib.parse.unquote(parsed.path))
+        local_path = os.path.join(settings.upload_dir, filename)
+        if not os.path.isfile(local_path):
+            raise FileNotFoundError(f"Arquivo local nao encontrado: {filename}")
+        ext = os.path.splitext(local_path)[1] or ".pdf"
+        tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+        with open(local_path, "rb") as source:
+            tmp.write(source.read())
+        tmp.close()
+        return tmp.name
+
     try:
         r = httpx.get(file_url, follow_redirects=True, timeout=30)
     except Exception as exc:
@@ -51,7 +64,7 @@ def _file_url_to_path(file_url: str) -> str:
     if r.status_code != 200:
         raise FileNotFoundError(f"Arquivo não encontrado na URL (status {r.status_code})")
 
-    ext = os.path.splitext(urllib.parse.urlparse(file_url).path)[1] or ".pdf"
+    ext = os.path.splitext(parsed.path)[1] or ".pdf"
     tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
     tmp.write(r.content)
     tmp.close()

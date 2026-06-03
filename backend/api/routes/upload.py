@@ -1,74 +1,40 @@
 import os
 import uuid
-import logging
-from urllib.parse import urlparse
-from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from sqlalchemy.orm import Session
+
 from api.dependencies import get_current_user
+from core.config.settings import settings
 from infrastructure.database.connection import get_db
 from infrastructure.database.models import User
-from core.config.settings import settings
-from supabase import create_client
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
-_BUCKET = "cognora-storage"
-logger = logging.getLogger(__name__)
 
-
-def _get_supabase():
-    if not settings.supabase_url or not settings.supabase_key:
-        raise HTTPException(status_code=503, detail="Supabase não configurado no servidor.")
-    parsed_url = urlparse(settings.supabase_url)
-    if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "SUPABASE_URL inválida no servidor. No Render, configure somente "
-                "a URL HTTPS do projeto Supabase, sem o prefixo SUPABASE_URL=."
-            ),
-        )
-    try:
-        return create_client(settings.supabase_url, settings.supabase_key)
-    except Exception as exc:
-        logger.exception("Falha ao inicializar cliente Supabase Storage")
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Não foi possível inicializar o Supabase Storage. "
-                "Verifique SUPABASE_URL e SUPABASE_KEY no Render."
-            ),
-        ) from exc
+def _public_upload_url(request: Request, filename: str) -> str:
+    base_url = str(request.base_url).rstrip("/")
+    return f"{base_url}/uploads/{filename}"
 
 
 @router.post("/upload")
 def upload_file(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     from domain.use_cases.limits import check_upload_size
+
     data = file.file.read()
     check_upload_size(current_user.email, len(data), db)
 
     ext = os.path.splitext(file.filename or "")[1] or ".pdf"
     filename = f"{uuid.uuid4()}{ext}"
 
-    try:
-        supabase = _get_supabase()
-        bucket = supabase.storage.from_(_BUCKET)
-        bucket.upload(
-            filename,
-            data,
-            {"content-type": file.content_type or "application/pdf"},
-        )
-        url = bucket.get_public_url(filename)
-    except HTTPException:
-        raise
-    except Exception:
-        logger.exception("Falha ao enviar arquivo para o Supabase Storage")
-        raise HTTPException(
-            status_code=502,
-            detail="Falha ao armazenar arquivo. Verifique a configuração do Supabase Storage.",
-        )
-    return {"file_url": url}
+    os.makedirs(settings.upload_dir, exist_ok=True)
+    path = os.path.join(settings.upload_dir, filename)
+    with open(path, "wb") as output:
+        output.write(data)
+
+    return {"file_url": _public_upload_url(request, filename)}

@@ -7,6 +7,7 @@ Entidades testadas: subjects, documents, questions, flashcards,
 import uuid
 
 import pytest
+from infrastructure.database.models import UserProgress
 
 
 class TestSubjects:
@@ -127,7 +128,9 @@ class TestDocuments:
         assert response.status_code == 201
         assert response.json()["name"] == "doc.pdf"
 
-    def test_listar_documentos_por_subject(self, client, auth_headers):
+    def test_listar_documentos_por_subject(self, client, auth_headers, db, test_user):
+        db.add(UserProgress(user_email=test_user.email, plan="pro"))
+        db.commit()
         subject_id = self._criar_subject(client, auth_headers)
         client.post(
             "/api/documents",

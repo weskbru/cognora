@@ -10,6 +10,7 @@ interface AuthUser {
   id: string;
   email: string;
   username: string | null;
+  role: 'user' | 'admin';
 }
 
 interface AuthContextValue {

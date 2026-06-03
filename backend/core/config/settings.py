@@ -23,12 +23,10 @@ class Settings:
     secret_key: str = os.getenv("SECRET_KEY", "dev-secret-key-troque-em-producao")
     algorithm: str = "HS256"
     token_expire_days: int = 1   # 1 dia — renovado a cada login
-    upload_dir: str = os.path.join(_BACKEND_DIR, "uploads")
+    upload_dir: str = os.getenv("UPLOAD_DIR", os.path.join(_BACKEND_DIR, "uploads"))
     gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
     nvidia_api_key: str | None = os.getenv("NVIDIA_API_KEY")
     openrouter_api_key: str | None = os.getenv("OPENROUTER_API_KEY")
-    supabase_url: str | None = _clean_env("SUPABASE_URL")
-    supabase_key: str | None = _clean_env("SUPABASE_KEY")
     resend_api_key: str | None = os.getenv("RESEND_API_KEY")
     google_client_id: str | None = os.getenv("GOOGLE_CLIENT_ID")
     app_url: str = os.getenv("APP_URL", "http://localhost:5173")
@@ -36,11 +34,24 @@ class Settings:
     stripe_webhook_secret: str | None = os.getenv("STRIPE_WEBHOOK_SECRET")
     stripe_price_id_pro: str | None = os.getenv("STRIPE_PRICE_ID_PRO")
     stripe_price_id_unlimited: str | None = os.getenv("STRIPE_PRICE_ID_UNLIMITED")
+    pix_key: str | None = _clean_env("PIX_KEY")
+    pix_merchant_name: str = os.getenv("PIX_MERCHANT_NAME", "COGNORA")[:25]
+    pix_merchant_city: str = os.getenv("PIX_MERCHANT_CITY", "SAO PAULO")[:15]
+    pix_plan_price_cents_pro: int = int(os.getenv("PIX_PRICE_CENTS_PRO", "990"))
+    pix_plan_price_cents_unlimited: int = int(os.getenv("PIX_PRICE_CENTS_UNLIMITED", "1990"))
+    admin_emails: list[str] = [
+        email.strip().lower()
+        for email in os.getenv("ADMIN_EMAILS", "").split(",")
+        if email.strip()
+    ]
     # ALLOWED_ORIGINS: lista separada por vírgula, ex: "https://app.com,https://www.app.com"
     # Em desenvolvimento, deixe vazio ou use "*" (qualquer origem)
     allowed_origins: list[str] = [
         o.strip()
-        for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")
+        for o in os.getenv(
+            "ALLOWED_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,https://cognora-pi.vercel.app",
+        ).split(",")
         if o.strip()
     ]
 

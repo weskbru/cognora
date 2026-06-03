@@ -1,20 +1,14 @@
-"""
-Testes unitários — Casos de uso de autenticação.
-Cobre: AuthUseCases.register, AuthUseCases.login
-Usa mocks para isolar a camada de repositório.
-"""
 from unittest.mock import MagicMock
-
-import pytest
 
 from core.security.password import hash_password
 from domain.use_cases.auth import AuthUseCases
 
 
 def _make_use_case(existing_user=None):
-    """Fábrica: cria AuthUseCases com repositório mockado."""
     repo = MagicMock()
     repo.get_by_email.return_value = existing_user
+    repo.get_by_username.return_value = None
+    repo.get_by_identifier.return_value = existing_user
     return AuthUseCases(repo), repo
 
 
@@ -23,6 +17,7 @@ class TestRegister:
         uc, repo = _make_use_case(existing_user=None)
         fake_user = MagicMock()
         fake_user.email = "novo@cognora.com"
+        fake_user.username = "novo"
         repo.create.return_value = fake_user
 
         result, error = uc.register("novo@cognora.com", "senha123")
@@ -46,9 +41,11 @@ class TestRegister:
 
     def test_token_retornado_e_valido(self):
         from core.security.jwt import decode_token
+
         uc, repo = _make_use_case(existing_user=None)
         fake_user = MagicMock()
         fake_user.email = "valido@cognora.com"
+        fake_user.username = "valido"
         repo.create.return_value = fake_user
 
         result, _ = uc.register("valido@cognora.com", "senha")
@@ -59,12 +56,13 @@ class TestRegister:
         uc, repo = _make_use_case(existing_user=None)
         fake_user = MagicMock()
         fake_user.email = "hash@cognora.com"
+        fake_user.username = "hash"
         repo.create.return_value = fake_user
 
         uc.register("hash@cognora.com", "senha_plain")
 
-        call_args = repo.create.call_args
-        email_arg, hash_arg = call_args[0]
+        email_arg, hash_arg = repo.create.call_args[0][:2]
+        assert email_arg == "hash@cognora.com"
         assert hash_arg != "senha_plain"
         assert hash_arg.startswith("$2b$")
 
@@ -73,6 +71,7 @@ class TestLogin:
     def test_credenciais_validas_retornam_token(self):
         user = MagicMock()
         user.email = "user@cognora.com"
+        user.username = "user"
         user.hashed_password = hash_password("senha123")
         uc, _ = _make_use_case(existing_user=user)
 
@@ -102,17 +101,18 @@ class TestLogin:
         assert error is not None
 
     def test_mensagem_de_erro_nao_expoe_qual_campo_esta_errado(self):
-        """Segurança: a mensagem de erro deve ser genérica."""
         uc, _ = _make_use_case(existing_user=None)
+
         _, error = uc.login("x@x.com", "y")
-        assert "email" in error.lower() or "senha" in error.lower()
-        # Não deve dizer "usuário não existe" (enumera usuários)
-        assert "não existe" not in error.lower()
+
+        assert error == "Credenciais invalidas"
 
     def test_token_valido_apos_login_bem_sucedido(self):
         from core.security.jwt import decode_token
+
         user = MagicMock()
         user.email = "login@cognora.com"
+        user.username = "login"
         user.hashed_password = hash_password("abc123")
         uc, _ = _make_use_case(existing_user=user)
 

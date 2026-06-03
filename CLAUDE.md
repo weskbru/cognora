@@ -4,7 +4,7 @@
 
 - **Frontend**: React + Vite + TypeScript + Tailwind CSS + shadcn/ui
 - **Backend**: FastAPI (Python) + SQLAlchemy + PostgreSQL
-- **Deploy**: Vercel (frontend) + Render (backend) + Neon (DB) + Supabase (Storage)
+- **Deploy**: Vercel (frontend) + Render (backend) + Neon (DB) + storage local do backend
 - **Dev local**: Docker Compose (`docker compose up`)
 
 ## Regras obrigatórias

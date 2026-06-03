@@ -5,7 +5,7 @@ Free:      3 gerações/dia, 2 matérias, 1 doc/matéria, 5 MB upload, 1 competi
 Pro:       20 gerações/dia, ilimitado em tudo, 25 MB upload
 Ilimitado: tudo ilimitado, 50 MB upload
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -15,7 +15,12 @@ PLAN_LIMITS = {
     "free":      {"daily": 3,    "subjects": 2,    "docs_per_subject": 1,  "upload_mb": 5,  "competitions": 1},
     "pro":       {"daily": 20,   "subjects": None,  "docs_per_subject": None, "upload_mb": 25, "competitions": None},
     "unlimited": {"daily": None, "subjects": None,  "docs_per_subject": None, "upload_mb": 50, "competitions": None},
+    "premium":   {"daily": None, "subjects": None,  "docs_per_subject": None, "upload_mb": 25, "competitions": None},
 }
+
+FREE_DAILY_LIMIT = PLAN_LIMITS["free"]["daily"]
+FREE_SUBJECT_LIMIT = PLAN_LIMITS["free"]["subjects"]
+FREE_DOCS_PER_SUBJECT = PLAN_LIMITS["free"]["docs_per_subject"]
 
 
 def _get_or_create_progress(email: str, db: Session) -> UserProgress:
@@ -38,8 +43,18 @@ def _ensure_daily_reset(p: UserProgress, db: Session) -> UserProgress:
     return p
 
 
+def sync_plan_expiration(p: UserProgress, db: Session) -> UserProgress:
+    if (p.plan or "free") != "free" and p.plan_expires_at and p.plan_expires_at <= datetime.utcnow():
+        p.plan = "free"
+        p.subscription_status = "expired"
+        db.commit()
+        db.refresh(p)
+    return p
+
+
 def get_status(email: str, db: Session) -> dict:
     p = _get_or_create_progress(email, db)
+    p = sync_plan_expiration(p, db)
     p = _ensure_daily_reset(p, db)
     today = date.today()
     plan = p.plan or "free"
@@ -83,6 +98,7 @@ def check_and_consume(email: str, db: Session):
             },
         )
     p = _get_or_create_progress(email, db)
+    p = sync_plan_expiration(p, db)
     p.daily_generations_used = (p.daily_generations_used or 0) + 1
     db.commit()
 
@@ -104,6 +120,7 @@ def apply_daily_bonus(email: str, db: Session) -> bool:
 
 def check_subject_limit(email: str, db: Session):
     p = _get_or_create_progress(email, db)
+    p = sync_plan_expiration(p, db)
     plan = p.plan or "free"
     limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["subjects"]
     if limit is not None:
@@ -121,6 +138,7 @@ def check_subject_limit(email: str, db: Session):
 
 def check_document_limit(subject_id: str, email: str, db: Session):
     p = _get_or_create_progress(email, db)
+    p = sync_plan_expiration(p, db)
     plan = p.plan or "free"
     limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["docs_per_subject"]
     if limit is not None:
@@ -138,6 +156,7 @@ def check_document_limit(subject_id: str, email: str, db: Session):
 
 def check_upload_size(email: str, file_size_bytes: int, db: Session):
     p = _get_or_create_progress(email, db)
+    p = sync_plan_expiration(p, db)
     plan = p.plan or "free"
     limit_mb = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["upload_mb"]
     limit_bytes = limit_mb * 1024 * 1024
@@ -154,6 +173,7 @@ def check_upload_size(email: str, file_size_bytes: int, db: Session):
 
 def check_competition_limit(email: str, db: Session):
     p = _get_or_create_progress(email, db)
+    p = sync_plan_expiration(p, db)
     plan = p.plan or "free"
     limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["competitions"]
     if limit is not None:

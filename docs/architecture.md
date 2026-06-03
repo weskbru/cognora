@@ -2,14 +2,14 @@
 
 ## Visao geral
 
-O Cognora e uma SPA React com uma API FastAPI. O frontend chama a API REST do backend; o backend persiste dados no PostgreSQL do Neon, envia arquivos para o Supabase Storage e usa provedores externos de IA.
+O Cognora e uma SPA React com uma API FastAPI. O frontend chama a API REST do backend; o backend persiste dados no PostgreSQL do Neon, armazena uploads localmente no servico backend e usa provedores externos de IA.
 
 ```text
 Browser
   -> Vercel: React + Vite
-  -> Render: FastAPI
+     -> Render: FastAPI
      -> Neon: PostgreSQL
-     -> Supabase: Storage
+     -> Render disk/local uploads: Storage
      -> NVIDIA NIM -> Gemini -> OpenRouter: IA
 ```
 

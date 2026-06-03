@@ -1,27 +1,44 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import type { ElementType } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import {
-  Check, Zap, Crown, Sparkles, Loader2,
-  BookOpen, Brain, Trophy, AlertCircle,
+  AlertCircle,
+  BookOpen,
+  Brain,
+  Check,
+  Copy,
+  Crown,
+  Loader2,
+  Sparkles,
+  Trophy,
+  Zap,
 } from 'lucide-react';
 
+import { subscriptionsApi, type PaidPlan, type PixPaymentRequest } from '@/api/subscriptions';
+import { useAuth } from '@/lib/AuthContext';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+
 interface Plan {
-  id: 'free' | 'pro' | 'unlimited';
+  id: 'free' | PaidPlan;
   name: string;
   price: string;
   period: string;
   description: string;
-  icon: React.ElementType;
+  icon: ElementType;
   color: string;
   badge?: string;
   features: string[];
-  limits: string[];
   cta: string;
   highlighted: boolean;
 }
@@ -44,7 +61,6 @@ const PLANS: Plan[] = [
       'Flashcards ilimitados',
       'Competições',
     ],
-    limits: [],
     cta: 'Plano atual',
     highlighted: false,
   },
@@ -55,7 +71,7 @@ const PLANS: Plan[] = [
     period: 'por mês',
     description: 'Para estudantes que levam o aprendizado a sério.',
     icon: Zap,
-    color: 'text-indigo-400',
+    color: 'text-indigo-500',
     badge: 'Mais popular',
     features: [
       '20 gerações por dia',
@@ -67,7 +83,6 @@ const PLANS: Plan[] = [
       'Competições',
       'Suporte prioritário',
     ],
-    limits: [],
     cta: 'Assinar Pro',
     highlighted: true,
   },
@@ -78,7 +93,7 @@ const PLANS: Plan[] = [
     period: 'por mês',
     description: 'Poder total da IA, sem nenhuma restrição.',
     icon: Crown,
-    color: 'text-amber-400',
+    color: 'text-amber-500',
     features: [
       'Gerações ilimitadas',
       'Matérias ilimitadas',
@@ -89,77 +104,69 @@ const PLANS: Plan[] = [
       'Suporte prioritário',
       'Acesso antecipado a novidades',
     ],
-    limits: [],
     cta: 'Assinar Ilimitado',
     highlighted: false,
   },
 ];
 
+function formatCurrency(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString('pt-BR');
+}
+
 export default function Pricing() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [pixPayment, setPixPayment] = useState<PixPaymentRequest | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-
-  const success = searchParams.get('success');
-  const canceled = searchParams.get('canceled');
-
-  useEffect(() => {
-    if (success) {
-      setToast({ type: 'success', msg: 'Assinatura ativada com sucesso! Bem-vindo ao novo plano.' });
-      navigate('/pricing', { replace: true });
-    } else if (canceled) {
-      setToast({ type: 'error', msg: 'Pagamento cancelado. Nenhuma cobrança foi feita.' });
-      navigate('/pricing', { replace: true });
-    }
-  }, [success, canceled]);
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 5000);
-    return () => clearTimeout(t);
+    const timer = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timer);
   }, [toast]);
 
   const { data: subStatus } = useQuery({
     queryKey: ['subscription-status'],
-    queryFn: () => base44.subscriptions.getStatus(),
+    queryFn: () => subscriptionsApi.getStatus(),
     enabled: isAuthenticated,
   });
 
-  const currentPlan = (subStatus?.plan || 'free') as Plan['id'];
+  const currentPlan = subStatus?.plan || 'free';
+  const expiresAt = formatDate(subStatus?.plan_expires_at);
 
   const handleCTA = async (plan: Plan) => {
     if (plan.id === 'free') return;
-
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-
     if (plan.id === currentPlan) return;
 
     setLoadingPlan(plan.id);
     try {
-      const { checkout_url } = await base44.subscriptions.createCheckout(plan.id);
-      window.location.href = checkout_url;
-    } catch (err: any) {
-      setToast({ type: 'error', msg: err?.message || 'Erro ao iniciar checkout.' });
+      const payment = await subscriptionsApi.createPixPayment(plan.id);
+      setPixPayment(payment);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro ao gerar Pix.';
+      setToast({ type: 'error', msg: message });
     } finally {
       setLoadingPlan(null);
     }
   };
 
-  const handlePortal = async () => {
-    setPortalLoading(true);
+  const handleCopyPix = async () => {
+    if (!pixPayment) return;
     try {
-      const { portal_url } = await base44.subscriptions.openPortal();
-      window.location.href = portal_url;
-    } catch (err: any) {
-      setToast({ type: 'error', msg: err?.message || 'Erro ao abrir portal.' });
-    } finally {
-      setPortalLoading(false);
+      await navigator.clipboard.writeText(pixPayment.pix_payload);
+      setToast({ type: 'success', msg: 'Código Pix copiado.' });
+    } catch {
+      setToast({ type: 'error', msg: 'Não foi possível copiar automaticamente.' });
     }
   };
 
@@ -169,13 +176,10 @@ export default function Pricing() {
     return plan.cta;
   };
 
-  const isCurrentPlan = (id: string) => id === currentPlan;
-
   return (
     <div className="space-y-8 max-w-5xl mx-auto font-inter">
-      {/* Toast */}
       {toast && (
-        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium transition-all
+        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border text-sm font-medium transition-all
           ${toast.type === 'success'
             ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-300'
             : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/60 dark:border-red-800 dark:text-red-300'}`}
@@ -187,7 +191,6 @@ export default function Pricing() {
         </div>
       )}
 
-      {/* Header */}
       <div className="text-center space-y-3">
         <Badge variant="secondary" className="text-xs px-3 py-1">
           <Brain className="h-3 w-3 mr-1.5" />
@@ -197,40 +200,34 @@ export default function Pricing() {
           Escolha seu plano
         </h1>
         <p className="text-muted-foreground max-w-xl mx-auto">
-          Comece de graça e faça upgrade quando precisar de mais poder. Cancele quando quiser.
+          Comece de graça e faça upgrade quando precisar de mais poder.
         </p>
 
-        {/* Plano atual badge */}
         {isAuthenticated && currentPlan !== 'free' && (
-          <div className="flex items-center justify-center gap-2 mt-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
             <Badge variant="outline" className={`${currentPlan === 'unlimited' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'}`}>
               {currentPlan === 'unlimited' ? <Crown className="h-3 w-3 mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
               Você está no plano {currentPlan === 'unlimited' ? 'Ilimitado' : 'Pro'}
             </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handlePortal}
-              disabled={portalLoading}
-              className="text-xs text-muted-foreground h-7"
-            >
-              {portalLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Gerenciar assinatura →'}
-            </Button>
+            {expiresAt && (
+              <Badge variant="secondary" className="text-xs">
+                Ativo até {expiresAt}
+              </Badge>
+            )}
           </div>
         )}
       </div>
 
-      {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
         {PLANS.map((plan) => {
           const Icon = plan.icon;
-          const isCurrent = isCurrentPlan(plan.id);
+          const isCurrent = plan.id === currentPlan;
           const isLoading = loadingPlan === plan.id;
 
           return (
             <Card
               key={plan.id}
-              className={`h-full relative flex flex-col p-6 transition-all
+              className={`h-full relative flex flex-col p-6 transition-all rounded-lg
                 ${plan.highlighted
                   ? 'border-indigo-500 shadow-lg shadow-indigo-500/10 dark:border-indigo-500'
                   : 'border-border'}
@@ -244,10 +241,9 @@ export default function Pricing() {
                 </div>
               )}
 
-              {/* Plan header */}
               <div className="mb-5">
                 <div className="flex items-center gap-2.5 mb-3">
-                  <div className={`h-9 w-9 rounded-xl flex items-center justify-center bg-secondary`}>
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-secondary">
                     <Icon className={`h-5 w-5 ${plan.color}`} />
                   </div>
                   <div>
@@ -264,7 +260,6 @@ export default function Pricing() {
                 <p className="text-sm text-muted-foreground">{plan.description}</p>
               </div>
 
-              {/* CTA */}
               <Button
                 onClick={() => handleCTA(plan)}
                 disabled={isCurrent || isLoading || plan.id === 'free'}
@@ -276,7 +271,6 @@ export default function Pricing() {
                   : getButtonLabel(plan)}
               </Button>
 
-              {/* Features */}
               <ul className="space-y-2.5 flex-1">
                 {plan.features.map((feat) => (
                   <li key={feat} className="flex items-start gap-2.5 text-sm">
@@ -290,14 +284,13 @@ export default function Pricing() {
         })}
       </div>
 
-      {/* Feature comparison — quick summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
         {[
           { icon: Brain, label: 'IA Generativa', desc: 'Resumos, questões e flashcards gerados por IA com base nos seus documentos.' },
           { icon: BookOpen, label: 'Estudo Personalizado', desc: 'Sistema de progresso com XP, níveis e streak para manter o ritmo.' },
           { icon: Trophy, label: 'Competições', desc: 'Duelos e ligas semanais para disputar com colegas em tempo real.' },
         ].map(({ icon: Icon, label, desc }) => (
-          <div key={label} className="flex gap-3 p-4 rounded-xl bg-secondary/40 border border-border">
+          <div key={label} className="flex gap-3 p-4 rounded-lg bg-secondary/40 border border-border">
             <Icon className="h-5 w-5 text-primary shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-foreground">{label}</p>
@@ -307,14 +300,13 @@ export default function Pricing() {
         ))}
       </div>
 
-      {/* FAQ */}
       <div className="space-y-3 pb-4">
         <h2 className="text-base font-semibold text-foreground">Perguntas frequentes</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[
             {
               q: 'Posso cancelar a qualquer momento?',
-              a: 'Sim. Cancele quando quiser pelo portal de assinatura. O acesso continua até o fim do período pago.',
+              a: 'Sim. Como o pagamento é Pix manual, basta não renovar. O acesso continua até o fim do período pago.',
             },
             {
               q: 'O que acontece ao atingir o limite de gerações?',
@@ -325,17 +317,74 @@ export default function Pricing() {
               a: 'Sim. Todo seu conteúdo, matérias, documentos e progresso são mantidos.',
             },
             {
-              q: 'Os pagamentos são seguros?',
-              a: 'Sim. Usamos Stripe, a plataforma de pagamentos mais utilizada no mundo. Seus dados financeiros nunca passam pelo Cognora.',
+              q: 'Quando o plano é ativado?',
+              a: 'Após a conferência manual do Pix pelo admin. O navegador não consegue ativar o plano sozinho.',
             },
           ].map(({ q, a }) => (
-            <div key={q} className="p-4 rounded-xl border border-border bg-card">
+            <div key={q} className="p-4 rounded-lg border border-border bg-card">
               <p className="text-sm font-semibold text-foreground mb-1">{q}</p>
               <p className="text-sm text-muted-foreground">{a}</p>
             </div>
           ))}
         </div>
       </div>
+
+      <Dialog open={!!pixPayment} onOpenChange={(open) => !open && setPixPayment(null)}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Pagamento Pix</DialogTitle>
+            <DialogDescription>
+              Use a referência abaixo na mensagem do Pix para agilizar a conferência.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pixPayment && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-4">
+                <div className="rounded-lg border bg-white p-3">
+                  {pixPayment.qr_code_data_url && (
+                    <img
+                      src={pixPayment.qr_code_data_url}
+                      alt="QR Code Pix"
+                      className="h-36 w-36 mx-auto"
+                    />
+                  )}
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                    <span className="text-muted-foreground">Plano</span>
+                    <span className="font-semibold">{pixPayment.plan === 'unlimited' ? 'Ilimitado' : 'Pro'}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                    <span className="text-muted-foreground">Valor</span>
+                    <span className="font-semibold">{formatCurrency(pixPayment.amount_cents)}</span>
+                  </div>
+                  <div className="rounded-md border px-3 py-2">
+                    <p className="text-muted-foreground">Referência</p>
+                    <p className="font-mono text-sm font-semibold break-all">{pixPayment.pix_reference}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Textarea
+                  readOnly
+                  value={pixPayment.pix_payload}
+                  className="min-h-24 resize-none font-mono text-xs"
+                />
+                <Button onClick={handleCopyPix} className="w-full gap-2">
+                  <Copy className="h-4 w-4" />
+                  Copiar Pix copia e cola
+                </Button>
+              </div>
+
+              <div className="rounded-lg border bg-secondary/40 p-3 text-sm text-muted-foreground">
+                Envie o Pix com seu nome, e-mail e a referência {pixPayment.pix_reference}. O plano é ativado após conferência manual no painel admin.
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

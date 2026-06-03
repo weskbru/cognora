@@ -6,7 +6,8 @@ from sqlalchemy import desc, asc
 def row_to_dict(row) -> dict:
     result = {}
     for col in row.__table__.columns:
-        val = getattr(row, col.name)
+        attr_name = row.__mapper__.get_property_by_column(col).key
+        val = getattr(row, attr_name)
         if isinstance(val, uuid.UUID):
             val = str(val)
         elif hasattr(val, "isoformat"):

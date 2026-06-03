@@ -6,6 +6,7 @@ import PageNotFound from './lib/PageNotFound';
 import Login from '@/pages/Login';
 import ResetPassword from '@/pages/ResetPassword';
 import Pricing from '@/pages/Pricing';
+import AdminPayments from '@/pages/AdminPayments';
 import Landing from '@/pages/Landing';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -56,6 +57,7 @@ const ProtectedRoutes = () => {
           <Route path="/competitions/:id" element={<CompetitionDetail />} />
           <Route path="/error-notebook" element={<ErrorNotebook />} />
           <Route path="/pricing" element={<Pricing />} />
+          <Route path="/admin/payments" element={<AdminPayments />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />
       </Routes>

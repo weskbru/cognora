@@ -3,11 +3,12 @@ import type { ReactElement } from 'react';
 import {
   LayoutDashboard, BookOpen, FileText, HelpCircle,
   GraduationCap, User, Trophy, Swords, BookX,
-  Zap, Sparkles, Crown, CreditCard, ArrowUpCircle,
+  Zap, Sparkles, Crown, CreditCard, ArrowUpCircle, ShieldCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/lib/AuthContext';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -69,6 +70,7 @@ const PLAN_LABELS = {
 
 export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
   const location = useLocation();
+  const { user } = useAuth();
 
   const { data: genStatus } = useQuery<GenerationStatus>({
     queryKey: ['limits-status'],
@@ -85,6 +87,17 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
   const genBonus = genStatus?.has_daily_bonus;
   const planInfo = PLAN_LABELS[plan];
   const PlanIcon = planInfo?.icon;
+  const navSections = user?.role === 'admin'
+    ? [
+        ...NAV_SECTIONS,
+        {
+          label: 'ADMIN',
+          items: [
+            { path: '/admin/payments', label: 'Pagamentos Pix', icon: ShieldCheck },
+          ],
+        },
+      ]
+    : NAV_SECTIONS;
 
   return (
     <aside className={`fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex flex-col z-30 transition-all duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -107,7 +120,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
 
       {/* ── Nav ── */}
       <nav className="flex-1 px-4 py-4 overflow-y-auto space-y-5">
-        {NAV_SECTIONS.map((section) => (
+        {navSections.map((section) => (
           <div key={section.label}>
             <p className="text-[11px] font-medium text-muted-foreground/60 tracking-widest mb-2 px-2">
               {section.label}
