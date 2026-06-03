@@ -216,6 +216,7 @@ export default function AdminObservability() {
               <TableHead>Quando</TableHead>
               <TableHead>Nivel</TableHead>
               <TableHead>Evento</TableHead>
+              <TableHead>Request ID</TableHead>
               <TableHead>Usuario</TableHead>
               <TableHead>Mensagem</TableHead>
               <TableHead>Detalhes</TableHead>
@@ -224,14 +225,14 @@ export default function AdminObservability() {
           <TableBody>
             {eventsQuery.isLoading && (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                 </TableCell>
               </TableRow>
             )}
             {!eventsQuery.isLoading && events.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   Nenhum evento encontrado.
                 </TableCell>
               </TableRow>
@@ -246,6 +247,9 @@ export default function AdminObservability() {
                 </TableCell>
                 <TableCell className="whitespace-nowrap">
                   <span className="font-mono text-xs">{event.event_type}</span>
+                </TableCell>
+                <TableCell className="max-w-[180px] font-mono text-xs text-muted-foreground">
+                  {event.request_id || '-'}
                 </TableCell>
                 <TableCell>{event.user_email || '-'}</TableCell>
                 <TableCell className="max-w-[320px]">{event.message}</TableCell>

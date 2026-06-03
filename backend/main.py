@@ -1,5 +1,6 @@
 import os
 import logging
+import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,7 +8,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from core.config.settings import settings
-from api.routes import admin, auth, entities, upload, nlp, limits, subscriptions
+from api.routes import admin, auth, entities, upload, nlp, limits, observability, subscriptions
+from infrastructure.database.connection import SessionLocal
+from infrastructure.observability import (
+    record_system_event,
+    reset_current_request_id,
+    set_current_request_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -121,11 +128,65 @@ async def lifespan(app: FastAPI):
 api = FastAPI(title="Cognora API", lifespan=lifespan)
 
 
+def _request_id_from_headers(request: Request) -> str:
+    incoming = request.headers.get("x-request-id")
+    if incoming:
+        request_id = incoming.strip()
+        if 8 <= len(request_id) <= 80:
+            return request_id
+    return str(uuid.uuid4())
+
+
+@api.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = _request_id_from_headers(request)
+    token = set_current_request_id(request_id)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        db = SessionLocal()
+        try:
+            record_system_event(
+                db,
+                level="error",
+                event_type="http_unhandled_exception",
+                request_id=request_id,
+                message="Erro inesperado nao tratado.",
+                metadata={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "error": str(exc),
+                },
+            )
+        finally:
+            db.close()
+        raise
+    finally:
+        reset_current_request_id(token)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
 @api.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = []
     for error in exc.errors():
         errors.append({k: v for k, v in error.items() if k != "input"})
+    db = SessionLocal()
+    try:
+        record_system_event(
+            db,
+            level="warning",
+            event_type="http_validation_error",
+            message="Requisicao rejeitada por validacao.",
+            metadata={
+                "method": request.method,
+                "path": request.url.path,
+                "errors": errors,
+            },
+        )
+    finally:
+        db.close()
     return JSONResponse(status_code=422, content={"detail": errors})
 
 
@@ -134,6 +195,7 @@ api.include_router(admin.router)
 api.include_router(upload.router)
 api.include_router(nlp.router)
 api.include_router(limits.router)
+api.include_router(observability.router)
 api.include_router(subscriptions.router)
 api.include_router(entities.router)
 

@@ -1,4 +1,5 @@
 import logging
+from contextvars import ContextVar
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -9,6 +10,19 @@ logger = logging.getLogger(__name__)
 
 MAX_TEXT_LENGTH = 500
 MAX_METADATA_ITEMS = 20
+_request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
+
+
+def set_current_request_id(request_id: str) -> object:
+    return _request_id_context.set(request_id)
+
+
+def reset_current_request_id(token: object) -> None:
+    _request_id_context.reset(token)
+
+
+def get_current_request_id() -> str | None:
+    return _request_id_context.get()
 
 
 def _safe_value(value: Any) -> Any:
@@ -52,11 +66,12 @@ def record_system_event(
     commit: bool = True,
 ) -> None:
     try:
+        event_request_id = request_id or get_current_request_id()
         db.add(SystemEvent(
             level=level,
             event_type=event_type,
             user_email=user_email,
-            request_id=request_id,
+            request_id=event_request_id,
             message=message[:MAX_TEXT_LENGTH],
             metadata_json=sanitize_metadata(metadata),
         ))
