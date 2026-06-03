@@ -3,7 +3,14 @@ from datetime import datetime
 
 from core.security.jwt import create_token
 from core.security.password import hash_password, verify_password
-from infrastructure.database.models import AdminAuditLog, PixPaymentRequest, QuestionAttempt, User, UserProgress
+from infrastructure.database.models import (
+    AdminAuditLog,
+    PixPaymentRequest,
+    QuestionAttempt,
+    SystemEvent,
+    User,
+    UserProgress,
+)
 
 
 def _headers(email: str) -> dict:
@@ -111,6 +118,53 @@ def test_admin_lista_auditoria(client, db):
 
     assert response.status_code == 200
     assert response.json()[0]["action"] == "manual_plan_granted"
+
+
+def test_usuario_comum_nao_acessa_eventos_do_sistema(client, auth_headers):
+    response = client.get("/api/admin/system-events", headers=auth_headers)
+
+    assert response.status_code == 403
+
+
+def test_admin_lista_eventos_do_sistema(client, db):
+    admin = _admin_user(db)
+    db.add(SystemEvent(
+        level="error",
+        event_type="ai_generation_failed",
+        user_email="aluno@cognora.com",
+        message="Falha na geracao de conteudo por IA.",
+        metadata_json={"provider": "fallback"},
+    ))
+    db.commit()
+
+    response = client.get(
+        "/api/admin/system-events?q=aluno&level=error",
+        headers=_headers(admin.email),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["event_type"] == "ai_generation_failed"
+    assert data[0]["metadata"]["provider"] == "fallback"
+
+
+def test_admin_summary_eventos_do_sistema(client, db):
+    admin = _admin_user(db)
+    db.add(SystemEvent(
+        level="warning",
+        event_type="auth_login_failed",
+        user_email="aluno@cognora.com",
+        message="Falha de login.",
+        metadata_json={"identifier": "aluno@cognora.com"},
+    ))
+    db.commit()
+
+    response = client.get("/api/admin/system-events/summary", headers=_headers(admin.email))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["last_24h"]["warning"] >= 1
+    assert data["by_type_7d"]["auth_login_failed"] >= 1
 
 
 def test_admin_reseta_senha_de_usuario(client, db, test_user):

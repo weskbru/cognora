@@ -1,9 +1,9 @@
 """
-Rotas FastAPI — Módulo NLP (Resumo + Questões MCQ via Gemini 2.0 Flash).
+Rotas FastAPI - Modulo NLP (Resumo + Questoes MCQ).
 
 Endpoints:
-  POST /api/nlp/analisar-documento → PDF → resumo + questões MCQ estruturadas
-  POST /api/nlp/analisar           → texto → resumo + questões MCQ estruturadas
+  POST /api/nlp/analisar-documento -> PDF -> resumo + questoes MCQ estruturadas
+  POST /api/nlp/analisar           -> texto -> resumo + questoes MCQ estruturadas
 """
 
 import logging
@@ -13,7 +13,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from infrastructure.database.connection import get_db
 
 from api.dependencies import get_current_user
 from api.schemas.resumo import (
@@ -25,7 +24,9 @@ from api.schemas.resumo import (
 from core.config.settings import settings
 from domain.use_cases.analise_nlp import ServicoAnaliseNLP, criar_servico_analise_nlp
 from infrastructure.ai.pdf_extractor import extrair_texto_pdf
+from infrastructure.database.connection import get_db
 from infrastructure.database.models import User
+from infrastructure.observability import record_system_event
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def _file_url_to_path(file_url: str) -> str:
         raise FileNotFoundError(f"Erro ao baixar arquivo: {exc}")
 
     if r.status_code != 200:
-        raise FileNotFoundError(f"Arquivo não encontrado na URL (status {r.status_code})")
+        raise FileNotFoundError(f"Arquivo nao encontrado na URL (status {r.status_code})")
 
     ext = os.path.splitext(parsed.path)[1] or ".pdf"
     tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
@@ -71,16 +72,25 @@ def _file_url_to_path(file_url: str) -> str:
     return tmp.name
 
 
+def _record_limit_event(db: Session, user_email: str, exc: HTTPException, source: str) -> None:
+    record_system_event(
+        db,
+        level="warning",
+        event_type="nlp_generation_limit_reached",
+        user_email=user_email,
+        message="Geracao bloqueada por limite do plano.",
+        metadata={"status_code": exc.status_code, "detail": exc.detail, "source": source},
+    )
+
+
 @router.post(
     "/analisar-documento",
-    # response_model removido: o FastAPI infere pelo "-> AnalisarDocumentoResponse"
-    summary="PDF → Resumo + Questões MCQ",
-    description="Extrai texto do PDF e gera resumo + questões de múltipla escolha via Gemini 2.0 Flash.",
-    # Respostas de erro documentadas no Swagger UI (SonarLint S8415)
+    summary="PDF -> Resumo + Questoes MCQ",
+    description="Extrai texto do PDF e gera resumo + questoes de multipla escolha via IA.",
     responses={
-        404: {"description": "Arquivo PDF não encontrado."},
-        422: {"description": "Erro na extração do texto ou retorno inválido da IA."},
-        500: {"description": "Erro interno do servidor ao processar a requisição."},
+        404: {"description": "Arquivo PDF nao encontrado."},
+        422: {"description": "Erro na extracao do texto ou retorno invalido da IA."},
+        500: {"description": "Erro interno do servidor ao processar a requisicao."},
     },
 )
 async def analisar_documento(
@@ -90,23 +100,52 @@ async def analisar_documento(
     db: Session = Depends(get_db),
 ) -> AnalisarDocumentoResponse:
     from domain.use_cases.limits import check_and_consume
-    check_and_consume(current_user.email, db)
 
-    logger.info("POST /api/nlp/analisar-documento — url: %s", body.file_url)
+    try:
+        check_and_consume(current_user.email, db)
+    except HTTPException as exc:
+        _record_limit_event(db, current_user.email, exc, "document")
+        raise
+
+    logger.info("POST /api/nlp/analisar-documento - url: %s", body.file_url)
 
     try:
         filepath = _file_url_to_path(body.file_url)
     except FileNotFoundError as exc:
+        record_system_event(
+            db,
+            level="warning",
+            event_type="nlp_document_file_not_found",
+            user_email=current_user.email,
+            message="Arquivo do documento nao foi encontrado.",
+            metadata={"file_url": body.file_url, "error": str(exc)},
+        )
         raise HTTPException(
             status_code=404,
-            detail=f"Não foi possível acessar o arquivo PDF. Verifique se o upload foi concluído. Detalhe: {exc}",
+            detail=f"Nao foi possivel acessar o arquivo PDF. Verifique se o upload foi concluido. Detalhe: {exc}",
         )
 
     try:
         texto = extrair_texto_pdf(filepath)
     except ValueError as exc:
+        record_system_event(
+            db,
+            level="warning",
+            event_type="nlp_pdf_extract_failed",
+            user_email=current_user.email,
+            message="Falha ao extrair texto do PDF.",
+            metadata={"reason": str(exc), "source": "document"},
+        )
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
+        record_system_event(
+            db,
+            level="error",
+            event_type="nlp_pdf_extract_failed",
+            user_email=current_user.email,
+            message="Erro ao ler o PDF.",
+            metadata={"reason": str(exc), "source": "document"},
+        )
         raise HTTPException(status_code=422, detail=f"Erro ao ler o PDF: {exc}")
     finally:
         try:
@@ -116,26 +155,56 @@ async def analisar_documento(
 
     try:
         resultado = await servico.analisar(texto, question_type=body.question_type)
+        record_system_event(
+            db,
+            level="info",
+            event_type="nlp_document_analysis_success",
+            user_email=current_user.email,
+            message="Documento analisado com sucesso.",
+            metadata={"question_type": body.question_type, "text_length": len(texto)},
+        )
         return AnalisarDocumentoResponse(**resultado.model_dump())
     except ValueError as exc:
+        record_system_event(
+            db,
+            level="warning",
+            event_type="ai_response_invalid",
+            user_email=current_user.email,
+            message="Resposta da IA invalida para documento.",
+            metadata={"reason": str(exc), "question_type": body.question_type},
+        )
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
-        logger.error("Falha na geração de conteúdo IA: %s", exc)
+        logger.error("Falha na geracao de conteudo IA: %s", exc)
+        record_system_event(
+            db,
+            level="error",
+            event_type="ai_generation_failed",
+            user_email=current_user.email,
+            message="Falha na geracao de conteudo por IA.",
+            metadata={"reason": str(exc), "source": "document", "question_type": body.question_type},
+        )
         raise HTTPException(status_code=500, detail=str(exc))
     except Exception as exc:
         logger.exception("Erro inesperado em /api/nlp/analisar-documento")
+        record_system_event(
+            db,
+            level="error",
+            event_type="nlp_document_unexpected_error",
+            user_email=current_user.email,
+            message="Erro inesperado ao processar documento.",
+            metadata={"reason": str(exc), "question_type": body.question_type},
+        )
         raise HTTPException(status_code=500, detail=f"Erro inesperado ao processar documento: {exc}")
 
 
 @router.post(
     "/analisar",
-    # response_model removido
-    summary="Texto → Resumo + Questões MCQ",
-    description="Gera resumo e questões de múltipla escolha a partir de texto puro.",
-    # Documentação de erros
+    summary="Texto -> Resumo + Questoes MCQ",
+    description="Gera resumo e questoes de multipla escolha a partir de texto puro.",
     responses={
-        422: {"description": "Conteúdo textual inválido ou retorno mal formatado da IA."},
-        500: {"description": "Erro interno no servidor ao se comunicar com o OpenRouter."},
+        422: {"description": "Conteudo textual invalido ou retorno mal formatado da IA."},
+        500: {"description": "Erro interno no servidor ao se comunicar com o provedor de IA."},
     },
 )
 async def analisar(
@@ -145,16 +214,53 @@ async def analisar(
     db: Session = Depends(get_db),
 ) -> AnalisarTextoResponse:
     from domain.use_cases.limits import check_and_consume
-    check_and_consume(current_user.email, db)
 
-    logger.info("POST /api/nlp/analisar — texto com %d chars.", len(body.texto))
+    try:
+        check_and_consume(current_user.email, db)
+    except HTTPException as exc:
+        _record_limit_event(db, current_user.email, exc, "text")
+        raise
+
+    logger.info("POST /api/nlp/analisar - texto com %d chars.", len(body.texto))
     try:
         resultado = await servico.analisar(body.texto, question_type=body.question_type)
+        record_system_event(
+            db,
+            level="info",
+            event_type="nlp_text_analysis_success",
+            user_email=current_user.email,
+            message="Texto analisado com sucesso.",
+            metadata={"question_type": body.question_type, "text_length": len(body.texto)},
+        )
         return AnalisarTextoResponse(**resultado.model_dump())
     except ValueError as exc:
+        record_system_event(
+            db,
+            level="warning",
+            event_type="ai_response_invalid",
+            user_email=current_user.email,
+            message="Resposta da IA invalida para texto.",
+            metadata={"reason": str(exc), "question_type": body.question_type},
+        )
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
+        record_system_event(
+            db,
+            level="error",
+            event_type="ai_generation_failed",
+            user_email=current_user.email,
+            message="Falha na geracao de conteudo por IA.",
+            metadata={"reason": str(exc), "source": "text", "question_type": body.question_type},
+        )
         raise HTTPException(status_code=500, detail=str(exc))
     except Exception as exc:
         logger.exception("Erro inesperado em /api/nlp/analisar")
+        record_system_event(
+            db,
+            level="error",
+            event_type="nlp_text_unexpected_error",
+            user_email=current_user.email,
+            message="Erro inesperado ao processar texto.",
+            metadata={"reason": str(exc), "question_type": body.question_type},
+        )
         raise HTTPException(status_code=500, detail=f"Erro interno: {exc}")

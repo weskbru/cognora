@@ -39,6 +39,30 @@ export interface AdminAuditLog {
   created_at: string;
 }
 
+export type SystemEventLevel = 'info' | 'warning' | 'error';
+
+export interface SystemEvent {
+  id: string;
+  level: SystemEventLevel;
+  event_type: string;
+  user_email: string | null;
+  request_id: string | null;
+  message: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface SystemEventsSummary {
+  last_24h: {
+    info: number;
+    warning: number;
+    error: number;
+  };
+  total_7d: number;
+  by_type_7d: Record<string, number>;
+  recent_errors: SystemEvent[];
+}
+
 export interface AdminPaymentRequest {
   id: string;
   user_email: string;
@@ -125,5 +149,20 @@ export const adminApi = {
     if (params.limit) searchParams.set('limit', String(params.limit));
     const qs = searchParams.toString();
     return request<AdminAuditLog[]>('GET', `/api/admin/audit-logs${qs ? `?${qs}` : ''}`);
+  },
+
+  systemEvents(params: { q?: string; level?: string; event_type?: string; user_email?: string; limit?: number }): Promise<SystemEvent[]> {
+    const searchParams = new URLSearchParams();
+    if (params.q) searchParams.set('q', params.q);
+    if (params.level) searchParams.set('level', params.level);
+    if (params.event_type) searchParams.set('event_type', params.event_type);
+    if (params.user_email) searchParams.set('user_email', params.user_email);
+    if (params.limit) searchParams.set('limit', String(params.limit));
+    const qs = searchParams.toString();
+    return request<SystemEvent[]>('GET', `/api/admin/system-events${qs ? `?${qs}` : ''}`);
+  },
+
+  systemEventsSummary(): Promise<SystemEventsSummary> {
+    return request<SystemEventsSummary>('GET', '/api/admin/system-events/summary');
   },
 };

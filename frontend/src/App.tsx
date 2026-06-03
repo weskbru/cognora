@@ -8,6 +8,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import Pricing from '@/pages/Pricing';
 import AdminAudit from '@/pages/AdminAudit';
 import AdminDashboard from '@/pages/AdminDashboard';
+import AdminObservability from '@/pages/AdminObservability';
 import AdminPayments from '@/pages/AdminPayments';
 import AdminUsers from '@/pages/AdminUsers';
 import Landing from '@/pages/Landing';
@@ -64,6 +65,7 @@ const ProtectedRoutes = () => {
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/payments" element={<AdminPayments />} />
           <Route path="/admin/audit" element={<AdminAudit />} />
+          <Route path="/admin/observability" element={<AdminObservability />} />
         </Route>
         <Route path="*" element={<PageNotFound />} />
       </Routes>

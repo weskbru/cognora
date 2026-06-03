@@ -16,6 +16,7 @@ from infrastructure.database.models import (
     PixPaymentRequest,
     QuestionAttempt,
     Subject,
+    SystemEvent,
     User,
     UserProgress,
 )
@@ -360,3 +361,79 @@ def admin_audit_logs(
         query = query.filter(AdminAuditLog.action == action)
     rows = query.order_by(AdminAuditLog.created_at.desc()).limit(limit).all()
     return [row_to_dict(row) for row in rows]
+
+
+@router.get("/system-events")
+def admin_system_events(
+    q: str | None = Query(None),
+    level: str | None = Query(None),
+    event_type: str | None = Query(None),
+    user_email: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=300),
+    _: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    query = db.query(SystemEvent)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(or_(
+            SystemEvent.message.ilike(like),
+            SystemEvent.event_type.ilike(like),
+            SystemEvent.user_email.ilike(like),
+            SystemEvent.request_id.ilike(like),
+        ))
+    if level and level != "all":
+        query = query.filter(SystemEvent.level == level)
+    if event_type and event_type != "all":
+        query = query.filter(SystemEvent.event_type == event_type)
+    if user_email:
+        query = query.filter(SystemEvent.user_email == user_email)
+    rows = query.order_by(SystemEvent.created_at.desc()).limit(limit).all()
+    return [row_to_dict(row) for row in rows]
+
+
+@router.get("/system-events/summary")
+def admin_system_events_summary(
+    _: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    now = datetime.utcnow()
+    last_24h = now - timedelta(hours=24)
+    last_7d = now - timedelta(days=7)
+
+    by_level_24h = dict(
+        db.query(SystemEvent.level, func.count(SystemEvent.id))
+        .filter(SystemEvent.created_at >= last_24h)
+        .group_by(SystemEvent.level)
+        .all()
+    )
+    by_type_7d = dict(
+        db.query(SystemEvent.event_type, func.count(SystemEvent.id))
+        .filter(SystemEvent.created_at >= last_7d)
+        .group_by(SystemEvent.event_type)
+        .all()
+    )
+    total_7d = (
+        db.query(func.count(SystemEvent.id))
+        .filter(SystemEvent.created_at >= last_7d)
+        .scalar()
+        or 0
+    )
+    recent_errors = (
+        db.query(SystemEvent)
+        .filter(SystemEvent.level == "error")
+        .order_by(SystemEvent.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    return {
+        "last_24h": {
+            "info": by_level_24h.get("info", 0),
+            "warning": by_level_24h.get("warning", 0),
+            "error": by_level_24h.get("error", 0),
+        },
+        "total_7d": total_7d,
+        "by_type_7d": by_type_7d,
+        "recent_errors": [row_to_dict(row) for row in recent_errors],
+    }

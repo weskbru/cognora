@@ -4,7 +4,7 @@ import {
   LayoutDashboard, BookOpen, FileText, HelpCircle,
   GraduationCap, User, Trophy, Swords, BookX,
   Zap, Sparkles, Crown, CreditCard, ArrowUpCircle, ShieldCheck,
-  Users, ScrollText,
+  Users, ScrollText, Activity,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -71,6 +71,7 @@ const ADMIN_NAV_SECTIONS: NavSection[] = [
       { path: '/admin/users', label: 'Usuarios', icon: Users },
       { path: '/admin/payments', label: 'Pagamentos Pix', icon: ShieldCheck },
       { path: '/admin/audit', label: 'Auditoria', icon: ScrollText },
+      { path: '/admin/observability', label: 'Observabilidade', icon: Activity },
     ],
   },
 ];

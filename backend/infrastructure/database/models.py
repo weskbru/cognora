@@ -159,3 +159,15 @@ class AdminAuditLog(Base):
     target_id = Column(String, nullable=False)
     metadata_json = Column("metadata", JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SystemEvent(Base):
+    __tablename__ = "system_events"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    level = Column(String, nullable=False, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    user_email = Column(String, nullable=True, index=True)
+    request_id = Column(String, nullable=True, index=True)
+    message = Column(Text, nullable=False)
+    metadata_json = Column("metadata", JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
