@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from core.security.jwt import create_token
 from core.security.password import hash_password, verify_password
@@ -132,13 +132,14 @@ def test_admin_lista_eventos_do_sistema(client, db):
         level="error",
         event_type="ai_generation_failed",
         user_email="aluno@cognora.com",
+        request_id="req-ai-123",
         message="Falha na geracao de conteudo por IA.",
         metadata_json={"provider": "fallback"},
     ))
     db.commit()
 
     response = client.get(
-        "/api/admin/system-events?q=aluno&level=error",
+        "/api/admin/system-events?user_email=aluno&request_id=req-ai-123&level=error",
         headers=_headers(admin.email),
     )
 
@@ -146,6 +147,37 @@ def test_admin_lista_eventos_do_sistema(client, db):
     data = response.json()
     assert data[0]["event_type"] == "ai_generation_failed"
     assert data[0]["metadata"]["provider"] == "fallback"
+    assert data[0]["request_id"] == "req-ai-123"
+
+
+def test_admin_limpa_eventos_antigos(client, db):
+    admin = _admin_user(db)
+    db.add(SystemEvent(
+        level="error",
+        event_type="old_error",
+        user_email="antigo@cognora.com",
+        message="Evento antigo.",
+        created_at=datetime.utcnow() - timedelta(days=45),
+    ))
+    db.add(SystemEvent(
+        level="error",
+        event_type="new_error",
+        user_email="novo@cognora.com",
+        message="Evento novo.",
+        created_at=datetime.utcnow(),
+    ))
+    db.commit()
+
+    response = client.post(
+        "/api/admin/system-events/cleanup",
+        json={"retention_days": 30},
+        headers=_headers(admin.email),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["deleted"] >= 1
+    assert db.query(SystemEvent).filter(SystemEvent.event_type == "old_error").first() is None
+    assert db.query(SystemEvent).filter(SystemEvent.event_type == "new_error").first() is not None
 
 
 def test_admin_summary_eventos_do_sistema(client, db):

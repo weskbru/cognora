@@ -11,6 +11,7 @@ from core.config.settings import settings
 from api.routes import admin, auth, entities, upload, nlp, limits, observability, subscriptions
 from infrastructure.database.connection import SessionLocal
 from infrastructure.observability import (
+    cleanup_old_system_events,
     record_system_event,
     reset_current_request_id,
     set_current_request_id,
@@ -95,6 +96,12 @@ def _run_migrations():
             metadata JSONB DEFAULT '{}',
             created_at TIMESTAMP DEFAULT NOW()
         )""",
+        """CREATE TABLE IF NOT EXISTS observability_alert_states (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            alert_key VARCHAR NOT NULL UNIQUE,
+            last_sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_id ON pix_payment_requests (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_email ON pix_payment_requests (user_email)",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_status ON pix_payment_requests (status)",
@@ -106,6 +113,7 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_system_events_user_email ON system_events (user_email)",
         "CREATE INDEX IF NOT EXISTS ix_system_events_request_id ON system_events (request_id)",
         "CREATE INDEX IF NOT EXISTS ix_system_events_created_at ON system_events (created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_observability_alert_states_alert_key ON observability_alert_states (alert_key)",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -120,6 +128,11 @@ def _run_migrations():
 async def lifespan(app: FastAPI):
     try:
         _run_migrations()
+        db = SessionLocal()
+        try:
+            cleanup_old_system_events(db)
+        finally:
+            db.close()
     except Exception:
         logger.exception("Falha ao executar migrações de startup")
     yield

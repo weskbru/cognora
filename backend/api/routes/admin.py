@@ -7,6 +7,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_admin_user
+from core.config.settings import settings
 from core.security.password import hash_password
 from domain.use_cases.limits import sync_plan_expiration
 from infrastructure.database.connection import get_db
@@ -20,6 +21,7 @@ from infrastructure.database.models import (
     User,
     UserProgress,
 )
+from infrastructure.observability import cleanup_old_system_events
 from infrastructure.repositories.base import row_to_dict
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -44,6 +46,10 @@ class ResetUserPasswordPayload(BaseModel):
 class DeleteUserPayload(BaseModel):
     confirm_email: str
     note: str | None = None
+
+
+class CleanupSystemEventsPayload(BaseModel):
+    retention_days: int | None = Field(default=None, ge=1, le=365)
 
 
 def _get_or_create_progress(email: str, db: Session) -> UserProgress:
@@ -369,6 +375,9 @@ def admin_system_events(
     level: str | None = Query(None),
     event_type: str | None = Query(None),
     user_email: str | None = Query(None),
+    request_id: str | None = Query(None),
+    created_from: datetime | None = Query(None),
+    created_to: datetime | None = Query(None),
     limit: int = Query(100, ge=1, le=300),
     _: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
@@ -387,9 +396,32 @@ def admin_system_events(
     if event_type and event_type != "all":
         query = query.filter(SystemEvent.event_type == event_type)
     if user_email:
-        query = query.filter(SystemEvent.user_email == user_email)
+        query = query.filter(SystemEvent.user_email.ilike(f"%{user_email.strip()}%"))
+    if request_id:
+        query = query.filter(SystemEvent.request_id == request_id.strip())
+    if created_from:
+        query = query.filter(SystemEvent.created_at >= created_from)
+    if created_to:
+        query = query.filter(SystemEvent.created_at <= created_to)
     rows = query.order_by(SystemEvent.created_at.desc()).limit(limit).all()
     return [row_to_dict(row) for row in rows]
+
+
+@router.post("/system-events/cleanup")
+def admin_cleanup_system_events(
+    payload: CleanupSystemEventsPayload,
+    admin: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    retention_days = payload.retention_days
+    deleted = cleanup_old_system_events(db, retention_days)
+    effective_retention_days = retention_days or settings.observability_retention_days
+    _audit(db, admin, "system_events_cleanup", None, "system_events", "retention", {
+        "retention_days": effective_retention_days,
+        "deleted": deleted,
+    })
+    db.commit()
+    return {"deleted": deleted, "retention_days": effective_retention_days}
 
 
 @router.get("/system-events/summary")
@@ -436,4 +468,12 @@ def admin_system_events_summary(
         "total_7d": total_7d,
         "by_type_7d": by_type_7d,
         "recent_errors": [row_to_dict(row) for row in recent_errors],
+        "config": {
+            "retention_days": settings.observability_retention_days,
+            "alert_email_enabled": bool(settings.resend_api_key and settings.observability_alert_emails),
+            "alert_email_count": len(settings.observability_alert_emails),
+            "alert_error_threshold": settings.observability_alert_error_threshold,
+            "alert_window_minutes": settings.observability_alert_window_minutes,
+            "alert_cooldown_minutes": settings.observability_alert_cooldown_minutes,
+        },
     }

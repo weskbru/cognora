@@ -1,6 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Activity, Loader2, Search, TriangleAlert } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { AlertCircle, Activity, Loader2, Search, Trash2, TriangleAlert } from 'lucide-react';
 
 import { adminApi, type SystemEvent, type SystemEventLevel } from '@/api/admin';
 import { useAuth } from '@/lib/AuthContext';
@@ -57,6 +57,12 @@ export default function AdminObservability() {
   const [query, setQuery] = useState('');
   const [level, setLevel] = useState<LevelFilter>('all');
   const [eventType, setEventType] = useState('all');
+  const [userEmail, setUserEmail] = useState('');
+  const [requestId, setRequestId] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [retentionDays, setRetentionDays] = useState('30');
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
   const canUseAdmin = user?.role === 'admin';
 
@@ -68,15 +74,33 @@ export default function AdminObservability() {
   });
 
   const eventsQuery = useQuery({
-    queryKey: ['admin-system-events', query, level, eventType],
+    queryKey: ['admin-system-events', query, level, eventType, userEmail, requestId, createdFrom, createdTo],
     queryFn: () => adminApi.systemEvents({
       q: query,
       level,
       event_type: eventType,
+      user_email: userEmail,
+      request_id: requestId,
+      created_from: createdFrom ? `${createdFrom}T00:00:00` : undefined,
+      created_to: createdTo ? `${createdTo}T23:59:59` : undefined,
       limit: 100,
     }),
     enabled: canUseAdmin,
     refetchInterval: 60_000,
+  });
+
+  const cleanupMutation = useMutation({
+    mutationFn: () => adminApi.cleanupSystemEvents({
+      retention_days: Number(retentionDays) || 30,
+    }),
+    onSuccess: (result) => {
+      setCleanupResult(`${result.deleted} eventos removidos; retencao atual: ${result.retention_days} dias.`);
+      summaryQuery.refetch();
+      eventsQuery.refetch();
+    },
+    onError: () => {
+      setCleanupResult('Falha ao limpar eventos antigos.');
+    },
   });
 
   const eventTypeOptions = useMemo(() => {
@@ -190,6 +214,65 @@ export default function AdminObservability() {
         </Select>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+        <Input
+          value={userEmail}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => setUserEmail(event.target.value)}
+          placeholder="Filtrar por e-mail"
+        />
+        <Input
+          value={requestId}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => setRequestId(event.target.value)}
+          placeholder="Filtrar por request id"
+        />
+        <Input
+          type="date"
+          value={createdFrom}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => setCreatedFrom(event.target.value)}
+        />
+        <Input
+          type="date"
+          value={createdTo}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => setCreatedTo(event.target.value)}
+        />
+      </div>
+
+      <Card className="rounded-lg p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Retencao de eventos</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Limpeza manual remove eventos anteriores ao periodo informado.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              type="number"
+              min={1}
+              max={365}
+              value={retentionDays}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => setRetentionDays(event.target.value)}
+              className="w-full sm:w-28"
+            />
+            <Button
+              variant="outline"
+              onClick={() => cleanupMutation.mutate()}
+              disabled={cleanupMutation.isPending}
+            >
+              {cleanupMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Limpar antigos
+            </Button>
+          </div>
+        </div>
+        {cleanupResult && (
+          <p className="mt-3 text-xs text-muted-foreground">{cleanupResult}</p>
+        )}
+      </Card>
+
       {summaryQuery.error || eventsQuery.error ? (
         <Card className="p-4 rounded-lg border-red-200">
           <div className="flex items-center gap-2 text-red-700">
@@ -206,6 +289,23 @@ export default function AdminObservability() {
               {eventTypeLabel(type)}: {count}
             </Badge>
           ))}
+        </div>
+      )}
+
+      {summary?.config && (
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline" className="rounded-md px-2.5 py-1">
+            Retencao: {summary.config.retention_days} dias
+          </Badge>
+          <Badge variant="outline" className="rounded-md px-2.5 py-1">
+            Email: {summary.config.alert_email_enabled ? `${summary.config.alert_email_count} destino(s)` : 'desativado'}
+          </Badge>
+          <Badge variant="outline" className="rounded-md px-2.5 py-1">
+            Alerta: {summary.config.alert_error_threshold} erros/{summary.config.alert_window_minutes} min
+          </Badge>
+          <Badge variant="outline" className="rounded-md px-2.5 py-1">
+            Cooldown: {summary.config.alert_cooldown_minutes} min
+          </Badge>
         </div>
       )}
 

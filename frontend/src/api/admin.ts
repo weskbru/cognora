@@ -61,6 +61,14 @@ export interface SystemEventsSummary {
   total_7d: number;
   by_type_7d: Record<string, number>;
   recent_errors: SystemEvent[];
+  config: {
+    retention_days: number;
+    alert_email_enabled: boolean;
+    alert_email_count: number;
+    alert_error_threshold: number;
+    alert_window_minutes: number;
+    alert_cooldown_minutes: number;
+  };
 }
 
 export interface AdminPaymentRequest {
@@ -151,12 +159,24 @@ export const adminApi = {
     return request<AdminAuditLog[]>('GET', `/api/admin/audit-logs${qs ? `?${qs}` : ''}`);
   },
 
-  systemEvents(params: { q?: string; level?: string; event_type?: string; user_email?: string; limit?: number }): Promise<SystemEvent[]> {
+  systemEvents(params: {
+    q?: string;
+    level?: string;
+    event_type?: string;
+    user_email?: string;
+    request_id?: string;
+    created_from?: string;
+    created_to?: string;
+    limit?: number;
+  }): Promise<SystemEvent[]> {
     const searchParams = new URLSearchParams();
     if (params.q) searchParams.set('q', params.q);
     if (params.level) searchParams.set('level', params.level);
     if (params.event_type) searchParams.set('event_type', params.event_type);
     if (params.user_email) searchParams.set('user_email', params.user_email);
+    if (params.request_id) searchParams.set('request_id', params.request_id);
+    if (params.created_from) searchParams.set('created_from', params.created_from);
+    if (params.created_to) searchParams.set('created_to', params.created_to);
     if (params.limit) searchParams.set('limit', String(params.limit));
     const qs = searchParams.toString();
     return request<SystemEvent[]>('GET', `/api/admin/system-events${qs ? `?${qs}` : ''}`);
@@ -164,5 +184,9 @@ export const adminApi = {
 
   systemEventsSummary(): Promise<SystemEventsSummary> {
     return request<SystemEventsSummary>('GET', '/api/admin/system-events/summary');
+  },
+
+  cleanupSystemEvents(payload: { retention_days?: number }): Promise<{ deleted: number; retention_days: number }> {
+    return request('POST', '/api/admin/system-events/cleanup', payload);
   },
 };

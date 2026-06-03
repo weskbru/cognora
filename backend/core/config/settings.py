@@ -44,6 +44,15 @@ class Settings:
         for email in os.getenv("ADMIN_EMAILS", "").split(",")
         if email.strip()
     ]
+    observability_retention_days: int = int(os.getenv("OBSERVABILITY_RETENTION_DAYS", "30"))
+    observability_alert_emails: list[str] = [
+        email.strip().lower()
+        for email in os.getenv("OBSERVABILITY_ALERT_EMAILS", os.getenv("ADMIN_EMAILS", "")).split(",")
+        if email.strip()
+    ]
+    observability_alert_error_threshold: int = int(os.getenv("OBSERVABILITY_ALERT_ERROR_THRESHOLD", "5"))
+    observability_alert_window_minutes: int = int(os.getenv("OBSERVABILITY_ALERT_WINDOW_MINUTES", "10"))
+    observability_alert_cooldown_minutes: int = int(os.getenv("OBSERVABILITY_ALERT_COOLDOWN_MINUTES", "60"))
     # ALLOWED_ORIGINS: lista separada por vírgula, ex: "https://app.com,https://www.app.com"
     # Em desenvolvimento, deixe vazio ou use "*" (qualquer origem)
     allowed_origins: list[str] = [

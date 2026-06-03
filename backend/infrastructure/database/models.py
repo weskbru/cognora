@@ -171,3 +171,11 @@ class SystemEvent(Base):
     message = Column(Text, nullable=False)
     metadata_json = Column("metadata", JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class ObservabilityAlertState(Base):
+    __tablename__ = "observability_alert_states"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alert_key = Column(String, nullable=False, unique=True, index=True)
+    last_sent_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
