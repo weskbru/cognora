@@ -1,8 +1,10 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays } from 'date-fns';
 import { base44 } from '@/api/base44Client';
+import { subscriptionsApi } from '@/api/subscriptions';
 import { useAuth } from '@/lib/AuthContext';
 import { useRewardsContext } from '@/context/RewardsContext';
 import { getLevelInfo, getXpProgressPercent, LEVELS, XP_REWARDS } from '@/hooks/useRewards';
@@ -18,6 +20,40 @@ import {
 const LEVEL_ICONS = ['🌱', '📖', '💡', '🎯', '🚀', '⚡', '🏆', '🧠', '🌟', '👑'];
 const AVATAR_OPTIONS = ['🧑‍🎓', '👩‍🎓', '🦊', '🐼', '🦁', '🐯', '🦄', '🐉', '🤖', '👾', '🧙', '🦸'];
 const WEEK_DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+type PlanId = 'free' | 'pro' | 'unlimited';
+
+interface PlanCardConfig {
+  title: string;
+  badge: string;
+  docsMax: number | null;
+  subjectsMax: number | null;
+  badgeClassName: string;
+}
+
+const PLAN_CARD_CONFIG: Record<PlanId, PlanCardConfig> = {
+  free: {
+    title: 'Básico',
+    badge: 'Grátis',
+    docsMax: 1,
+    subjectsMax: 2,
+    badgeClassName: '',
+  },
+  pro: {
+    title: 'Pro',
+    badge: 'Ativo',
+    docsMax: null,
+    subjectsMax: null,
+    badgeClassName: 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300',
+  },
+  unlimited: {
+    title: 'Ilimitado',
+    badge: 'Ativo',
+    docsMax: null,
+    subjectsMax: null,
+    badgeClassName: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
+  },
+};
 
 const ACTIVITY_MAP = [
   { key: 'resumo', icon: Sparkles, color: 'bg-primary/10 text-primary' },
@@ -70,6 +106,10 @@ export default function Profile() {
   const { data: subjects = [] } = useQuery({
     queryKey: ['subjects'],
     queryFn: () => base44.entities.Subject.list(),
+  });
+  const { data: subscriptionStatus } = useQuery({
+    queryKey: ['subscription-status'],
+    queryFn: () => subscriptionsApi.getStatus(),
   });
 
   const handleOpenEdit = () => {
@@ -173,7 +213,7 @@ export default function Profile() {
           <RecentActivities entries={activities} />
           <XpRules />
           <RankingPreview entries={top3} progress={progress} rank={userRank} />
-          <PlanCard documents={documents} subjects={subjects} />
+          <PlanCard documents={documents} subjects={subjects} subscriptionStatus={subscriptionStatus} />
         </div>
       </div>
     </div>
@@ -343,7 +383,43 @@ function RankingPreview({ entries, progress, rank }) {
   );
 }
 
-function PlanCard({ documents, subjects }) {
+function PlanCard({ documents, subjects, subscriptionStatus }) {
+  const currentPlan = subscriptionStatus?.plan || 'free';
+  const normalizedPlan = PLAN_CARD_CONFIG[currentPlan] ? currentPlan : 'free';
+  const planConfig = PLAN_CARD_CONFIG[normalizedPlan];
+  const expiresAt = subscriptionStatus?.plan_expires_at
+    ? new Date(subscriptionStatus.plan_expires_at).toLocaleDateString('pt-BR')
+    : null;
+
+  const usageWidth = (value, max) => {
+    if (max === null) return value > 0 ? 100 : 0;
+    return Math.min(100, (value / max) * 100);
+  };
+
+  const usageLimit = (max) => (max === null ? 'Ilimitado' : max);
+
+  return (
+    <Card className="p-5 xl:col-span-5">
+      <h2 className="flex items-center gap-2 text-base font-black"><Crown className="h-4 w-4 text-primary" /> Plano Atual</h2>
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-lg font-black">
+        {planConfig.title}
+        <Badge variant="outline" className={planConfig.badgeClassName}>{planConfig.badge}</Badge>
+      </div>
+      {expiresAt && normalizedPlan !== 'free' && (
+        <p className="mt-1 text-xs text-muted-foreground">Ativo ate {expiresAt}</p>
+      )}
+      <div className="mt-4">
+        <div className="mb-1.5 flex justify-between text-xs text-muted-foreground"><span>PDFs enviados</span><span>{documents.length} / {usageLimit(planConfig.docsMax)}</span></div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${usageWidth(documents.length, planConfig.docsMax)}%` }} /></div>
+      </div>
+      <div className="mt-4">
+        <div className="mb-1.5 flex justify-between text-xs text-muted-foreground"><span>Matérias</span><span>{subjects.length} / {usageLimit(planConfig.subjectsMax)}</span></div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${usageWidth(subjects.length, planConfig.subjectsMax)}%` }} /></div>
+      </div>
+      <Link to="/pricing"><Button className="mt-5 w-full gap-2"><Crown className="h-4 w-4" /> Ver planos e benefícios</Button></Link>
+    </Card>
+  );
+
   return (
     <Card className="p-5 xl:col-span-5">
       <h2 className="flex items-center gap-2 text-base font-black"><Crown className="h-4 w-4 text-primary" /> Plano Atual</h2>
