@@ -1,305 +1,275 @@
-"""
-Testes unitários — Regras de negócio do plano Freemium.
-Cobre: get_status, check_and_consume, apply_daily_bonus,
-       check_subject_limit, check_document_limit
-"""
 import uuid
-from datetime import date, timedelta
+from datetime import date
 
 import pytest
 from fastapi import HTTPException
 
 from domain.use_cases.limits import (
-    FREE_DAILY_LIMIT,
-    FREE_DOCS_PER_SUBJECT,
-    FREE_SUBJECT_LIMIT,
-    apply_daily_bonus,
-    check_and_consume,
+    AIUsageType,
+    PLAN_LIMITS,
+    PlanType,
+    check_competition_limit,
     check_document_limit,
+    check_pdf_generation_limit,
     check_subject_limit,
+    check_upload_size,
     get_status,
+    normalize_plan,
+    refund_ai_usage,
+    reserve_ai_usage,
 )
-from infrastructure.database.models import Document, Subject, UserProgress
+from infrastructure.database.models import Competition, Document, Flashcard, Question, Subject, Summary, UserProgress
 
 
 def _email() -> str:
     return f"limits_{uuid.uuid4().hex[:8]}@cognora.com"
 
 
-class TestGetStatus:
-    def test_novo_usuario_tem_valores_padrao(self, db):
+def _progress(db, email: str, plan: str = "free", **extra) -> UserProgress:
+    progress = UserProgress(user_email=email, plan=plan, **extra)
+    db.add(progress)
+    db.commit()
+    db.refresh(progress)
+    return progress
+
+
+def _subject(db, email: str) -> Subject:
+    subject = Subject(name="Materia", owner_email=email)
+    db.add(subject)
+    db.commit()
+    db.refresh(subject)
+    return subject
+
+
+def _document(db, subject: Subject, name: str = "doc.pdf") -> Document:
+    document = Document(name=name, subject_id=subject.id)
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    return document
+
+
+class TestPlanStatus:
+    def test_novo_usuario_free_tem_limites_finais(self, db):
         status = get_status(_email(), db)
-        assert status["used"] == 0
-        assert status["limit"] == FREE_DAILY_LIMIT
-        assert status["remaining"] == FREE_DAILY_LIMIT
-        assert status["can_generate"] is True
+
         assert status["plan"] == "free"
+        assert status["limits"]["maxSubjects"] == 3
+        assert status["limits"]["maxPdfsPerSubject"] == 1
+        assert status["limits"]["maxTotalPdfs"] == 3
+        assert status["limits"]["maxUploadSizeMb"] == 5
+        assert status["monthly_summaries"]["limit"] == 5
+        assert status["monthly_questions"]["limit"] == 5
+        assert status["monthly_flashcards"]["limit"] == 5
 
-    def test_limites_de_materias_e_docs_presentes(self, db):
-        status = get_status(_email(), db)
-        assert status["subject_limit"] == FREE_SUBJECT_LIMIT
-        assert status["docs_per_subject_limit"] == FREE_DOCS_PER_SUBJECT
+    @pytest.mark.parametrize(
+        ("plan", "expected"),
+        [
+            ("free", PlanType.FREE),
+            ("pro", PlanType.PRO),
+            ("premium", PlanType.PREMIUM),
+            ("unlimited", PlanType.PREMIUM),
+            ("desconhecido", PlanType.FREE),
+        ],
+    )
+    def test_normaliza_planos(self, plan, expected):
+        assert normalize_plan(plan) == expected
 
-    def test_remaining_diminui_conforme_uso(self, db):
+    def test_reset_mensal_dos_usos_por_tipo(self, db):
         email = _email()
-        progress = UserProgress(
-            user_email=email,
-            daily_generations_used=2,
-            last_generation_date=date.today(),
+        _progress(
+            db,
+            email,
+            summaries_used_month=5,
+            questions_used_month=5,
+            flashcards_used_month=5,
+            usage_month=date(2026, 5, 1),
         )
-        db.add(progress)
-        db.commit()
 
         status = get_status(email, db)
-        assert status["used"] == 2
-        assert status["remaining"] == FREE_DAILY_LIMIT - 2
 
-    def test_remaining_nao_e_negativo(self, db):
+        assert status["monthly_summaries"]["used"] == 0
+        assert status["monthly_questions"]["used"] == 0
+        assert status["monthly_flashcards"]["used"] == 0
+
+
+class TestTableLimits:
+    @pytest.mark.parametrize(
+        ("plan", "subject_limit", "per_subject", "total_docs", "upload_mb", "competitions"),
+        [
+            ("free", 3, 1, 3, 5, 1),
+            ("pro", 10, 2, 20, 25, 5),
+            ("premium", 30, 5, 100, 50, 20),
+            ("unlimited", 30, 5, 100, 50, 20),
+        ],
+    )
+    def test_tabela_de_limites_por_plano(self, plan, subject_limit, per_subject, total_docs, upload_mb, competitions):
+        limits = PLAN_LIMITS[normalize_plan(plan)]
+
+        assert limits.maxSubjects == subject_limit
+        assert limits.maxPdfsPerSubject == per_subject
+        assert limits.maxTotalPdfs == total_docs
+        assert limits.maxUploadSizeMb == upload_mb
+        assert limits.maxActiveCompetitions == competitions
+
+    @pytest.mark.parametrize("plan", ["free", "pro", "premium"])
+    def test_permite_criar_materia_dentro_do_limite(self, db, plan):
         email = _email()
-        progress = UserProgress(
-            user_email=email,
-            daily_generations_used=FREE_DAILY_LIMIT + 5,
-            last_generation_date=date.today(),
-        )
-        db.add(progress)
-        db.commit()
+        _progress(db, email, plan=plan)
 
-        status = get_status(email, db)
-        assert status["remaining"] == 0
-
-    def test_contador_zerado_em_novo_dia(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            daily_generations_used=FREE_DAILY_LIMIT,
-            last_generation_date=date.today() - timedelta(days=1),
-        )
-        db.add(progress)
-        db.commit()
-
-        status = get_status(email, db)
-        assert status["used"] == 0
-        assert status["remaining"] == FREE_DAILY_LIMIT
-
-    def test_usuario_premium_sem_limite(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            plan="premium",
-            daily_generations_used=0,
-            last_generation_date=date.today(),
-        )
-        db.add(progress)
-        db.commit()
-
-        status = get_status(email, db)
-        assert status["limit"] == 9999
-        assert status["subject_limit"] is None
-        assert status["docs_per_subject_limit"] is None
-
-    def test_bonus_diario_reflete_em_has_daily_bonus(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            last_active_date=date.today(),
-        )
-        db.add(progress)
-        db.commit()
-
-        status = get_status(email, db)
-        assert status["has_daily_bonus"] is True
-
-    def test_sem_bonus_quando_nao_logou_hoje(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            last_active_date=date.today() - timedelta(days=1),
-        )
-        db.add(progress)
-        db.commit()
-
-        status = get_status(email, db)
-        assert status["has_daily_bonus"] is False
-
-
-class TestCheckAndConsume:
-    def test_incrementa_contador(self, db):
-        email = _email()
-        check_and_consume(email, db)
-        status = get_status(email, db)
-        assert status["used"] == 1
-
-    def test_multiplas_chamadas_incrementam_corretamente(self, db):
-        email = _email()
-        check_and_consume(email, db)
-        check_and_consume(email, db)
-        status = get_status(email, db)
-        assert status["used"] == 2
-
-    def test_levanta_429_ao_atingir_limite(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            daily_generations_used=FREE_DAILY_LIMIT,
-            last_generation_date=date.today(),
-        )
-        db.add(progress)
-        db.commit()
-
-        with pytest.raises(HTTPException) as exc_info:
-            check_and_consume(email, db)
-
-        assert exc_info.value.status_code == 429
-        assert exc_info.value.detail["code"] == "GENERATION_LIMIT_REACHED"
-        assert exc_info.value.detail["remaining"] == 0
-
-    def test_usuario_premium_nao_bloqueado(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            plan="premium",
-            daily_generations_used=100,
-            last_generation_date=date.today(),
-        )
-        db.add(progress)
-        db.commit()
-
-        # Não deve levantar exceção
-        check_and_consume(email, db)
-
-    def test_com_bonus_diario_limite_e_base_mais_1(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            daily_generations_used=FREE_DAILY_LIMIT,
-            last_generation_date=date.today(),
-            last_active_date=date.today(),  # bonus ativo
-        )
-        db.add(progress)
-        db.commit()
-
-        # Com bônus, limite é FREE_DAILY_LIMIT + 1, então não deve bloquear
-        check_and_consume(email, db)  # usa a geração extra do bônus
-
-
-class TestApplyDailyBonus:
-    def test_primeiro_login_define_last_active_date(self, db):
-        email = _email()
-        result = apply_daily_bonus(email, db)
-        assert result is True
-
-        progress = db.query(UserProgress).filter(UserProgress.user_email == email).first()
-        assert progress.last_active_date == date.today()
-
-    def test_segundo_login_no_mesmo_dia_retorna_false(self, db):
-        email = _email()
-        apply_daily_bonus(email, db)
-        result = apply_daily_bonus(email, db)
-        assert result is False
-
-    def test_dia_consecutivo_incrementa_streak(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            last_active_date=date.today() - timedelta(days=1),
-            streak_days=3,
-        )
-        db.add(progress)
-        db.commit()
-
-        apply_daily_bonus(email, db)
-        db.refresh(progress)
-        assert progress.streak_days == 4
-
-    def test_dia_pulado_reseta_streak_para_1(self, db):
-        email = _email()
-        progress = UserProgress(
-            user_email=email,
-            last_active_date=date.today() - timedelta(days=2),
-            streak_days=10,
-        )
-        db.add(progress)
-        db.commit()
-
-        apply_daily_bonus(email, db)
-        db.refresh(progress)
-        assert progress.streak_days == 1
-
-    def test_primeiro_login_define_streak_1(self, db):
-        email = _email()
-        apply_daily_bonus(email, db)
-
-        progress = db.query(UserProgress).filter(UserProgress.user_email == email).first()
-        assert progress.streak_days == 1
-
-
-class TestCheckSubjectLimit:
-    def test_permite_abaixo_do_limite(self, db):
-        email = _email()
-        # Não deve levantar exceção
         check_subject_limit(email, db)
 
-    def test_levanta_403_ao_atingir_limite(self, db):
+    @pytest.mark.parametrize(("plan", "limit"), [("free", 3), ("pro", 10), ("premium", 30)])
+    def test_bloqueia_materia_acima_do_limite(self, db, plan, limit):
         email = _email()
-        for _ in range(FREE_SUBJECT_LIMIT):
-            db.add(Subject(name="Matéria", owner_email=email))
+        _progress(db, email, plan=plan)
+        for _ in range(limit):
+            db.add(Subject(name="Materia", owner_email=email))
         db.commit()
 
         with pytest.raises(HTTPException) as exc_info:
             check_subject_limit(email, db)
 
         assert exc_info.value.status_code == 403
-        assert exc_info.value.detail["code"] == "SUBJECT_LIMIT_REACHED"
-        assert exc_info.value.detail["limit"] == FREE_SUBJECT_LIMIT
+        assert exc_info.value.detail["message"] == "Você atingiu o limite de matérias do seu plano."
 
-    def test_usuario_premium_nao_bloqueado(self, db):
+    @pytest.mark.parametrize(("plan", "upload_mb"), [("free", 5), ("pro", 25), ("premium", 50)])
+    def test_bloqueia_upload_acima_do_limite_do_plano(self, db, plan, upload_mb):
         email = _email()
-        progress = UserProgress(user_email=email, plan="premium")
-        db.add(progress)
-        for _ in range(FREE_SUBJECT_LIMIT + 5):
-            db.add(Subject(name="Matéria Premium", owner_email=email))
-        db.commit()
+        _progress(db, email, plan=plan)
 
-        # Não deve levantar exceção
-        check_subject_limit(email, db)
+        with pytest.raises(HTTPException) as exc_info:
+            check_upload_size(email, (upload_mb * 1024 * 1024) + 1, db)
+
+        assert exc_info.value.status_code == 413
+        assert exc_info.value.detail["message"] == f"Seu plano permite uploads de até {upload_mb} MB."
 
 
-class TestCheckDocumentLimit:
-    def _criar_subject(self, db, email):
-        subject = Subject(name="Sub", owner_email=email)
-        db.add(subject)
-        db.commit()
-        db.refresh(subject)
-        return subject
-
-    def test_permite_abaixo_do_limite(self, db):
+class TestDocumentLimits:
+    def test_bloqueia_segundo_pdf_na_mesma_materia_free(self, db):
         email = _email()
-        subject = self._criar_subject(db, email)
-        # Não deve levantar exceção
-        check_document_limit(str(subject.id), email, db)
-
-    def test_levanta_403_ao_atingir_limite(self, db):
-        email = _email()
-        subject = self._criar_subject(db, email)
-        doc = Document(name="doc.pdf", subject_id=subject.id)
-        db.add(doc)
-        db.commit()
+        _progress(db, email, plan="free")
+        subject = _subject(db, email)
+        _document(db, subject)
 
         with pytest.raises(HTTPException) as exc_info:
             check_document_limit(str(subject.id), email, db)
 
         assert exc_info.value.status_code == 403
-        assert exc_info.value.detail["code"] == "DOCUMENT_LIMIT_REACHED"
-        assert exc_info.value.detail["limit"] == FREE_DOCS_PER_SUBJECT
+        assert exc_info.value.detail["message"] == "Você atingiu o limite de PDFs desta matéria."
 
-    def test_usuario_premium_nao_bloqueado(self, db):
+    def test_bloqueia_quarto_pdf_total_free(self, db):
         email = _email()
-        progress = UserProgress(user_email=email, plan="premium")
-        db.add(progress)
-        subject = self._criar_subject(db, email)
-        for _ in range(FREE_DOCS_PER_SUBJECT + 2):
-            db.add(Document(name="doc.pdf", subject_id=subject.id))
+        _progress(db, email, plan="free")
+        for index in range(3):
+            _document(db, _subject(db, email), f"doc{index}.pdf")
+        extra_subject = _subject(db, email)
+
+        with pytest.raises(HTTPException) as exc_info:
+            check_document_limit(str(extra_subject.id), email, db)
+
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail["message"] == "Você atingiu o limite total de PDFs do seu plano."
+
+    def test_pro_permite_segundo_pdf_na_materia_mas_bloqueia_terceiro(self, db):
+        email = _email()
+        _progress(db, email, plan="pro")
+        subject = _subject(db, email)
+        _document(db, subject, "doc1.pdf")
+
+        check_document_limit(str(subject.id), email, db)
+        _document(db, subject, "doc2.pdf")
+
+        with pytest.raises(HTTPException):
+            check_document_limit(str(subject.id), email, db)
+
+
+class TestAIUsageLimits:
+    @pytest.mark.parametrize(
+        ("usage_type", "field", "limit", "message"),
+        [
+            (AIUsageType.SUMMARY, "monthly_summaries", 5, "Você atingiu o limite mensal de resumos do seu plano."),
+            (AIUsageType.QUESTIONS, "monthly_questions", 5, "Você atingiu o limite mensal de questões do seu plano."),
+            (AIUsageType.FLASHCARDS, "monthly_flashcards", 5, "Você atingiu o limite mensal de flashcards do seu plano."),
+        ],
+    )
+    def test_reserva_um_uso_mensal_por_tipo(self, db, usage_type, field, limit, message):
+        email = _email()
+
+        reserve_ai_usage(email, db, usage_type=usage_type)
+
+        status = get_status(email, db)
+        assert status[field]["used"] == 1
+        assert status[field]["remaining"] == limit - 1
+
+        progress = db.query(UserProgress).filter(UserProgress.user_email == email).first()
+        if usage_type == AIUsageType.SUMMARY:
+            progress.summaries_used_month = limit
+        elif usage_type == AIUsageType.QUESTIONS:
+            progress.questions_used_month = limit
+        else:
+            progress.flashcards_used_month = limit
         db.commit()
 
-        # Não deve levantar exceção
-        check_document_limit(str(subject.id), email, db)
+        with pytest.raises(HTTPException) as exc_info:
+            reserve_ai_usage(email, db, usage_type=usage_type)
+
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail["message"] == message
+
+    def test_estorna_uso_mensal_quando_operacao_falha(self, db):
+        email = _email()
+        reservation = reserve_ai_usage(email, db, usage_type=AIUsageType.SUMMARY)
+
+        refund_ai_usage(reservation, db)
+
+        assert get_status(email, db)["monthly_summaries"]["used"] == 0
+
+
+class TestPdfGenerationLimits:
+    @pytest.mark.parametrize(
+        ("usage_type", "model", "payload"),
+        [
+            (AIUsageType.SUMMARY, Summary, {"content": "Resumo"}),
+            (AIUsageType.QUESTIONS, Question, {"statement": "Q?"}),
+            (AIUsageType.FLASHCARDS, Flashcard, {"front": "F", "back": "B"}),
+        ],
+    )
+    def test_free_bloqueia_segunda_geracao_no_mesmo_pdf(self, db, usage_type, model, payload):
+        email = _email()
+        _progress(db, email, plan="free")
+        document = _document(db, _subject(db, email))
+        db.add(model(**payload, document_id=document.id))
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            check_pdf_generation_limit(email, db, document_id=str(document.id), action=usage_type)
+
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail["message"] == "No plano gratuito, este PDF já possui essa geração. Faça upgrade para gerar novamente."
+
+    @pytest.mark.parametrize("plan", ["pro", "premium", "unlimited"])
+    def test_planos_pagos_nao_bloqueiam_repeticao_por_pdf(self, db, plan):
+        email = _email()
+        _progress(db, email, plan=plan)
+        document = _document(db, _subject(db, email))
+        db.add(Summary(content="Resumo", document_id=document.id))
+        db.commit()
+
+        check_pdf_generation_limit(email, db, document_id=str(document.id), action=AIUsageType.SUMMARY)
+
+
+class TestCompetitionLimits:
+    @pytest.mark.parametrize(("plan", "limit"), [("free", 1), ("pro", 5), ("premium", 20)])
+    def test_bloqueia_competicao_ativa_acima_do_limite(self, db, plan, limit):
+        email = _email()
+        _progress(db, email, plan=plan)
+        for index in range(limit):
+            db.add(Competition(title=f"Ativa {index}", host_email=email, status="waiting"))
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            check_competition_limit(email, db)
+
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail["message"] == "Você atingiu o limite de competições ativas do seu plano."

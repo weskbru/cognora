@@ -52,7 +52,7 @@ function formatDateTime(value: string | null): string {
 }
 
 function planLabel(plan: PixPaymentRequest['plan']): string {
-  return plan === 'unlimited' ? 'Ilimitado' : 'Pro';
+  return plan === 'premium' ? 'Premium' : 'Pro';
 }
 
 export default function AdminPayments() {

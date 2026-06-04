@@ -53,13 +53,13 @@ const PLANS: Plan[] = [
     icon: Sparkles,
     color: 'text-slate-400',
     features: [
-      '3 gerações por dia',
-      '+1 geração bônus ao fazer login',
-      'Até 2 matérias',
-      '1 documento por matéria',
-      'Questões ilimitadas',
-      'Flashcards ilimitados',
-      'Competições',
+      'Até 3 matérias',
+      '1 PDF por matéria',
+      'Até 3 PDFs ativos',
+      'Upload até 5 MB',
+      '5 resumos, 5 questões e 5 flashcards por mês',
+      '1 geração por PDF no plano gratuito',
+      '1 competição ativa',
     ],
     cta: 'Plano atual',
     highlighted: false,
@@ -74,37 +74,36 @@ const PLANS: Plan[] = [
     color: 'text-indigo-500',
     badge: 'Mais popular',
     features: [
-      '20 gerações por dia',
-      '+1 geração bônus ao fazer login',
-      'Matérias ilimitadas',
-      'Documentos ilimitados por matéria',
-      'Questões ilimitadas',
-      'Flashcards ilimitados',
-      'Competições',
-      'Suporte prioritário',
+      'Até 10 matérias',
+      'Até 2 PDFs por matéria',
+      'Até 20 PDFs ativos',
+      'Upload até 25 MB',
+      '30 resumos, 30 questões e 30 flashcards por mês',
+      'Sem bloqueio de repetição por PDF',
+      'Até 5 competições ativas',
     ],
     cta: 'Assinar Pro',
     highlighted: true,
   },
   {
-    id: 'unlimited',
-    name: 'Ilimitado',
+    id: 'premium',
+    name: 'Premium',
     price: 'R$19,90',
     period: 'por mês',
-    description: 'Poder total da IA, sem nenhuma restrição.',
+    description: 'Para uso intensivo com limites altos e previsíveis.',
     icon: Crown,
     color: 'text-amber-500',
     features: [
-      'Gerações ilimitadas',
-      'Matérias ilimitadas',
-      'Documentos ilimitados',
-      'Questões ilimitadas',
-      'Flashcards ilimitados',
-      'Competições',
+      'Até 30 matérias',
+      'Até 5 PDFs por matéria',
+      'Até 100 PDFs ativos',
+      'Upload até 50 MB',
+      '100 resumos, 100 questões e 100 flashcards por mês',
+      'Sem bloqueio de repetição por PDF',
+      'Até 20 competições ativas',
       'Suporte prioritário',
-      'Acesso antecipado a novidades',
     ],
-    cta: 'Assinar Ilimitado',
+    cta: 'Assinar Premium',
     highlighted: false,
   },
 ];
@@ -205,9 +204,9 @@ export default function Pricing() {
 
         {isAuthenticated && currentPlan !== 'free' && (
           <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
-            <Badge variant="outline" className={`${currentPlan === 'unlimited' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'}`}>
-              {currentPlan === 'unlimited' ? <Crown className="h-3 w-3 mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
-              Você está no plano {currentPlan === 'unlimited' ? 'Ilimitado' : 'Pro'}
+            <Badge variant="outline" className={`${currentPlan === 'premium' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300'}`}>
+              {currentPlan === 'premium' ? <Crown className="h-3 w-3 mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+              Você está no plano {currentPlan === 'premium' ? 'Premium' : 'Pro'}
             </Badge>
             {expiresAt && (
               <Badge variant="secondary" className="text-xs">
@@ -310,7 +309,7 @@ export default function Pricing() {
             },
             {
               q: 'O que acontece ao atingir o limite de gerações?',
-              a: 'No plano Free, o contador renova todo dia. Faça upgrade para ter mais gerações diárias ou ilimitadas.',
+              a: 'No plano Free, os limites de resumos, questões e flashcards renovam todo mês. Faça upgrade para limites maiores.',
             },
             {
               q: 'Meus dados são preservados ao fazer upgrade?',
@@ -353,7 +352,7 @@ export default function Pricing() {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                     <span className="text-muted-foreground">Plano</span>
-                    <span className="font-semibold">{pixPayment.plan === 'unlimited' ? 'Ilimitado' : 'Pro'}</span>
+                    <span className="font-semibold">{pixPayment.plan === 'premium' ? 'Premium' : 'Pro'}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
                     <span className="text-muted-foreground">Valor</span>

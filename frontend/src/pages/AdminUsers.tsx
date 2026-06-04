@@ -39,13 +39,13 @@ type GrantPlan = Exclude<AdminPlan, 'free'>;
 const PLAN_LABELS: Record<AdminPlan, string> = {
   free: 'Basico',
   pro: 'Pro',
-  unlimited: 'Ilimitado',
+  premium: 'Premium',
 };
 
 const PLAN_CLASSES: Record<AdminPlan, string> = {
   free: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
   pro: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
-  unlimited: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+  premium: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
 };
 
 function formatDateTime(value: string | null): string {
@@ -207,7 +207,7 @@ export default function AdminUsers() {
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="free">Basico</SelectItem>
             <SelectItem value="pro">Pro</SelectItem>
-            <SelectItem value="unlimited">Ilimitado</SelectItem>
+            <SelectItem value="premium">Premium</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -280,7 +280,7 @@ export default function AdminUsers() {
                     size="sm"
                     onClick={() => {
                       setSelected(item);
-                      setGrantPlan(item.progress.plan === 'unlimited' ? 'unlimited' : 'pro');
+                      setGrantPlan(item.progress.plan === 'premium' ? 'premium' : 'pro');
                       setNote('');
                       setTemporaryPassword('');
                       setDeleteConfirm('');
@@ -338,7 +338,7 @@ export default function AdminUsers() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="unlimited">Ilimitado</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

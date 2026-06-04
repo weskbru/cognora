@@ -124,6 +124,10 @@ class UserProgress(Base):
     plan_expires_at = Column(DateTime, nullable=True)
     daily_generations_used = Column(Integer, default=0)
     last_generation_date = Column(Date, nullable=True)
+    summaries_used_month = Column(Integer, default=0)
+    questions_used_month = Column(Integer, default=0)
+    flashcards_used_month = Column(Integer, default=0)
+    usage_month = Column(Date, nullable=True)
     stripe_customer_id = Column(String, nullable=True, unique=True)
     stripe_subscription_id = Column(String, nullable=True)
 

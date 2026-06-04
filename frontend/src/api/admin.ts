@@ -6,7 +6,7 @@ if (!API_URL) {
   throw new Error('[Cognora] VITE_API_URL nao configurada.');
 }
 
-export type AdminPlan = 'free' | 'pro' | 'unlimited';
+export type AdminPlan = 'free' | 'pro' | 'premium';
 
 export interface AdminProgress {
   plan: AdminPlan;
@@ -75,7 +75,7 @@ export interface AdminPaymentRequest {
   id: string;
   user_email: string;
   user_name: string | null;
-  plan: 'pro' | 'unlimited';
+  plan: 'pro' | 'premium';
   amount_cents: number;
   pix_reference: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired';
@@ -94,7 +94,7 @@ export interface AdminOverview {
 }
 
 export interface GrantPlanPayload {
-  plan: 'pro' | 'unlimited';
+  plan: 'pro' | 'premium';
   days: number;
   starts_at?: string;
   note?: string;

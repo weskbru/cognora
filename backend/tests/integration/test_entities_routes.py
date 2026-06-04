@@ -8,7 +8,8 @@ import uuid
 
 import pytest
 from core.config.settings import settings
-from infrastructure.database.models import User, UserProgress
+from domain.use_cases.limits import FREE_DOCS_PER_SUBJECT, FREE_SUBJECT_LIMIT
+from infrastructure.database.models import Document, Subject, User, UserProgress
 
 
 class TestPublicLeaderboard:
@@ -65,6 +66,23 @@ class TestSubjects:
             headers=auth_headers,
         )
         assert response.json()["owner_email"] == test_user.email
+
+    def test_bloqueia_criacao_da_quarta_materia_no_free(self, client, auth_headers):
+        for index in range(FREE_SUBJECT_LIMIT):
+            client.post(
+                "/api/subjects",
+                json={"name": f"Matéria {index}"},
+                headers=auth_headers,
+            )
+
+        response = client.post(
+            "/api/subjects",
+            json={"name": "Quarta matéria"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["message"] == "Você atingiu o limite de matérias do seu plano."
 
     def test_listar_subjects_sem_auth_retorna_401(self, client):
         response = client.get("/api/subjects")
@@ -156,6 +174,46 @@ class TestDocuments:
         assert response.status_code == 201
         assert response.json()["name"] == "doc.pdf"
 
+    def test_bloqueia_segundo_pdf_na_mesma_materia_free(self, client, auth_headers):
+        subject_id = self._criar_subject(client, auth_headers)
+        for index in range(FREE_DOCS_PER_SUBJECT):
+            client.post(
+                "/api/documents",
+                json={"name": f"doc{index}.pdf", "subject_id": subject_id},
+                headers=auth_headers,
+            )
+
+        response = client.post(
+            "/api/documents",
+            json={"name": "segundo.pdf", "subject_id": subject_id},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["message"] == "Você atingiu o limite de PDFs desta matéria."
+
+    def test_bloqueia_quarto_pdf_total_do_usuario(self, client, auth_headers, db, test_user):
+        subjects = [
+            Subject(name=f"Sub {index}", owner_email=test_user.email)
+            for index in range(FREE_SUBJECT_LIMIT)
+        ]
+        db.add_all(subjects)
+        db.commit()
+        for subject in subjects:
+            db.refresh(subject)
+        for index in range(3):
+            db.add(Document(name=f"doc{index}.pdf", subject_id=subjects[index % len(subjects)].id))
+        db.commit()
+
+        response = client.post(
+            "/api/documents",
+            json={"name": "quarto.pdf", "subject_id": str(subjects[0].id)},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["message"] == "Você atingiu o limite total de PDFs do seu plano."
+
     def test_listar_documentos_por_subject(self, client, auth_headers, db, test_user):
         db.add(UserProgress(user_email=test_user.email, plan="pro"))
         db.commit()
@@ -238,6 +296,22 @@ class TestCompetitions:
         )
         assert response.status_code == 201
         assert response.json()["title"] == "Concurso Teste"
+
+    def test_bloqueia_segunda_competicao_ativa_no_free(self, client, auth_headers):
+        client.post(
+            "/api/competitions",
+            json={"title": "Primeira", "mode": "duel", "invite_code": uuid.uuid4().hex[:8]},
+            headers=auth_headers,
+        )
+
+        response = client.post(
+            "/api/competitions",
+            json={"title": "Segunda", "mode": "duel", "invite_code": uuid.uuid4().hex[:8]},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["message"] == "Você atingiu o limite de competições ativas do seu plano."
 
 
 class TestQuestionAttempts:

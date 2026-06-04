@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Copy, Users, Swords, Timer, Trophy, Play, Bot, Clock, Lock } from 'lucide-react';
+import { ArrowLeft, Copy, Users, Swords, Timer, Trophy, Play, Bot, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import DuelMode from '@/components/competitions/modes/DuelMode';

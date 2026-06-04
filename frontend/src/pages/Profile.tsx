@@ -21,7 +21,7 @@ const LEVEL_ICONS = ['🌱', '📖', '💡', '🎯', '🚀', '⚡', '🏆', '�
 const AVATAR_OPTIONS = ['🧑‍🎓', '👩‍🎓', '🦊', '🐼', '🦁', '🐯', '🦄', '🐉', '🤖', '👾', '🧙', '🦸'];
 const WEEK_DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-type PlanId = 'free' | 'pro' | 'unlimited';
+type PlanId = 'free' | 'pro' | 'premium';
 
 interface PlanCardConfig {
   title: string;
@@ -35,22 +35,22 @@ const PLAN_CARD_CONFIG: Record<PlanId, PlanCardConfig> = {
   free: {
     title: 'Básico',
     badge: 'Grátis',
-    docsMax: 1,
-    subjectsMax: 2,
+    docsMax: 3,
+    subjectsMax: 3,
     badgeClassName: '',
   },
   pro: {
     title: 'Pro',
     badge: 'Ativo',
-    docsMax: null,
-    subjectsMax: null,
+    docsMax: 20,
+    subjectsMax: 10,
     badgeClassName: 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300',
   },
-  unlimited: {
-    title: 'Ilimitado',
+  premium: {
+    title: 'Premium',
     badge: 'Ativo',
-    docsMax: null,
-    subjectsMax: null,
+    docsMax: 100,
+    subjectsMax: 30,
     badgeClassName: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
   },
 };
@@ -396,7 +396,7 @@ function PlanCard({ documents, subjects, subscriptionStatus }) {
     return Math.min(100, (value / max) * 100);
   };
 
-  const usageLimit = (max) => (max === null ? 'Ilimitado' : max);
+  const usageLimit = (max) => (max === null ? 'Sem limite' : max);
 
   return (
     <Card className="p-5 xl:col-span-5">
@@ -418,25 +418,6 @@ function PlanCard({ documents, subjects, subscriptionStatus }) {
       </div>
       <Link to="/pricing"><Button className="mt-5 w-full gap-2"><Crown className="h-4 w-4" /> Ver planos e benefícios</Button></Link>
     </Card>
-  );
-
-  return (
-    <Card className="p-5 xl:col-span-5">
-      <h2 className="flex items-center gap-2 text-base font-black"><Crown className="h-4 w-4 text-primary" /> Plano Atual</h2>
-      <div className="mt-4 flex items-center gap-2 text-lg font-black">Básico <Badge variant="outline">Grátis</Badge></div>
-      <Usage label="PDFs enviados" value={documents.length} max={25} />
-      <Usage label="Matérias" value={subjects.length} max={10} />
-      <Link to="/pricing"><Button className="mt-5 w-full gap-2"><Crown className="h-4 w-4" /> Ver planos e benefícios</Button></Link>
-    </Card>
-  );
-}
-
-function Usage({ label, value, max }) {
-  return (
-    <div className="mt-4">
-      <div className="mb-1.5 flex justify-between text-xs text-muted-foreground"><span>{label}</span><span>{value} / {max}</span></div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} /></div>
-    </div>
   );
 }
 

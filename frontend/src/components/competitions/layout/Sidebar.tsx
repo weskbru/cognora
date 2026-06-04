@@ -26,7 +26,7 @@ interface NavSection {
   items: NavItem[];
 }
 
-type Plan = 'free' | 'pro' | 'unlimited';
+type Plan = 'free' | 'pro' | 'premium';
 
 interface GenerationStatus {
   plan: Plan;
@@ -79,7 +79,7 @@ const ADMIN_NAV_SECTIONS: NavSection[] = [
 const PLAN_LABELS = {
   free: null,
   pro: { label: 'Pro', icon: Zap, cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' },
-  unlimited: { label: 'Ilimitado', icon: Crown, cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+  premium: { label: 'Premium', icon: Crown, cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
 };
 
 export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
@@ -95,12 +95,10 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
   });
 
   const plan = genStatus?.plan || 'free';
-  const isUnlimited = plan === 'unlimited';
-  const genUsedPct = genStatus && !isUnlimited
+  const genUsedPct = genStatus
     ? Math.round((genStatus.used / genStatus.limit) * 100)
     : 0;
-  const genEmpty = !isUnlimited && genStatus?.remaining === 0;
-  const genBonus = genStatus?.has_daily_bonus;
+  const genEmpty = genStatus?.remaining === 0;
   const planInfo = PLAN_LABELS[plan];
   const PlanIcon = planInfo?.icon;
   const navSections = isAdmin ? ADMIN_NAV_SECTIONS : NAV_SECTIONS;
@@ -159,17 +157,14 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
       {/* ── Footer ── */}
       <div className="border-t border-border px-4 py-4 space-y-3">
 
-        {/* Gerações (só exibe se não for ilimitado) */}
-        {!isAdmin && genStatus && !isUnlimited && (
+        {/* Uso mensal de IA */}
+        {!isAdmin && genStatus && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-1.5">
-                {genBonus && !genEmpty
-                  ? <Zap className="h-3.5 w-3.5 fill-primary text-primary" />
-                  : <Sparkles className={`h-3.5 w-3.5 ${genEmpty ? 'text-red-400' : 'text-primary'}`} />
-                }
+                <Sparkles className={`h-3.5 w-3.5 ${genEmpty ? 'text-red-400' : 'text-primary'}`} />
                 <span className={`text-xs font-medium ${genEmpty ? 'text-red-500' : 'text-primary'}`}>
-                  Gerações hoje
+                  IA mensal
                 </span>
               </div>
               <span className={`text-xs font-bold tabular-nums ${genEmpty ? 'text-red-500' : 'text-primary'}`}>
@@ -185,7 +180,7 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
               />
             </div>
             {genEmpty && (
-              <p className="text-xs text-red-500 mt-1">Limite atingido. Renova amanhã.</p>
+              <p className="text-xs text-red-500 mt-1">Limite mensal atingido.</p>
             )}
           </div>
         )}

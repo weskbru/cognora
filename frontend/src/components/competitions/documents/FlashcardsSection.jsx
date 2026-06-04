@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
-import { Sparkles, RotateCcw, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
+import { Sparkles, RotateCcw, Layers } from 'lucide-react';
 import AILoadingCard from '@/components/shared/AILoadingCard';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import EmptyState from '@/components/shared/EmptyState';
 import LimitReachedCard from '@/components/freemium/LimitReachedCard';
 
 export default function FlashcardsSection({ document, flashcards, documentId }) {
@@ -24,6 +23,8 @@ export default function FlashcardsSection({ document, flashcards, documentId }) 
     try {
       const result = await base44.integrations.Core.AnalisarDocumento({
         file_url: document.file_url,
+        document_id: documentId,
+        operation: 'flashcards',
       });
 
       if (result.flashcards?.length > 0) {
@@ -41,7 +42,7 @@ export default function FlashcardsSection({ document, flashcards, documentId }) 
       queryClient.invalidateQueries({ queryKey: ['limits-status'] });
     } catch (err) {
       if (err?.status === 429 || err?.status === 403) {
-        setLimitCode(err.message?.code || 'GENERATION_LIMIT_REACHED');
+        setLimitCode(err.code || 'AI_CREDITS_INSUFFICIENT');
       } else {
         console.error('Erro ao gerar flashcards:', err);
       }

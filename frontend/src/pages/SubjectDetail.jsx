@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Upload, Plus, Loader2 } from 'lucide-react';
+import { ArrowLeft, FileText, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

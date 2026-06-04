@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Swords, Timer, Trophy } from 'lucide-react';
-import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 
 const MODES = [
   { value: 'duel', label: 'Duelo Rápido', icon: Swords, description: '2 jogadores, mais acertos vence' },

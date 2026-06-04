@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_admin_user, get_current_user
 from core.config.settings import settings
-from domain.use_cases.limits import sync_plan_expiration
+from domain.use_cases.limits import normalize_plan, sync_plan_expiration
 from infrastructure.database.connection import get_db
 from infrastructure.database.models import AdminAuditLog, PixPaymentRequest, User, UserProgress
 from infrastructure.repositories.base import row_to_dict
@@ -24,7 +24,7 @@ SUBSCRIPTION_DAYS = 30
 
 
 class PixPaymentPayload(BaseModel):
-    plan: Literal["pro", "unlimited"]
+    plan: Literal["pro", "premium"]
 
 
 class AdminDecisionPayload(BaseModel):
@@ -35,9 +35,13 @@ class AdminDecisionPayload(BaseModel):
 def _get_plan_price_cents(plan: str) -> int:
     if plan == "pro":
         return settings.pix_plan_price_cents_pro
-    if plan == "unlimited":
+    if plan == "premium":
         return settings.pix_plan_price_cents_unlimited
     raise HTTPException(status_code=400, detail="Plano inválido.")
+
+
+def _public_plan(plan: str | None) -> str:
+    return normalize_plan(plan).value
 
 
 def _get_or_create_progress(email: str, db: Session) -> UserProgress:
@@ -113,7 +117,14 @@ def _generate_qr_data_url(payload: str) -> str:
 
 def _payment_response(payment: PixPaymentRequest) -> dict:
     data = row_to_dict(payment)
+    data["plan"] = _public_plan(payment.plan)
     data["qr_code_data_url"] = _generate_qr_data_url(payment.pix_payload)
+    return data
+
+
+def _payment_list_response(payment: PixPaymentRequest) -> dict:
+    data = row_to_dict(payment)
+    data["plan"] = _public_plan(payment.plan)
     return data
 
 
@@ -159,7 +170,7 @@ def create_pix_payment_request(
 ):
     _expire_pending_requests(db)
     progress = sync_plan_expiration(_get_or_create_progress(current_user.email, db), db)
-    if progress.plan == payload.plan and progress.subscription_status == "active":
+    if _public_plan(progress.plan) == payload.plan and progress.subscription_status == "active":
         raise HTTPException(status_code=409, detail="Você já está nesse plano.")
 
     now = datetime.utcnow()
@@ -214,11 +225,11 @@ def subscription_status(
         .first()
     )
     return {
-        "plan": progress.plan or "free",
+        "plan": _public_plan(progress.plan),
         "subscription_status": progress.subscription_status or "inactive",
         "plan_started_at": progress.plan_started_at.isoformat() if progress.plan_started_at else None,
         "plan_expires_at": progress.plan_expires_at.isoformat() if progress.plan_expires_at else None,
-        "pending_payment": row_to_dict(pending_payment) if pending_payment else None,
+        "pending_payment": _payment_response(pending_payment) if pending_payment else None,
     }
 
 
@@ -242,7 +253,7 @@ def admin_list_payment_requests(
             PixPaymentRequest.pix_reference.ilike(like),
         ))
     rows = query.order_by(PixPaymentRequest.created_at.desc()).limit(limit).all()
-    return [row_to_dict(row) for row in rows]
+    return [_payment_list_response(row) for row in rows]
 
 
 @router.post("/admin/payment-requests/{payment_id}/approve")
@@ -261,7 +272,7 @@ def admin_approve_payment_request(
     paid_at = payload.paid_at or datetime.utcnow()
     ends_at = paid_at + timedelta(days=SUBSCRIPTION_DAYS)
     progress = _get_or_create_progress(payment.user_email, db)
-    progress.plan = payment.plan
+    progress.plan = _public_plan(payment.plan)
     progress.subscription_status = "active"
     progress.plan_started_at = paid_at
     progress.plan_expires_at = ends_at
@@ -281,7 +292,7 @@ def admin_approve_payment_request(
     })
     db.commit()
     db.refresh(payment)
-    return row_to_dict(payment)
+    return _payment_response(payment)
 
 
 @router.post("/admin/payment-requests/{payment_id}/reject")
@@ -307,4 +318,4 @@ def admin_reject_payment_request(
     })
     db.commit()
     db.refresh(payment)
-    return row_to_dict(payment)
+    return _payment_response(payment)

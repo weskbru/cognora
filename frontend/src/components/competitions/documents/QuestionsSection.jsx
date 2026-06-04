@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
-import { HelpCircle, Sparkles, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { HelpCircle, Sparkles, CheckCircle2 } from 'lucide-react';
 import AILoadingCard from '@/components/shared/AILoadingCard';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,9 @@ export default function QuestionsSection({ document, questions, documentId, subj
       const result = await base44.integrations.Core.AnalisarDocumento({
         file_url: document.file_url,
         question_type: questionType,
+        document_id: documentId,
+        operation: 'questions',
+        question_count: Number(questionCount),
       });
 
       if (result.perguntas?.length > 0) {
@@ -48,7 +51,7 @@ export default function QuestionsSection({ document, questions, documentId, subj
       queryClient.invalidateQueries({ queryKey: ['limits-status'] });
     } catch (err) {
       if (err?.status === 429 || err?.status === 403) {
-        setLimitCode(err.message?.code || 'GENERATION_LIMIT_REACHED');
+        setLimitCode(err.code || 'AI_CREDITS_INSUFFICIENT');
       } else {
         console.error('Erro ao gerar questões:', err);
       }

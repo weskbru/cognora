@@ -11,7 +11,7 @@ import os
 import urllib.parse
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user
@@ -38,6 +38,13 @@ def _get_servico() -> ServicoAnaliseNLP:
         return criar_servico_analise_nlp()
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+
+
+def _resolve_servico(request: Request) -> ServicoAnaliseNLP:
+    override = request.app.dependency_overrides.get(_get_servico)
+    if override:
+        return override()
+    return _get_servico()
 
 
 def _file_url_to_path(file_url: str) -> str:
@@ -83,6 +90,13 @@ def _record_limit_event(db: Session, user_email: str, exc: HTTPException, source
     )
 
 
+def _normalize_operation(operation: str) -> str:
+    operation = (operation or "summary").strip().lower()
+    if operation not in {"summary", "questions", "flashcards"}:
+        raise HTTPException(status_code=400, detail="Operação de IA inválida.")
+    return operation
+
+
 @router.post(
     "/analisar-documento",
     summary="PDF -> Resumo + Questoes MCQ",
@@ -94,15 +108,28 @@ def _record_limit_event(db: Session, user_email: str, exc: HTTPException, source
     },
 )
 async def analisar_documento(
+    request: Request,
     body: AnalisarDocumentoRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    servico: Annotated[ServicoAnaliseNLP, Depends(_get_servico)],
     db: Session = Depends(get_db),
 ) -> AnalisarDocumentoResponse:
-    from domain.use_cases.limits import check_and_consume
+    from domain.use_cases.limits import check_pdf_generation_limit, refund_ai_usage, reserve_ai_usage
 
+    reservation = None
+    operation = _normalize_operation(body.operation)
     try:
-        check_and_consume(current_user.email, db)
+        if body.document_id:
+            check_pdf_generation_limit(
+                current_user.email,
+                db,
+                document_id=body.document_id,
+                action=operation,
+            )
+        reservation = reserve_ai_usage(
+            current_user.email,
+            db,
+            usage_type=operation,
+        )
     except HTTPException as exc:
         _record_limit_event(db, current_user.email, exc, "document")
         raise
@@ -112,6 +139,7 @@ async def analisar_documento(
     try:
         filepath = _file_url_to_path(body.file_url)
     except FileNotFoundError as exc:
+        refund_ai_usage(reservation, db)
         record_system_event(
             db,
             level="warning",
@@ -128,6 +156,7 @@ async def analisar_documento(
     try:
         texto = extrair_texto_pdf(filepath)
     except ValueError as exc:
+        refund_ai_usage(reservation, db)
         record_system_event(
             db,
             level="warning",
@@ -138,6 +167,7 @@ async def analisar_documento(
         )
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
+        refund_ai_usage(reservation, db)
         record_system_event(
             db,
             level="error",
@@ -154,7 +184,12 @@ async def analisar_documento(
             pass
 
     try:
-        resultado = await servico.analisar(texto, question_type=body.question_type)
+        servico = _resolve_servico(request)
+        resultado = await servico.analisar(
+            texto,
+            n_perguntas=body.question_count,
+            question_type=body.question_type,
+        )
         record_system_event(
             db,
             level="info",
@@ -165,6 +200,7 @@ async def analisar_documento(
         )
         return AnalisarDocumentoResponse(**resultado.model_dump())
     except ValueError as exc:
+        refund_ai_usage(reservation, db)
         record_system_event(
             db,
             level="warning",
@@ -175,6 +211,7 @@ async def analisar_documento(
         )
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
+        refund_ai_usage(reservation, db)
         logger.error("Falha na geracao de conteudo IA: %s", exc)
         record_system_event(
             db,
@@ -185,7 +222,11 @@ async def analisar_documento(
             metadata={"reason": str(exc), "source": "document", "question_type": body.question_type},
         )
         raise HTTPException(status_code=500, detail=str(exc))
+    except HTTPException:
+        refund_ai_usage(reservation, db)
+        raise
     except Exception as exc:
+        refund_ai_usage(reservation, db)
         logger.exception("Erro inesperado em /api/nlp/analisar-documento")
         record_system_event(
             db,
@@ -208,22 +249,33 @@ async def analisar_documento(
     },
 )
 async def analisar(
+    request: Request,
     body: AnalisarTextoRequest,
     current_user: Annotated[User, Depends(get_current_user)],
-    servico: Annotated[ServicoAnaliseNLP, Depends(_get_servico)],
     db: Session = Depends(get_db),
 ) -> AnalisarTextoResponse:
-    from domain.use_cases.limits import check_and_consume
+    from domain.use_cases.limits import refund_ai_usage, reserve_ai_usage
 
+    reservation = None
+    operation = _normalize_operation(body.operation)
     try:
-        check_and_consume(current_user.email, db)
+        reservation = reserve_ai_usage(
+            current_user.email,
+            db,
+            usage_type=operation,
+        )
     except HTTPException as exc:
         _record_limit_event(db, current_user.email, exc, "text")
         raise
 
     logger.info("POST /api/nlp/analisar - texto com %d chars.", len(body.texto))
     try:
-        resultado = await servico.analisar(body.texto, question_type=body.question_type)
+        servico = _resolve_servico(request)
+        resultado = await servico.analisar(
+            body.texto,
+            n_perguntas=body.question_count,
+            question_type=body.question_type,
+        )
         record_system_event(
             db,
             level="info",
@@ -234,6 +286,7 @@ async def analisar(
         )
         return AnalisarTextoResponse(**resultado.model_dump())
     except ValueError as exc:
+        refund_ai_usage(reservation, db)
         record_system_event(
             db,
             level="warning",
@@ -244,6 +297,7 @@ async def analisar(
         )
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
+        refund_ai_usage(reservation, db)
         record_system_event(
             db,
             level="error",
@@ -253,7 +307,11 @@ async def analisar(
             metadata={"reason": str(exc), "source": "text", "question_type": body.question_type},
         )
         raise HTTPException(status_code=500, detail=str(exc))
+    except HTTPException:
+        refund_ai_usage(reservation, db)
+        raise
     except Exception as exc:
+        refund_ai_usage(reservation, db)
         logger.exception("Erro inesperado em /api/nlp/analisar")
         record_system_event(
             db,

@@ -19,8 +19,20 @@ const TypedDialogDescription = DialogDescription as unknown as ComponentType<{
 
 type LimitCode =
   | 'GENERATION_LIMIT_REACHED'
+  | 'AI_CREDITS_INSUFFICIENT'
+  | 'SUMMARY_MONTHLY_LIMIT_REACHED'
+  | 'QUESTIONS_MONTHLY_LIMIT_REACHED'
+  | 'FLASHCARDS_MONTHLY_LIMIT_REACHED'
+  | 'PDF_GENERATION_ALREADY_EXISTS'
   | 'SUBJECT_LIMIT_REACHED'
-  | 'DOCUMENT_LIMIT_REACHED';
+  | 'DOCUMENT_LIMIT_REACHED'
+  | 'DOCUMENT_PER_SUBJECT_LIMIT_REACHED'
+  | 'DOCUMENT_TOTAL_LIMIT_REACHED'
+  | 'SUMMARY_ALREADY_GENERATED'
+  | 'QUESTIONS_ALREADY_GENERATED'
+  | 'FLASHCARDS_ALREADY_GENERATED'
+  | 'COMPETITION_LIMIT_REACHED'
+  | 'FILE_TOO_LARGE';
 
 interface LimitMessage {
   title: string;
@@ -35,18 +47,78 @@ interface LimitReachedCardProps {
 
 const MESSAGES: Record<LimitCode, LimitMessage> = {
   GENERATION_LIMIT_REACHED: {
-    title: 'Limite diário de gerações atingido',
-    body: 'Você usou todas as gerações de IA disponíveis hoje. Faça login amanhã para renovar automaticamente.',
-    tip: 'Dica: faça login todo dia para ganhar +1 geração bônus!',
+    title: 'Limite mensal de IA atingido',
+    body: 'Você atingiu um limite mensal de IA do seu plano.',
+    tip: 'Os limites mensais renovam automaticamente no próximo mês.',
+  },
+  AI_CREDITS_INSUFFICIENT: {
+    title: 'Limite mensal de IA atingido',
+    body: 'Você atingiu um limite mensal de IA do seu plano.',
+    tip: 'Os limites mensais renovam automaticamente no próximo mês.',
+  },
+  SUMMARY_MONTHLY_LIMIT_REACHED: {
+    title: 'Limite mensal de resumos',
+    body: 'Você atingiu o limite mensal de resumos do seu plano.',
+    tip: 'Os limites mensais renovam automaticamente no próximo mês.',
+  },
+  QUESTIONS_MONTHLY_LIMIT_REACHED: {
+    title: 'Limite mensal de questões',
+    body: 'Você atingiu o limite mensal de questões do seu plano.',
+    tip: 'Os limites mensais renovam automaticamente no próximo mês.',
+  },
+  FLASHCARDS_MONTHLY_LIMIT_REACHED: {
+    title: 'Limite mensal de flashcards',
+    body: 'Você atingiu o limite mensal de flashcards do seu plano.',
+    tip: 'Os limites mensais renovam automaticamente no próximo mês.',
   },
   SUBJECT_LIMIT_REACHED: {
     title: 'Limite de matérias atingido',
-    body: 'O plano Free permite até 2 matérias. Exclua uma matéria existente ou faça upgrade.',
+    body: 'Você atingiu o limite de matérias do seu plano.',
     tip: null,
   },
   DOCUMENT_LIMIT_REACHED: {
-    title: 'Limite de documentos por matéria',
-    body: 'O plano Free permite 1 documento por matéria. Exclua o documento atual ou faça upgrade.',
+    title: 'Limite de PDFs atingido',
+    body: 'Você atingiu o limite de PDFs desta matéria.',
+    tip: null,
+  },
+  DOCUMENT_PER_SUBJECT_LIMIT_REACHED: {
+    title: 'Limite de PDFs por matéria',
+    body: 'Você atingiu o limite de PDFs desta matéria.',
+    tip: null,
+  },
+  DOCUMENT_TOTAL_LIMIT_REACHED: {
+    title: 'Limite total de PDFs',
+    body: 'Você atingiu o limite total de PDFs do seu plano.',
+    tip: null,
+  },
+  SUMMARY_ALREADY_GENERATED: {
+    title: 'Resumo já gerado',
+    body: 'No plano gratuito, este PDF já possui essa geração. Faça upgrade para gerar novamente.',
+    tip: null,
+  },
+  QUESTIONS_ALREADY_GENERATED: {
+    title: 'Questões já geradas',
+    body: 'No plano gratuito, este PDF já possui essa geração. Faça upgrade para gerar novamente.',
+    tip: null,
+  },
+  FLASHCARDS_ALREADY_GENERATED: {
+    title: 'Flashcards já gerados',
+    body: 'No plano gratuito, este PDF já possui essa geração. Faça upgrade para gerar novamente.',
+    tip: null,
+  },
+  PDF_GENERATION_ALREADY_EXISTS: {
+    title: 'Geração já feita neste PDF',
+    body: 'No plano gratuito, este PDF já possui essa geração. Faça upgrade para gerar novamente.',
+    tip: null,
+  },
+  COMPETITION_LIMIT_REACHED: {
+    title: 'Limite de competições atingido',
+    body: 'Você atingiu o limite de competições ativas do seu plano.',
+    tip: null,
+  },
+  FILE_TOO_LARGE: {
+    title: 'Arquivo acima do limite',
+    body: 'Seu plano permite uploads até o limite informado.',
     tip: null,
   },
 };
@@ -87,7 +159,7 @@ function CompactLimitCard({
 }
 
 function GenerationLimitModal({ onDismiss }: { onDismiss?: () => void }): ReactElement {
-  const message = MESSAGES.GENERATION_LIMIT_REACHED;
+  const message = MESSAGES.AI_CREDITS_INSUFFICIENT;
 
   return (
     <Dialog open onOpenChange={(open: boolean) => !open && onDismiss?.()}>
@@ -99,18 +171,18 @@ function GenerationLimitModal({ onDismiss }: { onDismiss?: () => void }): ReactE
             </div>
 
             <TypedDialogTitle className="mt-6 text-2xl font-semibold leading-tight tracking-tight text-slate-100 sm:text-3xl">
-              <span className="text-red-400">Limite diário</span> de gerações atingido
+              <span className="text-red-400">Limite mensal</span> atingido
             </TypedDialogTitle>
             <TypedDialogDescription className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-              Você usou todas as gerações de IA disponíveis hoje.
+              Você atingiu um limite mensal de IA do seu plano.
               <br />
-              Faça login amanhã para renovar automaticamente.
+              Os limites renovam automaticamente no próximo mês.
             </TypedDialogDescription>
 
             {message.tip && (
               <div className="mx-auto mt-7 flex max-w-2xl items-center justify-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 px-4 py-4 text-left text-sm text-slate-200 sm:text-base">
                 <Zap className="h-6 w-6 shrink-0 fill-amber-400 text-amber-400" />
-                <p><span className="text-amber-400">Dica:</span> faça login todo dia para ganhar +1 geração bônus!</p>
+                <p><span className="text-amber-400">Dica:</span> assine um plano para desbloquear limites mensais maiores.</p>
               </div>
             )}
           </div>
@@ -125,7 +197,7 @@ function GenerationLimitModal({ onDismiss }: { onDismiss?: () => void }): ReactE
                   Torne-se apoiador do projeto <Heart className="h-5 w-5 text-violet-400" />
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-300 sm:text-base">
-                  Ao assinar, você desbloqueia <span className="text-violet-300">gerações ilimitadas</span>,
+                  Ao assinar, você desbloqueia <span className="text-violet-300">limites mensais maiores de IA</span>,
                   apoia o desenvolvimento e ainda ganha benefícios exclusivos!
                 </p>
               </div>
@@ -153,7 +225,13 @@ function GenerationLimitModal({ onDismiss }: { onDismiss?: () => void }): ReactE
 }
 
 export default function LimitReachedCard({ code, onDismiss }: LimitReachedCardProps): ReactElement {
-  if (code === 'GENERATION_LIMIT_REACHED') {
+  if (
+    code === 'GENERATION_LIMIT_REACHED'
+    || code === 'AI_CREDITS_INSUFFICIENT'
+    || code === 'SUMMARY_MONTHLY_LIMIT_REACHED'
+    || code === 'QUESTIONS_MONTHLY_LIMIT_REACHED'
+    || code === 'FLASHCARDS_MONTHLY_LIMIT_REACHED'
+  ) {
     return <GenerationLimitModal onDismiss={onDismiss} />;
   }
 

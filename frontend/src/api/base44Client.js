@@ -72,7 +72,7 @@ function createEntity(entityName) {
     },
 
     async bulkCreate(items) {
-      return Promise.all(items.map(item => request('POST', base, item)))
+      return request('POST', `${base}/bulk`, items)
     },
   }
 }
@@ -91,10 +91,11 @@ export const base44 = {
 
   integrations: {
     Core: {
-      async UploadFile({ file }) {
+      async UploadFile({ file, subject_id = null }) {
         const token = getToken()
         const formData = new FormData()
         formData.append('file', file)
+        if (subject_id) formData.append('subject_id', subject_id)
         const res = await fetch(`${API_URL}/api/upload`, {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -102,7 +103,10 @@ export const base44 = {
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          throw new Error(err.detail || 'Falha no upload')
+          const detail = err.detail
+          const message = typeof detail === 'string' ? detail : detail?.message || 'Falha no upload'
+          const code = typeof detail === 'object' ? detail?.code : null
+          throw { status: res.status, message, code }
         }
         return res.json() // { file_url: '...' }
       },
@@ -111,8 +115,20 @@ export const base44 = {
         return request('POST', '/api/ai/invoke', { prompt, file_urls, response_json_schema })
       },
 
-      async AnalisarDocumento({ file_url, question_type = 'multiple_choice' }) {
-        return request('POST', '/api/nlp/analisar-documento', { file_url, question_type })
+      async AnalisarDocumento({
+        file_url,
+        question_type = 'multiple_choice',
+        document_id = null,
+        operation = 'summary',
+        question_count = 5,
+      }) {
+        return request('POST', '/api/nlp/analisar-documento', {
+          file_url,
+          question_type,
+          document_id,
+          operation,
+          question_count,
+        })
       },
     },
   },

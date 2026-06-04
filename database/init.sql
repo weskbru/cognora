@@ -108,6 +108,10 @@ CREATE TABLE IF NOT EXISTS user_progress (
     plan_expires_at TIMESTAMP,
     daily_generations_used INTEGER DEFAULT 0,
     last_generation_date DATE,
+    summaries_used_month INTEGER DEFAULT 0,
+    questions_used_month INTEGER DEFAULT 0,
+    flashcards_used_month INTEGER DEFAULT 0,
+    usage_month DATE,
     stripe_customer_id TEXT UNIQUE,
     stripe_subscription_id TEXT
 );
@@ -147,6 +151,10 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'free';
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS daily_generations_used INTEGER DEFAULT 0;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS last_generation_date DATE;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS summaries_used_month INTEGER DEFAULT 0;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS questions_used_month INTEGER DEFAULT 0;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS flashcards_used_month INTEGER DEFAULT 0;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS usage_month DATE;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_emoji TEXT;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_url TEXT;

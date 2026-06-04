@@ -1,192 +1,463 @@
-"""
-Regras de negócio dos planos Free / Pro / Ilimitado.
+"""Regras centralizadas de planos e limites do Cognora."""
+from __future__ import annotations
 
-Free:      3 gerações/dia, 2 matérias, 1 doc/matéria, 5 MB upload, 1 competição ativa
-Pro:       20 gerações/dia, ilimitado em tudo, 25 MB upload
-Ilimitado: tudo ilimitado, 50 MB upload
-"""
-from datetime import date, datetime, timedelta
-from sqlalchemy.orm import Session
+import logging
+from dataclasses import asdict, dataclass
+from datetime import date, datetime
+from enum import Enum
+
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
-from infrastructure.database.models import UserProgress, Subject, Document, Competition
+from infrastructure.database.models import Competition, Document, Flashcard, Question, Subject, Summary, UserProgress
 
-PLAN_LIMITS = {
-    "free":      {"daily": 3,    "subjects": 2,    "docs_per_subject": 1,  "upload_mb": 5,  "competitions": 1},
-    "pro":       {"daily": 20,   "subjects": None,  "docs_per_subject": None, "upload_mb": 25, "competitions": None},
-    "unlimited": {"daily": None, "subjects": None,  "docs_per_subject": None, "upload_mb": 50, "competitions": None},
-    "premium":   {"daily": None, "subjects": None,  "docs_per_subject": None, "upload_mb": 25, "competitions": None},
+logger = logging.getLogger(__name__)
+
+
+class PlanType(str, Enum):
+    FREE = "free"
+    PRO = "pro"
+    PREMIUM = "premium"
+
+
+class AIUsageType(str, Enum):
+    SUMMARY = "summary"
+    QUESTIONS = "questions"
+    FLASHCARDS = "flashcards"
+
+
+AIAction = AIUsageType
+
+
+@dataclass(frozen=True)
+class PlanLimits:
+    maxSubjects: int
+    maxPdfsPerSubject: int
+    maxTotalPdfs: int
+    maxUploadSizeMb: int
+    maxMonthlySummaries: int
+    maxMonthlyQuestions: int
+    maxMonthlyFlashcards: int
+    maxActiveCompetitions: int
+
+
+PLAN_LIMITS: dict[PlanType, PlanLimits] = {
+    PlanType.FREE: PlanLimits(
+        maxSubjects=3,
+        maxPdfsPerSubject=1,
+        maxTotalPdfs=3,
+        maxUploadSizeMb=5,
+        maxMonthlySummaries=5,
+        maxMonthlyQuestions=5,
+        maxMonthlyFlashcards=5,
+        maxActiveCompetitions=1,
+    ),
+    PlanType.PRO: PlanLimits(
+        maxSubjects=10,
+        maxPdfsPerSubject=2,
+        maxTotalPdfs=20,
+        maxUploadSizeMb=25,
+        maxMonthlySummaries=30,
+        maxMonthlyQuestions=30,
+        maxMonthlyFlashcards=30,
+        maxActiveCompetitions=5,
+    ),
+    PlanType.PREMIUM: PlanLimits(
+        maxSubjects=30,
+        maxPdfsPerSubject=5,
+        maxTotalPdfs=100,
+        maxUploadSizeMb=50,
+        maxMonthlySummaries=100,
+        maxMonthlyQuestions=100,
+        maxMonthlyFlashcards=100,
+        maxActiveCompetitions=20,
+    ),
 }
 
-FREE_DAILY_LIMIT = PLAN_LIMITS["free"]["daily"]
-FREE_SUBJECT_LIMIT = PLAN_LIMITS["free"]["subjects"]
-FREE_DOCS_PER_SUBJECT = PLAN_LIMITS["free"]["docs_per_subject"]
+LEGACY_PLAN_ALIASES = {"unlimited": PlanType.PREMIUM}
+
+FREE_SUBJECT_LIMIT = PLAN_LIMITS[PlanType.FREE].maxSubjects
+FREE_DOCS_PER_SUBJECT = PLAN_LIMITS[PlanType.FREE].maxPdfsPerSubject
+FREE_TOTAL_DOCS = PLAN_LIMITS[PlanType.FREE].maxTotalPdfs
+FREE_UPLOAD_MB = PLAN_LIMITS[PlanType.FREE].maxUploadSizeMb
+FREE_ACTIVE_COMPETITIONS = PLAN_LIMITS[PlanType.FREE].maxActiveCompetitions
+FREE_MONTHLY_SUMMARIES = PLAN_LIMITS[PlanType.FREE].maxMonthlySummaries
+FREE_MONTHLY_QUESTIONS = PLAN_LIMITS[PlanType.FREE].maxMonthlyQuestions
+FREE_MONTHLY_FLASHCARDS = PLAN_LIMITS[PlanType.FREE].maxMonthlyFlashcards
+
+# Compatibilidade com testes/telas antigas que ainda importam esse nome.
+FREE_DAILY_LIMIT = FREE_MONTHLY_SUMMARIES
+FREE_MONTHLY_AI_CREDITS = (
+    FREE_MONTHLY_SUMMARIES + FREE_MONTHLY_QUESTIONS + FREE_MONTHLY_FLASHCARDS
+)
 
 
-def _get_or_create_progress(email: str, db: Session) -> UserProgress:
-    p = db.query(UserProgress).filter(UserProgress.user_email == email).first()
-    if not p:
-        p = UserProgress(user_email=email)
-        db.add(p)
+@dataclass(frozen=True)
+class AIUsageReservation:
+    email: str
+    usage_type: AIUsageType
+    amount: int = 1
+
+
+def _limit_error(status_code: int, code: str, message: str, **extra) -> HTTPException:
+    return HTTPException(status_code=status_code, detail={"code": code, "message": message, **extra})
+
+
+def _month_start(today: date | None = None) -> date:
+    current = today or date.today()
+    return current.replace(day=1)
+
+
+def normalize_plan(plan: str | None) -> PlanType:
+    raw_plan = (plan or PlanType.FREE.value).lower()
+    if raw_plan in LEGACY_PLAN_ALIASES:
+        return LEGACY_PLAN_ALIASES[raw_plan]
+    try:
+        return PlanType(raw_plan)
+    except ValueError:
+        return PlanType.FREE
+
+
+def get_plan_limits(plan: str | PlanType | None) -> PlanLimits:
+    if isinstance(plan, PlanType):
+        return PLAN_LIMITS[plan]
+    return PLAN_LIMITS[normalize_plan(plan)]
+
+
+def _get_or_create_progress(email: str, db: Session, *, for_update: bool = False) -> UserProgress:
+    query = db.query(UserProgress).filter(UserProgress.user_email == email)
+    if for_update:
+        query = query.with_for_update()
+    progress = query.first()
+    if not progress:
+        progress = UserProgress(user_email=email)
+        db.add(progress)
         db.commit()
-        db.refresh(p)
-    return p
+        db.refresh(progress)
+    return progress
 
 
-def _ensure_daily_reset(p: UserProgress, db: Session) -> UserProgress:
-    today = date.today()
-    if p.last_generation_date != today:
-        p.daily_generations_used = 0
-        p.last_generation_date = today
+def _ensure_monthly_reset(progress: UserProgress, db: Session) -> UserProgress:
+    current_month = _month_start()
+    if progress.usage_month != current_month:
+        progress.summaries_used_month = 0
+        progress.questions_used_month = 0
+        progress.flashcards_used_month = 0
+        progress.usage_month = current_month
         db.commit()
-        db.refresh(p)
-    return p
+        db.refresh(progress)
+    return progress
 
 
-def sync_plan_expiration(p: UserProgress, db: Session) -> UserProgress:
-    if (p.plan or "free") != "free" and p.plan_expires_at and p.plan_expires_at <= datetime.utcnow():
-        p.plan = "free"
-        p.subscription_status = "expired"
+def sync_plan_expiration(progress: UserProgress, db: Session) -> UserProgress:
+    if (
+        normalize_plan(progress.plan) != PlanType.FREE
+        and progress.plan_expires_at
+        and progress.plan_expires_at <= datetime.utcnow()
+    ):
+        progress.plan = PlanType.FREE.value
+        progress.subscription_status = "expired"
         db.commit()
-        db.refresh(p)
-    return p
+        db.refresh(progress)
+    return progress
 
 
-def get_status(email: str, db: Session) -> dict:
-    p = _get_or_create_progress(email, db)
-    p = sync_plan_expiration(p, db)
-    p = _ensure_daily_reset(p, db)
-    today = date.today()
-    plan = p.plan or "free"
-    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
-    daily_limit = limits["daily"]  # None = ilimitado
-    has_bonus = p.last_active_date == today
-    used = p.daily_generations_used or 0
+def _progress_for_limits(email: str, db: Session, *, for_update: bool = False) -> UserProgress:
+    progress = _get_or_create_progress(email, db, for_update=for_update)
+    progress = sync_plan_expiration(progress, db)
+    return _ensure_monthly_reset(progress, db)
 
-    if daily_limit is None:
-        effective_limit = 9999
-        remaining = 9999
-        can_generate = True
-    else:
-        effective_limit = daily_limit + (1 if has_bonus else 0)
-        remaining = max(0, effective_limit - used)
-        can_generate = used < effective_limit
 
+def _document_for_user(document_id: str, email: str, db: Session) -> Document:
+    document = (
+        db.query(Document)
+        .join(Subject, Subject.id == Document.subject_id)
+        .filter(Document.id == document_id, Subject.owner_email == email)
+        .first()
+    )
+    if not document:
+        raise _limit_error(404, "DOCUMENT_NOT_FOUND", "Documento não encontrado.")
+    return document
+
+
+def ensure_document_belongs_to_user(document_id: str, email: str, db: Session) -> Document:
+    return _document_for_user(document_id, email, db)
+
+
+def _user_subject_ids(email: str, db: Session) -> list[str]:
+    return [str(subject.id) for subject in db.query(Subject).filter(Subject.owner_email == email).all()]
+
+
+def _ai_usage_state(progress: UserProgress, limits: PlanLimits) -> dict:
+    summaries_used = progress.summaries_used_month or 0
+    questions_used = progress.questions_used_month or 0
+    flashcards_used = progress.flashcards_used_month or 0
     return {
-        "used": used,
-        "limit": effective_limit,
-        "remaining": remaining,
-        "can_generate": can_generate,
-        "plan": plan,
-        "has_daily_bonus": has_bonus,
-        "subject_limit": limits["subjects"],
-        "docs_per_subject_limit": limits["docs_per_subject"],
+        "summaries": {
+            "used": summaries_used,
+            "limit": limits.maxMonthlySummaries,
+            "remaining": max(0, limits.maxMonthlySummaries - summaries_used),
+        },
+        "questions": {
+            "used": questions_used,
+            "limit": limits.maxMonthlyQuestions,
+            "remaining": max(0, limits.maxMonthlyQuestions - questions_used),
+        },
+        "flashcards": {
+            "used": flashcards_used,
+            "limit": limits.maxMonthlyFlashcards,
+            "remaining": max(0, limits.maxMonthlyFlashcards - flashcards_used),
+        },
     }
 
 
-def check_and_consume(email: str, db: Session):
-    status = get_status(email, db)
-    if not status["can_generate"]:
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "code": "GENERATION_LIMIT_REACHED",
-                "message": "Você atingiu o limite diário de gerações. Faça upgrade para continuar.",
-                "remaining": 0,
-                "limit": status["limit"],
-                "plan": status["plan"],
-            },
+def get_status(email: str, db: Session) -> dict:
+    progress = _progress_for_limits(email, db)
+    plan = normalize_plan(progress.plan)
+    limits = PLAN_LIMITS[plan]
+    ai_usage = _ai_usage_state(progress, limits)
+    total_remaining = sum(item["remaining"] for item in ai_usage.values())
+    total_limit = (
+        limits.maxMonthlySummaries
+        + limits.maxMonthlyQuestions
+        + limits.maxMonthlyFlashcards
+    )
+    total_used = (
+        ai_usage["summaries"]["used"]
+        + ai_usage["questions"]["used"]
+        + ai_usage["flashcards"]["used"]
+    )
+
+    return {
+        "used": total_used,
+        "limit": total_limit,
+        "remaining": total_remaining,
+        "can_generate": total_remaining > 0,
+        "plan": plan.value,
+        "has_daily_bonus": False,
+        "limits": asdict(limits),
+        "subject_limit": limits.maxSubjects,
+        "docs_per_subject_limit": limits.maxPdfsPerSubject,
+        "docs_total_limit": limits.maxTotalPdfs,
+        "upload_mb_limit": limits.maxUploadSizeMb,
+        "active_competitions_limit": limits.maxActiveCompetitions,
+        "monthly_summaries": ai_usage["summaries"],
+        "monthly_questions": ai_usage["questions"],
+        "monthly_flashcards": ai_usage["flashcards"],
+        # Compatibilidade com nomes antigos do widget de créditos.
+        "monthly_ai_credits": total_limit,
+        "ai_credits_used": total_used,
+        "ai_credits_remaining": total_remaining,
+    }
+
+
+def _normalize_usage_type(usage_type: AIUsageType | str) -> AIUsageType:
+    if isinstance(usage_type, str) and usage_type.strip().lower() == "generic":
+        return AIUsageType.SUMMARY
+    try:
+        return AIUsageType(usage_type)
+    except ValueError:
+        raise _limit_error(
+            400,
+            "INVALID_AI_OPERATION",
+            "Operação de IA inválida.",
+            allowed_operations=[item.value for item in AIUsageType],
         )
-    p = _get_or_create_progress(email, db)
-    p = sync_plan_expiration(p, db)
-    p.daily_generations_used = (p.daily_generations_used or 0) + 1
+
+
+def _usage_limit_and_value(progress: UserProgress, limits: PlanLimits, usage_type: AIUsageType) -> tuple[int, int]:
+    if usage_type == AIUsageType.SUMMARY:
+        return limits.maxMonthlySummaries, progress.summaries_used_month or 0
+    if usage_type == AIUsageType.QUESTIONS:
+        return limits.maxMonthlyQuestions, progress.questions_used_month or 0
+    return limits.maxMonthlyFlashcards, progress.flashcards_used_month or 0
+
+
+def _set_usage_value(progress: UserProgress, usage_type: AIUsageType, value: int) -> None:
+    if usage_type == AIUsageType.SUMMARY:
+        progress.summaries_used_month = value
+    elif usage_type == AIUsageType.QUESTIONS:
+        progress.questions_used_month = value
+    else:
+        progress.flashcards_used_month = value
+
+
+def _usage_message(usage_type: AIUsageType) -> str:
+    messages = {
+        AIUsageType.SUMMARY: "Você atingiu o limite mensal de resumos do seu plano.",
+        AIUsageType.QUESTIONS: "Você atingiu o limite mensal de questões do seu plano.",
+        AIUsageType.FLASHCARDS: "Você atingiu o limite mensal de flashcards do seu plano.",
+    }
+    return messages[usage_type]
+
+
+def check_pdf_generation_limit(
+    email: str,
+    db: Session,
+    *,
+    document_id: str,
+    action: AIUsageType | str,
+) -> None:
+    """Bloqueia reprocessamento por PDF apenas no plano gratuito."""
+    usage_type = _normalize_usage_type(action)
+    document = _document_for_user(document_id, email, db)
+    progress = _progress_for_limits(email, db)
+    if normalize_plan(progress.plan) != PlanType.FREE:
+        return
+
+    if usage_type == AIUsageType.SUMMARY:
+        exists = db.query(Summary).filter(Summary.document_id == document.id).first()
+    elif usage_type == AIUsageType.QUESTIONS:
+        exists = db.query(Question).filter(Question.document_id == document.id).first()
+    else:
+        exists = db.query(Flashcard).filter(Flashcard.document_id == document.id).first()
+
+    if exists:
+        logger.info(
+            "Bloqueando IA por limite free por PDF: email=%s document_id=%s usage_type=%s",
+            email,
+            document_id,
+            usage_type.value,
+        )
+        raise _limit_error(
+            403,
+            "PDF_GENERATION_ALREADY_EXISTS",
+            "No plano gratuito, este PDF já possui essa geração. Faça upgrade para gerar novamente.",
+        )
+
+
+def reserve_ai_usage(
+    email: str,
+    db: Session,
+    *,
+    usage_type: AIUsageType | str,
+) -> AIUsageReservation:
+    usage_type = _normalize_usage_type(usage_type)
+    progress = _progress_for_limits(email, db, for_update=True)
+    limits = get_plan_limits(progress.plan)
+    limit, used = _usage_limit_and_value(progress, limits, usage_type)
+    if used >= limit:
+        logger.info(
+            "Bloqueando IA por limite mensal: email=%s usage_type=%s used=%s limit=%s",
+            email,
+            usage_type.value,
+            used,
+            limit,
+        )
+        raise _limit_error(
+            403,
+            f"{usage_type.value.upper()}_MONTHLY_LIMIT_REACHED",
+            _usage_message(usage_type),
+            limit=limit,
+            used=used,
+        )
+
+    _set_usage_value(progress, usage_type, used + 1)
     db.commit()
+    logger.info("Uso mensal de IA reservado: email=%s usage_type=%s", email, usage_type.value)
+    return AIUsageReservation(email=email, usage_type=usage_type)
+
+
+def refund_ai_usage(reservation: AIUsageReservation | None, db: Session) -> None:
+    if not reservation:
+        return
+    progress = _get_or_create_progress(reservation.email, db, for_update=True)
+    _, used = _usage_limit_and_value(progress, get_plan_limits(progress.plan), reservation.usage_type)
+    _set_usage_value(progress, reservation.usage_type, max(0, used - reservation.amount))
+    db.commit()
+    logger.info("Uso mensal de IA estornado: email=%s usage_type=%s", reservation.email, reservation.usage_type.value)
+
+
+def reserve_ai_credits(email: str, db: Session, *, action: AIUsageType | str, question_count: int | None = None):
+    """Compatibilidade temporária com nome antigo: reserva 1 uso mensal do tipo informado."""
+    return reserve_ai_usage(email, db, usage_type=action)
+
+
+def refund_ai_credits(reservation: AIUsageReservation | None, db: Session) -> None:
+    """Compatibilidade temporária com nome antigo."""
+    refund_ai_usage(reservation, db)
+
+
+def check_and_consume(email: str, db: Session):
+    """Compatibilidade com chamadas antigas: consome uma geração de resumo."""
+    return reserve_ai_usage(email, db, usage_type=AIUsageType.SUMMARY)
 
 
 def apply_daily_bonus(email: str, db: Session) -> bool:
-    p = _get_or_create_progress(email, db)
+    progress = _get_or_create_progress(email, db)
     today = date.today()
-    last = p.last_active_date
+    last = progress.last_active_date
     if last == today:
         return False
-    if last and last == today - timedelta(days=1):
-        p.streak_days = (p.streak_days or 0) + 1
+    if last and (today - last).days == 1:
+        progress.streak_days = (progress.streak_days or 0) + 1
     else:
-        p.streak_days = 1
-    p.last_active_date = today
+        progress.streak_days = 1
+    progress.last_active_date = today
     db.commit()
     return True
 
 
-def check_subject_limit(email: str, db: Session):
-    p = _get_or_create_progress(email, db)
-    p = sync_plan_expiration(p, db)
-    plan = p.plan or "free"
-    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["subjects"]
-    if limit is not None:
-        count = db.query(Subject).filter(Subject.owner_email == email).count()
-        if count >= limit:
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "code": "SUBJECT_LIMIT_REACHED",
-                    "message": f"Seu plano permite até {limit} matérias. Faça upgrade para criar mais.",
-                    "limit": limit,
-                },
-            )
-
-
-def check_document_limit(subject_id: str, email: str, db: Session):
-    p = _get_or_create_progress(email, db)
-    p = sync_plan_expiration(p, db)
-    plan = p.plan or "free"
-    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["docs_per_subject"]
-    if limit is not None:
-        count = db.query(Document).filter(Document.subject_id == subject_id).count()
-        if count >= limit:
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "code": "DOCUMENT_LIMIT_REACHED",
-                    "message": f"Seu plano permite {limit} documento por matéria. Faça upgrade para adicionar mais.",
-                    "limit": limit,
-                },
-            )
-
-
-def check_upload_size(email: str, file_size_bytes: int, db: Session):
-    p = _get_or_create_progress(email, db)
-    p = sync_plan_expiration(p, db)
-    plan = p.plan or "free"
-    limit_mb = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["upload_mb"]
-    limit_bytes = limit_mb * 1024 * 1024
-    if file_size_bytes > limit_bytes:
-        raise HTTPException(
-            status_code=413,
-            detail={
-                "code": "FILE_TOO_LARGE",
-                "message": f"Arquivo muito grande. Seu plano permite até {limit_mb} MB por arquivo. Faça upgrade para enviar arquivos maiores.",
-                "limit_mb": limit_mb,
-            },
+def check_subject_limit(email: str, db: Session) -> None:
+    progress = _progress_for_limits(email, db)
+    limit = get_plan_limits(progress.plan).maxSubjects
+    count = db.query(Subject).filter(Subject.owner_email == email).count()
+    if count >= limit:
+        raise _limit_error(
+            403,
+            "SUBJECT_LIMIT_REACHED",
+            "Você atingiu o limite de matérias do seu plano.",
+            limit=limit,
         )
 
 
-def check_competition_limit(email: str, db: Session):
-    p = _get_or_create_progress(email, db)
-    p = sync_plan_expiration(p, db)
-    plan = p.plan or "free"
-    limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["competitions"]
-    if limit is not None:
-        count = db.query(Competition).filter(
-            Competition.host_email == email,
-            Competition.status != "finished",
-        ).count()
-        if count >= limit:
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "code": "COMPETITION_LIMIT_REACHED",
-                    "message": f"Seu plano permite {limit} competição ativa por vez. Finalize a atual ou faça upgrade.",
-                    "limit": limit,
-                },
-            )
+def check_document_limit(subject_id: str, email: str, db: Session) -> None:
+    progress = _progress_for_limits(email, db)
+    limits = get_plan_limits(progress.plan)
+    subject_ids = _user_subject_ids(email, db)
+    total_count = db.query(Document).filter(Document.subject_id.in_(subject_ids)).count() if subject_ids else 0
+    if total_count >= limits.maxTotalPdfs:
+        raise _limit_error(
+            403,
+            "DOCUMENT_TOTAL_LIMIT_REACHED",
+            "Você atingiu o limite total de PDFs do seu plano.",
+            limit=limits.maxTotalPdfs,
+        )
+
+    per_subject_count = db.query(Document).filter(Document.subject_id == subject_id).count()
+    if per_subject_count >= limits.maxPdfsPerSubject:
+        raise _limit_error(
+            403,
+            "DOCUMENT_PER_SUBJECT_LIMIT_REACHED",
+            "Você atingiu o limite de PDFs desta matéria.",
+            limit=limits.maxPdfsPerSubject,
+        )
+
+
+def check_upload_size(email: str, file_size_bytes: int, db: Session) -> None:
+    progress = _progress_for_limits(email, db)
+    limit_mb = get_plan_limits(progress.plan).maxUploadSizeMb
+    limit_bytes = limit_mb * 1024 * 1024
+    if file_size_bytes > limit_bytes:
+        raise _limit_error(
+            413,
+            "FILE_TOO_LARGE",
+            f"Seu plano permite uploads de até {limit_mb} MB.",
+            limit_mb=limit_mb,
+        )
+
+
+def check_competition_limit(email: str, db: Session) -> None:
+    progress = _progress_for_limits(email, db)
+    limit = get_plan_limits(progress.plan).maxActiveCompetitions
+    count = db.query(Competition).filter(
+        Competition.host_email == email,
+        Competition.status != "finished",
+    ).count()
+    if count >= limit:
+        raise _limit_error(
+            403,
+            "COMPETITION_LIMIT_REACHED",
+            "Você atingiu o limite de competições ativas do seu plano.",
+            limit=limit,
+        )

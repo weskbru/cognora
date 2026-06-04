@@ -6,7 +6,7 @@ if (!API_URL) {
   throw new Error('[Cognora] VITE_API_URL não configurada.');
 }
 
-export type PaidPlan = 'pro' | 'unlimited';
+export type PaidPlan = 'pro' | 'premium';
 export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'expired';
 export type SubscriptionPlan = 'free' | PaidPlan;
 

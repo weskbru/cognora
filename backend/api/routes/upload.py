@@ -1,13 +1,13 @@
 import os
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from api.dependencies import get_current_user
 from core.config.settings import settings
 from infrastructure.database.connection import get_db
-from infrastructure.database.models import User
+from infrastructure.database.models import Subject, User
 from infrastructure.observability import record_system_event
 
 router = APIRouter(prefix="/api", tags=["upload"])
@@ -22,17 +22,35 @@ def _public_upload_url(request: Request, filename: str) -> str:
 def upload_file(
     request: Request,
     file: UploadFile = File(...),
+    subject_id: str | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from domain.use_cases.limits import check_upload_size
+    from domain.use_cases.limits import check_document_limit, check_upload_size
 
     original_name = file.filename or "arquivo.pdf"
     try:
         data = file.file.read()
-        check_upload_size(current_user.email, len(data), db)
-
         ext = os.path.splitext(original_name)[1] or ".pdf"
+        is_pdf = ext.lower() == ".pdf" or file.content_type == "application/pdf"
+        if is_pdf:
+            check_upload_size(current_user.email, len(data), db)
+            if not subject_id:
+                raise HTTPException(status_code=400, detail={
+                    "code": "SUBJECT_REQUIRED",
+                    "message": "Selecione uma matéria para enviar o documento.",
+                })
+            subject = db.query(Subject).filter(
+                Subject.id == subject_id,
+                Subject.owner_email == current_user.email,
+            ).first()
+            if not subject:
+                raise HTTPException(status_code=404, detail={
+                    "code": "SUBJECT_NOT_FOUND",
+                    "message": "Matéria não encontrada.",
+                })
+            check_document_limit(subject_id, current_user.email, db)
+
         filename = f"{uuid.uuid4()}{ext}"
 
         os.makedirs(settings.upload_dir, exist_ok=True)

@@ -77,7 +77,10 @@ export default function UploadDialog({
     if (!file || !subjectId || !name.trim()) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await (base44.integrations.Core.UploadFile as (payload: {
+        file: File;
+        subject_id?: string;
+      }) => Promise<{ file_url: string }>)({ file, subject_id: subjectId });
 
       await base44.entities.Document.create({
         name: name.trim(),
@@ -93,9 +96,12 @@ export default function UploadDialog({
       setName('');
       onOpenChange(false);
     } catch (err) {
+      const message = err && typeof err === 'object' && 'message' in err
+        ? String((err as { message?: unknown }).message)
+        : 'Tente novamente.';
       toast({
         title: 'Erro no upload',
-        description: err instanceof Error ? err.message : 'Tente novamente.',
+        description: message,
         variant: 'destructive',
       });
     } finally {

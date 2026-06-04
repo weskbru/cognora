@@ -78,28 +78,30 @@ O Cognora deve seguir a logica de SaaS modernos como Notion, Obsidian Sync, Drop
 
 ## Planos decididos
 
-Tabela final inicial:
+Tabela final implementada:
 
 | Recurso | Free | Pro | Premium |
 |---------|------|-----|---------|
-| Materias | 3 | 10 | 100 |
-| PDFs por materia | 2 | A definir | A definir |
-| PDFs ativos | 6 | 100 | 1000 |
+| Materias | 3 | 10 | 30 |
+| PDFs por materia | 1 | 2 | 5 |
+| PDFs ativos | 3 | 20 | 100 |
 | Upload por PDF | 5 MB | 25 MB | 50 MB |
-| Paginas por PDF | 50 | 300 | A definir |
-| Acoes IA/mes | 15 | 200 | 1000 |
-| Competicoes ativas | 1 | 5 | 50 |
+| Resumos/mes | 5 | 30 | 100 |
+| Geracoes de questoes/mes | 5 | 30 | 100 |
+| Geracoes de flashcards/mes | 5 | 30 | 100 |
+| Competicoes ativas | 1 | 5 | 20 |
 
 ## Free
 
 Limites do Free:
 
 - Ate 3 materias.
-- Ate 2 PDFs por materia.
-- Ate 6 PDFs ativos no total.
+- Ate 1 PDF por materia.
+- Ate 3 PDFs ativos no total.
 - Upload maximo de 5 MB por PDF.
-- Maximo de 50 paginas por PDF.
-- Ate 15 acoes IA por mes.
+- Ate 5 resumos por mes.
+- Ate 5 geracoes de questoes por mes.
+- Ate 5 geracoes de flashcards por mes.
 - Ate 1 competicao ativa.
 - Cada PDF pode gerar 1 resumo.
 - Cada PDF pode gerar questoes 1 vez.
@@ -108,7 +110,6 @@ Limites do Free:
 Racional:
 
 - O usuario consegue testar o fluxo completo.
-- O usuario consegue organizar uma materia com dois tipos de material, por exemplo apostila e exercicios.
 - O sistema mostra valor sem liberar volume alto de IA.
 - A regra "1 geracao por tipo de conteudo por arquivo" e facil de entender.
 - O Free cria pressao natural para upgrade sem parecer inutil.
@@ -120,35 +121,38 @@ Preco inicial: R$9,90/mes.
 Limites do Pro:
 
 - Ate 10 materias.
-- Ate 100 PDFs ativos.
+- Ate 2 PDFs por materia.
+- Ate 20 PDFs ativos.
 - Upload maximo de 25 MB por PDF.
-- Maximo de 300 paginas por PDF.
-- Ate 200 acoes IA por mes.
+- Ate 30 resumos por mes.
+- Ate 30 geracoes de questoes por mes.
+- Ate 30 geracoes de flashcards por mes.
 - Ate 5 competicoes ativas.
-- Cada PDF pode gerar ate 3 resumos.
-- Cada PDF pode gerar questoes ate 3 vezes.
-- Cada PDF pode gerar flashcards ate 3 vezes.
+- Sem limite por PDF para resumos, questoes e flashcards; controla apenas limite mensal.
 
 Racional:
 
 - O Pro precisa parecer muito melhor que o Free, mas ainda controlar custo de IA.
-- 100 PDFs ativos da liberdade de organizacao sem liberar processamento infinito.
-- 200 acoes IA/mes cria um teto claro de custo.
-- Limites por PDF evitam reprocessamento repetitivo do mesmo arquivo.
+- 20 PDFs ativos da liberdade de organizacao sem liberar processamento infinito.
+- 30 usos mensais por tipo cria um teto claro de custo.
+- Sem limite por PDF evita frustrar usuario pagante que precisa reprocessar material.
 - Usuario intensivo deve perceber valor em subir para Premium.
 
 ## Premium
 
-Premium substitui a ideia antiga de "Ilimitado".
+Premium substitui a ideia antiga de "Ilimitado". O alias legado `unlimited` pode existir internamente em registros antigos, mas deve ser normalizado como Premium e nao exposto no frontend ou APIs publicas.
 
 Limites iniciais:
 
-- Ate 100 materias.
-- Ate 1000 PDFs ativos.
+- Ate 30 materias.
+- Ate 5 PDFs por materia.
+- Ate 100 PDFs ativos.
 - Upload maximo de 50 MB por PDF.
-- Limite de paginas por PDF ainda a definir.
-- Ate 1000 acoes IA por mes.
-- Ate 50 competicoes ativas.
+- Ate 100 resumos por mes.
+- Ate 100 geracoes de questoes por mes.
+- Ate 100 geracoes de flashcards por mes.
+- Ate 20 competicoes ativas.
+- Sem limite por PDF para resumos, questoes e flashcards; controla apenas limite mensal.
 
 Racional:
 
@@ -158,22 +162,21 @@ Racional:
 
 ## Contabilizacao de IA
 
-Cada chamada funcional de IA consome 1 acao, independentemente do tipo:
+Cada chamada funcional de IA consome 1 uso mensal do tipo correspondente:
 
-| Acao | Consumo |
-|------|---------|
-| Gerar resumo | 1 acao IA |
-| Gerar questoes | 1 acao IA |
-| Gerar flashcards | 1 acao IA |
-| Regenerar conteudo | 1 acao IA |
-| Quiz personalizado | 1 acao IA |
+| Acao | Contador |
+|------|----------|
+| Gerar resumo | `summaries_used_month` |
+| Gerar questoes | `questions_used_month` |
+| Gerar flashcards | `flashcards_used_month` |
 
 Racional:
 
 - Simples de explicar para usuario.
 - Simples de implementar.
-- Evita discussoes sobre pesos diferentes antes de ter dados reais.
-- Se algum recurso ficar caro demais, o peso pode ser revisto futuramente.
+- Evita que um tipo de recurso consuma todo o limite de outro.
+- No Free, tambem existe bloqueio de 1 geracao por tipo em cada PDF para evitar abuso/reprocessamento.
+- No Pro e Premium, nao ha bloqueio por PDF; o usuario pagante fica limitado apenas pelo uso mensal.
 
 ## Uso que deve ser monitorado
 
@@ -185,10 +188,9 @@ Campos recomendados:
 - `month_reference`
 - `pdf_count`
 - `pdf_storage_mb`
-- `ai_actions_used`
-- `summaries_generated`
-- `questions_generated`
-- `flashcards_generated`
+- `summaries_used_month`
+- `questions_used_month`
+- `flashcards_used_month`
 - `competitions_created`
 
 Objetivo:

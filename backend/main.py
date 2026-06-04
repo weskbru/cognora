@@ -52,6 +52,10 @@ def _run_migrations():
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS daily_generations_used INTEGER DEFAULT 0",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS last_generation_date DATE",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS summaries_used_month INTEGER DEFAULT 0",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS questions_used_month INTEGER DEFAULT 0",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS flashcards_used_month INTEGER DEFAULT 0",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS usage_month DATE",
         # Stripe subscription columns
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR UNIQUE",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR",

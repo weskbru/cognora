@@ -139,6 +139,39 @@ def list_entities(
     return [row_to_dict(r) for r in repo.list(sort=sort, limit=limit, **filters)]
 
 
+@router.post("/{entity}/bulk", status_code=201)
+def bulk_create_entities(
+    entity: str,
+    items: list[dict],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from domain.use_cases.limits import AIUsageType, check_pdf_generation_limit
+
+    if entity not in ("questions", "flashcards"):
+        raise HTTPException(status_code=400, detail="Criação em lote não suportada para esta entidade.")
+    if not items:
+        raise HTTPException(status_code=400, detail="Nenhum item informado.")
+
+    document_id = items[0].get("document_id")
+    if document_id:
+        action = AIUsageType.QUESTIONS if entity == "questions" else AIUsageType.FLASHCARDS
+        check_pdf_generation_limit(current_user.email, db, document_id=document_id, action=action)
+    if any(item.get("document_id") != document_id for item in items):
+        raise HTTPException(status_code=400, detail="Todos os itens do lote devem pertencer ao mesmo documento.")
+
+    model = ENTITY_MAP.get(entity)
+    if not model:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity}' not found")
+    valid = {c.name for c in model.__table__.columns} - {"id", "created_date", "created_at"}
+    rows = [model(**{key: value for key, value in item.items() if key in valid}) for item in items]
+    db.add_all(rows)
+    db.commit()
+    for row in rows:
+        db.refresh(row)
+    return [row_to_dict(row) for row in rows]
+
+
 @router.get("/{entity}/{item_id}")
 def get_entity(
     entity: str,
@@ -161,7 +194,13 @@ def create_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from domain.use_cases.limits import check_subject_limit, check_document_limit, check_competition_limit
+    from domain.use_cases.limits import (
+        AIUsageType,
+        check_competition_limit,
+        check_document_limit,
+        check_pdf_generation_limit,
+        check_subject_limit,
+    )
     if entity == "subjects":
         check_subject_limit(current_user.email, db)
         data = {**data, "owner_email": current_user.email}
@@ -178,6 +217,20 @@ def create_entity(
         check_document_limit(subject_id, current_user.email, db)
     elif entity == "competitions":
         check_competition_limit(current_user.email, db)
+        data = {**data, "host_email": current_user.email}
+    elif entity == "summaries":
+        document_id = data.get("document_id")
+        if not document_id:
+            raise HTTPException(status_code=400, detail="Informe o documento do resumo.")
+        check_pdf_generation_limit(current_user.email, db, document_id=document_id, action=AIUsageType.SUMMARY)
+    elif entity == "questions":
+        document_id = data.get("document_id")
+        if document_id:
+            check_pdf_generation_limit(current_user.email, db, document_id=document_id, action=AIUsageType.QUESTIONS)
+    elif entity == "flashcards":
+        document_id = data.get("document_id")
+        if document_id:
+            check_pdf_generation_limit(current_user.email, db, document_id=document_id, action=AIUsageType.FLASHCARDS)
     elif entity == "user_progress":
         data = _strip_user_progress_protected_fields(data)
         data = {**data, "user_email": current_user.email}

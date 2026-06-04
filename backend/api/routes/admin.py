@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_current_admin_user
 from core.config.settings import settings
 from core.security.password import hash_password
-from domain.use_cases.limits import sync_plan_expiration
+from domain.use_cases.limits import normalize_plan, sync_plan_expiration
 from infrastructure.database.connection import get_db
 from infrastructure.database.models import (
     AdminAuditLog,
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 class GrantPlanPayload(BaseModel):
-    plan: Literal["pro", "unlimited"]
+    plan: Literal["pro", "premium"]
     days: int = Field(default=30, ge=1, le=366)
     starts_at: datetime | None = None
     note: str | None = None
@@ -107,7 +107,7 @@ def _progress_payload(progress: UserProgress | None) -> dict:
             "daily_generations_used": 0,
         }
     return {
-        "plan": progress.plan or "free",
+        "plan": normalize_plan(progress.plan).value,
         "subscription_status": progress.subscription_status or "inactive",
         "plan_started_at": progress.plan_started_at.isoformat() if progress.plan_started_at else None,
         "plan_expires_at": progress.plan_expires_at.isoformat() if progress.plan_expires_at else None,
@@ -115,6 +115,12 @@ def _progress_payload(progress: UserProgress | None) -> dict:
         "level": progress.level or 1,
         "daily_generations_used": progress.daily_generations_used or 0,
     }
+
+
+def _payment_payload(payment: PixPaymentRequest) -> dict:
+    data = row_to_dict(payment)
+    data["plan"] = normalize_plan(payment.plan).value
+    return data
 
 
 def _get_user_or_404(user_id: str, db: Session) -> User:
@@ -138,7 +144,7 @@ def admin_overview(
     active_pro_users = (
         db.query(UserProgress)
         .filter(
-            UserProgress.plan.in_(["pro", "unlimited"]),
+            UserProgress.plan.in_(["pro", "premium", "unlimited"]),
             UserProgress.subscription_status == "active",
             or_(UserProgress.plan_expires_at.is_(None), UserProgress.plan_expires_at > now),
         )
@@ -159,7 +165,7 @@ def admin_overview(
     expiring_soon = (
         db.query(UserProgress)
         .filter(
-            UserProgress.plan.in_(["pro", "unlimited"]),
+            UserProgress.plan.in_(["pro", "premium", "unlimited"]),
             UserProgress.subscription_status == "active",
             UserProgress.plan_expires_at > now,
             UserProgress.plan_expires_at <= expiring_until,
@@ -188,7 +194,7 @@ def admin_overview(
         "revenue_cents_this_month": revenue_cents,
         "expiring_soon": expiring_soon,
         "recent_audit_logs": [row_to_dict(row) for row in recent_audit],
-        "recent_payment_requests": [row_to_dict(row) for row in recent_payments],
+        "recent_payment_requests": [_payment_payload(row) for row in recent_payments],
     }
 
 
@@ -209,6 +215,8 @@ def admin_list_users(
     if plan and plan != "all":
         if plan == "free":
             query = query.filter(or_(UserProgress.plan.is_(None), UserProgress.plan == "free"))
+        elif plan == "premium":
+            query = query.filter(UserProgress.plan.in_(["premium", "unlimited"]))
         else:
             query = query.filter(UserProgress.plan == plan)
 
