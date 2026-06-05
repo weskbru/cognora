@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   HelpCircle, CheckCircle2, RotateCcw, XCircle, Trophy, BookX,
@@ -18,6 +18,7 @@ import EmptyState from '@/components/competitions/shared/EmptyState';
 import QuestionCard from '@/components/competitions/documents/QuestionCard';
 
 export default function Quiz() {
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session');
   const [subjectFilter, setSubjectFilter]     = useState('all');
@@ -53,6 +54,11 @@ export default function Quiz() {
     return questions.filter(question => sessionQuestionIds.has(String(question.id)));
   }, [questions, sessionId, sessionQuestionIds]);
 
+  const persistedAnsweredIds = useMemo(
+    () => new Set((studySession?.questions_answered || []).map(id => String(id))),
+    [studySession]
+  );
+
   const filtered = useMemo(() => {
     return sessionQuestions.filter(q => {
       if (subjectFilter !== 'all' && q.subject_id !== subjectFilter) return false;
@@ -69,22 +75,50 @@ export default function Quiz() {
   }, [subjectFilter, difficultyFilter, typeFilter]);
 
   const total = filtered.length;
-  const answeredCount = Object.keys(answers).length;
+  const localAnsweredIds = Object.keys(answers);
+  const answeredCount = sessionId
+    ? new Set([...persistedAnsweredIds, ...localAnsweredIds.map(String)]).size
+    : localAnsweredIds.length;
   const progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
   const correctCount = Object.values(answers).filter(Boolean).length;
   const wrongCount = answeredCount - correctCount;
   const isLastQuestion = currentIndex === total - 1;
-  const currentAnswered = filtered[currentIndex] && answers[filtered[currentIndex].id] !== undefined;
+  const currentQuestionId = filtered[currentIndex]?.id;
+  const currentAnswered = currentQuestionId && (
+    answers[currentQuestionId] !== undefined || persistedAnsweredIds.has(String(currentQuestionId))
+  );
+  const sessionCompleted = sessionId && studySession?.status === 'COMPLETED';
+  const sessionCompletionTarget = sessionId ? Math.min(10, sessionQuestions.length) : total;
 
   const goTo = (i) => {
     if (i >= 0 && i < total) setCurrentIndex(i);
   };
 
-  const handleAnswer = (questionId, isCorrect) => {
+  const handleAnswer = async (questionId, isCorrect) => {
+    if (sessionCompleted) return;
     setAnswers(prev => ({ ...prev, [questionId]: isCorrect }));
+
+    if (sessionId && studySession) {
+      const existingIds = (studySession.questions_answered || []).map(id => String(id));
+      if (existingIds.includes(String(questionId))) return;
+
+      const nextAnsweredIds = [...existingIds, String(questionId)];
+      const shouldComplete = nextAnsweredIds.length >= sessionCompletionTarget;
+      try {
+        const updatedSession = await base44.entities.StudySession.update(sessionId, {
+          questions_answered: nextAnsweredIds,
+          ...(shouldComplete ? { status: 'COMPLETED' } : {}),
+        });
+        queryClient.setQueryData(['study_session', sessionId], updatedSession);
+        if (updatedSession.status === 'COMPLETED') setShowResults(true);
+      } catch (error) {
+        console.error('Erro ao atualizar sessão de estudo:', error);
+      }
+    }
   };
 
   const handleRestart = () => {
+    if (sessionId) return;
     setAnswers({});
     setCurrentIndex(0);
     setShowResults(false);
@@ -165,6 +199,52 @@ export default function Quiz() {
           actionLabel="Voltar ao Dashboard"
           actionPath="/dashboard"
         />
+      ) : sessionCompleted ? (
+        <Card className="p-8 text-center space-y-6">
+          <div className="flex justify-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+              <Trophy className="h-10 w-10 text-emerald-600" />
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-1">Sessão concluída</h2>
+            <p className="text-muted-foreground">
+              Seu progresso desta sessão foi registrado.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl bg-secondary p-4">
+              <p className="text-2xl font-bold text-foreground">{sessionQuestions.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Planejadas</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 p-4">
+              <p className="text-2xl font-bold text-emerald-700">{persistedAnsweredIds.size}</p>
+              <p className="text-xs text-emerald-600">Respondidas</p>
+            </div>
+            <div className="rounded-xl bg-primary/10 p-4">
+              <p className="text-2xl font-bold text-primary">
+                {Math.round((persistedAnsweredIds.size / Math.max(1, sessionQuestions.length)) * 100)}%
+              </p>
+              <p className="text-xs text-primary">Conclusão</p>
+            </div>
+          </div>
+
+          {studySession.completed_at && (
+            <p className="text-sm text-muted-foreground">
+              Concluída em {new Date(studySession.completed_at).toLocaleString('pt-BR')}
+            </p>
+          )}
+
+          <div className="flex justify-center">
+            <Link to="/dashboard">
+              <Button className="gap-2">
+                <CheckCircle2 className="h-4 w-4" /> Voltar ao Dashboard
+              </Button>
+            </Link>
+          </div>
+        </Card>
       ) : filtered.length === 0 ? (
         <p className="text-center py-8 text-muted-foreground">
           Nenhuma questão encontrada com os filtros selecionados
@@ -247,12 +327,14 @@ export default function Quiz() {
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                   {answeredCount}/{total} respondidas
                 </span>
-                <button
-                  onClick={handleRestart}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                >
-                  <RotateCcw className="h-3 w-3" /> Reiniciar
-                </button>
+                {!sessionId && (
+                  <button
+                    onClick={handleRestart}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Reiniciar
+                  </button>
+                )}
               </div>
             </div>
 
@@ -267,22 +349,27 @@ export default function Quiz() {
 
           {/* Bolinhas de navegação rápida */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            {filtered.map((q, i) => (
-              <button
-                key={i}
-                onClick={() => goTo(i)}
-                title={`Questão ${i + 1}`}
-                className={`h-2.5 w-2.5 rounded-full transition-all duration-200 ${
-                  i === currentIndex
-                    ? 'bg-primary scale-125'
-                    : answers[q.id] === true
-                    ? 'bg-emerald-400'
-                    : answers[q.id] === false
-                    ? 'bg-red-400'
-                    : 'bg-secondary hover:bg-primary/40'
-                }`}
-              />
-            ))}
+            {filtered.map((q, i) => {
+              const qAnswered = persistedAnsweredIds.has(String(q.id)) || answers[q.id] !== undefined;
+              return (
+                <button
+                  key={i}
+                  onClick={() => goTo(i)}
+                  title={`Questão ${i + 1}`}
+                  className={`h-2.5 w-2.5 rounded-full transition-all duration-200 ${
+                    i === currentIndex
+                      ? 'bg-primary scale-125'
+                      : sessionId && qAnswered
+                      ? 'bg-emerald-400'
+                      : answers[q.id] === true
+                      ? 'bg-emerald-400'
+                      : answers[q.id] === false
+                      ? 'bg-red-400'
+                      : 'bg-secondary hover:bg-primary/40'
+                  }`}
+                />
+              );
+            })}
           </div>
 
           {/* Questão atual */}
@@ -323,7 +410,7 @@ export default function Quiz() {
               </PaginationContent>
             </Pagination>
 
-            {isLastQuestion && currentAnswered && (
+            {isLastQuestion && currentAnswered && !sessionId && (
               <div className="flex justify-center">
                 <Button
                   className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"

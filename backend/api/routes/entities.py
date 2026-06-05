@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc, func, or_
 from typing import Optional
+from datetime import datetime
 from core.config.settings import settings
 from infrastructure.database.connection import get_db
 from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt, StudySession
@@ -33,19 +34,52 @@ USER_PROGRESS_PROTECTED_FIELDS = {
 }
 
 STUDY_SESSION_ALLOWED_STATUSES = {"IN_PROGRESS", "COMPLETED", "ABANDONED"}
+STUDY_SESSION_PROTECTED_FIELDS = {
+    "user_email",
+    "started_at",
+    "completed_at",
+    "created_at",
+    "updated_at",
+}
 
 
 def _strip_user_progress_protected_fields(data: dict) -> dict:
     return {key: value for key, value in data.items() if key not in USER_PROGRESS_PROTECTED_FIELDS}
 
 
-def _normalize_study_session_data(data: dict, *, user_email: str | None = None) -> dict:
-    normalized = {key: value for key, value in data.items() if key != "user_email"}
+def _unique_values(values) -> list:
+    if not isinstance(values, list):
+        return []
+    seen = set()
+    unique = []
+    for value in values:
+        key = str(value)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(value)
+    return unique
+
+
+def _normalize_study_session_data(
+    data: dict,
+    *,
+    user_email: str | None = None,
+    existing_session: StudySession | None = None,
+) -> dict:
+    if existing_session and existing_session.status == "COMPLETED":
+        raise HTTPException(status_code=409, detail="Sessão concluída não pode ser alterada.")
+
+    normalized = {key: value for key, value in data.items() if key not in STUDY_SESSION_PROTECTED_FIELDS}
     if user_email:
         normalized["user_email"] = user_email
     status = normalized.get("status")
     if status is not None and status not in STUDY_SESSION_ALLOWED_STATUSES:
         raise HTTPException(status_code=400, detail="Status de sessão inválido.")
+    if "questions_answered" in normalized:
+        normalized["questions_answered"] = _unique_values(normalized["questions_answered"])
+    if status == "COMPLETED":
+        normalized["completed_at"] = datetime.utcnow()
     return normalized
 
 
@@ -273,7 +307,7 @@ def update_entity(
         if entity == "user_progress":
             data = _strip_user_progress_protected_fields(data)
         elif entity == "study_sessions":
-            data = _normalize_study_session_data(data)
+            data = _normalize_study_session_data(data, existing_session=row)
     row = _repo(entity, db).update(item_id, data)
     if not row:
         raise HTTPException(status_code=404, detail="Not found")
