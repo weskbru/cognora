@@ -134,7 +134,18 @@ export default function Dashboard() {
 
     setStartingStudy(true);
     try {
-      const activeSessions = await base44.entities.StudySession.filter({ status: 'IN_PROGRESS' });
+      let activeSessions = [];
+      try {
+        activeSessions = await base44.entities.StudySession.filter({ status: 'IN_PROGRESS' });
+      } catch (error) {
+        if (error?.status === 404) {
+          setStudyStartError('Sessões de estudo ainda não estão disponíveis no backend. Abrindo o quiz normal.');
+          window.setTimeout(() => navigate('/quiz'), 700);
+          return;
+        }
+        throw error;
+      }
+
       if (activeSessions.length > 0) {
         navigate(`/quiz?session=${activeSessions[0].id}`);
         return;
@@ -152,15 +163,25 @@ export default function Dashboard() {
         .filter(Boolean)
         .map(subject => ({ id: subject.id, name: subject.name }));
 
-      const session = await base44.entities.StudySession.create({
-        status: 'IN_PROGRESS',
-        subjects: plannedSubjects,
-        questions_planned: plannedQuestions.map(question => question.id),
-        questions_answered: [],
-        reviews_planned: [],
-        reviews_completed: [],
-        xp_awarded: 0,
-      });
+      let session;
+      try {
+        session = await base44.entities.StudySession.create({
+          status: 'IN_PROGRESS',
+          subjects: plannedSubjects,
+          questions_planned: plannedQuestions.map(question => question.id),
+          questions_answered: [],
+          reviews_planned: [],
+          reviews_completed: [],
+          xp_awarded: 0,
+        });
+      } catch (error) {
+        if (error?.status === 404) {
+          setStudyStartError('Sessões de estudo ainda não estão disponíveis no backend. Abrindo o quiz normal.');
+          window.setTimeout(() => navigate('/quiz'), 700);
+          return;
+        }
+        throw error;
+      }
 
       navigate(`/quiz?session=${session.id}`);
     } catch (error) {
