@@ -87,6 +87,7 @@ export const base44 = {
     UserProgress: createEntity('user_progress'),
     Flashcard: createEntity('flashcards'),
     QuestionAttempt: createEntity('question_attempts'),
+    StudySession: createEntity('study_sessions'),
   },
 
   integrations: {

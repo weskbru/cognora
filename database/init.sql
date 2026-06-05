@@ -87,6 +87,23 @@ CREATE TABLE IF NOT EXISTS question_attempts (
     created_date TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS study_sessions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_email TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+    subjects JSONB DEFAULT '[]',
+    questions_planned JSONB DEFAULT '[]',
+    questions_answered JSONB DEFAULT '[]',
+    reviews_planned JSONB DEFAULT '[]',
+    reviews_completed JSONB DEFAULT '[]',
+    xp_awarded INTEGER DEFAULT 0,
+    started_at TIMESTAMPTZ DEFAULT NOW(),
+    completed_at TIMESTAMP,
+    abandoned_at TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS user_progress (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_email TEXT UNIQUE NOT NULL,
@@ -180,3 +197,6 @@ CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_status ON pix_payment_request
 CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_reference ON pix_payment_requests (pix_reference);
 CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_admin_email ON admin_audit_logs (admin_email);
 CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_action ON admin_audit_logs (action);
+CREATE INDEX IF NOT EXISTS ix_study_sessions_user_email ON study_sessions (user_email);
+CREATE INDEX IF NOT EXISTS ix_study_sessions_status ON study_sessions (status);
+CREATE INDEX IF NOT EXISTS ix_study_sessions_started_at ON study_sessions (started_at);

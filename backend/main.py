@@ -106,6 +106,22 @@ def _run_migrations():
             last_sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
             created_at TIMESTAMP DEFAULT NOW()
         )""",
+        """CREATE TABLE IF NOT EXISTS study_sessions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_email VARCHAR NOT NULL,
+            status VARCHAR NOT NULL DEFAULT 'IN_PROGRESS',
+            subjects JSONB DEFAULT '[]',
+            questions_planned JSONB DEFAULT '[]',
+            questions_answered JSONB DEFAULT '[]',
+            reviews_planned JSONB DEFAULT '[]',
+            reviews_completed JSONB DEFAULT '[]',
+            xp_awarded INTEGER DEFAULT 0,
+            started_at TIMESTAMP DEFAULT NOW(),
+            completed_at TIMESTAMP,
+            abandoned_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )""",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_id ON pix_payment_requests (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_email ON pix_payment_requests (user_email)",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_status ON pix_payment_requests (status)",
@@ -118,6 +134,9 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_system_events_request_id ON system_events (request_id)",
         "CREATE INDEX IF NOT EXISTS ix_system_events_created_at ON system_events (created_at)",
         "CREATE INDEX IF NOT EXISTS ix_observability_alert_states_alert_key ON observability_alert_states (alert_key)",
+        "CREATE INDEX IF NOT EXISTS ix_study_sessions_user_email ON study_sessions (user_email)",
+        "CREATE INDEX IF NOT EXISTS ix_study_sessions_status ON study_sessions (status)",
+        "CREATE INDEX IF NOT EXISTS ix_study_sessions_started_at ON study_sessions (started_at)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

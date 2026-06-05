@@ -4,7 +4,7 @@ from sqlalchemy import desc, asc, func, or_
 from typing import Optional
 from core.config.settings import settings
 from infrastructure.database.connection import get_db
-from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt
+from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt, StudySession
 from infrastructure.repositories.base import BaseRepository, row_to_dict
 from api.dependencies import get_current_user, is_admin_user
 from infrastructure.database.models import User
@@ -20,6 +20,7 @@ ENTITY_MAP = {
     "user_progress": UserProgress,
     "flashcards": Flashcard,
     "question_attempts": QuestionAttempt,
+    "study_sessions": StudySession,
 }
 
 USER_PROGRESS_PROTECTED_FIELDS = {
@@ -31,9 +32,21 @@ USER_PROGRESS_PROTECTED_FIELDS = {
     "stripe_subscription_id",
 }
 
+STUDY_SESSION_ALLOWED_STATUSES = {"IN_PROGRESS", "COMPLETED", "ABANDONED"}
+
 
 def _strip_user_progress_protected_fields(data: dict) -> dict:
     return {key: value for key, value in data.items() if key not in USER_PROGRESS_PROTECTED_FIELDS}
+
+
+def _normalize_study_session_data(data: dict, *, user_email: str | None = None) -> dict:
+    normalized = {key: value for key, value in data.items() if key != "user_email"}
+    if user_email:
+        normalized["user_email"] = user_email
+    status = normalized.get("status")
+    if status is not None and status not in STUDY_SESSION_ALLOWED_STATUSES:
+        raise HTTPException(status_code=400, detail="Status de sessão inválido.")
+    return normalized
 
 
 def _repo(entity: str, db: Session) -> BaseRepository:
@@ -95,6 +108,8 @@ def list_entities(
         filters.setdefault("owner_email", current_user.email)
     elif entity == "question_attempts":
         filters.setdefault("user_email", current_user.email)
+    elif entity == "study_sessions":
+        filters["user_email"] = current_user.email
     elif entity == "summaries" and "document_id" not in filters:
         user_subject_ids = [
             str(s.id)
@@ -184,6 +199,8 @@ def get_entity(
         raise HTTPException(status_code=404, detail="Not found")
     if entity == "user_progress" and row.user_email != current_user.email and not is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="Acesso negado.")
+    if entity == "study_sessions" and row.user_email != current_user.email and not is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado.")
     return row_to_dict(row)
 
 
@@ -234,6 +251,8 @@ def create_entity(
     elif entity == "user_progress":
         data = _strip_user_progress_protected_fields(data)
         data = {**data, "user_email": current_user.email}
+    elif entity == "study_sessions":
+        data = _normalize_study_session_data(data, user_email=current_user.email)
     return row_to_dict(_repo(entity, db).create(data))
 
 
@@ -245,13 +264,16 @@ def update_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if entity == "user_progress":
+    if entity in ("user_progress", "study_sessions"):
         row = _repo(entity, db).get_by_id(item_id)
         if not row:
             raise HTTPException(status_code=404, detail="Not found")
         if row.user_email != current_user.email and not is_admin_user(current_user):
             raise HTTPException(status_code=403, detail="Acesso negado.")
-        data = _strip_user_progress_protected_fields(data)
+        if entity == "user_progress":
+            data = _strip_user_progress_protected_fields(data)
+        elif entity == "study_sessions":
+            data = _normalize_study_session_data(data)
     row = _repo(entity, db).update(item_id, data)
     if not row:
         raise HTTPException(status_code=404, detail="Not found")
@@ -265,7 +287,7 @@ def delete_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if entity == "user_progress":
+    if entity in ("user_progress", "study_sessions"):
         row = _repo(entity, db).get_by_id(item_id)
         if not row:
             raise HTTPException(status_code=404, detail="Not found")

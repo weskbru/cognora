@@ -9,7 +9,7 @@ import uuid
 import pytest
 from core.config.settings import settings
 from domain.use_cases.limits import FREE_DOCS_PER_SUBJECT, FREE_SUBJECT_LIMIT
-from infrastructure.database.models import Document, Subject, User, UserProgress
+from infrastructure.database.models import Document, StudySession, Subject, User, UserProgress
 
 
 class TestPublicLeaderboard:
@@ -339,6 +339,93 @@ class TestQuestionAttempts:
         assert response.status_code == 200
         data = response.json()
         assert all(a["user_email"] == email for a in data)
+
+
+class TestStudySessions:
+    def test_criar_sessao_define_usuario_logado(self, client, auth_headers, test_user):
+        response = client.post(
+            "/api/study_sessions",
+            json={
+                "status": "IN_PROGRESS",
+                "subjects": [{"id": str(uuid.uuid4()), "name": "Banco de Dados"}],
+                "questions_planned": [str(uuid.uuid4())],
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["user_email"] == test_user.email
+        assert data["status"] == "IN_PROGRESS"
+        assert data["subjects"][0]["name"] == "Banco de Dados"
+
+    def test_criar_sessao_ignora_user_email_informado(self, client, auth_headers, test_user):
+        response = client.post(
+            "/api/study_sessions",
+            json={"user_email": "outro@test.com", "status": "IN_PROGRESS"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 201
+        assert response.json()["user_email"] == test_user.email
+
+    def test_listar_sessoes_forca_usuario_logado(self, client, auth_headers, db, test_user):
+        db.add(StudySession(user_email=test_user.email, status="IN_PROGRESS"))
+        db.add(StudySession(user_email="outro@test.com", status="IN_PROGRESS"))
+        db.commit()
+
+        response = client.get(
+            "/api/study_sessions?user_email=outro@test.com",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data
+        assert all(session["user_email"] == test_user.email for session in data)
+
+    def test_bloqueia_busca_de_sessao_de_outro_usuario(self, client, auth_headers, db):
+        session = StudySession(user_email="outro@test.com", status="IN_PROGRESS")
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+        response = client.get(f"/api/study_sessions/{session.id}", headers=auth_headers)
+
+        assert response.status_code == 403
+
+    def test_atualizar_sessao_sem_alterar_user_email(self, client, auth_headers, test_user):
+        created = client.post(
+            "/api/study_sessions",
+            json={"status": "IN_PROGRESS"},
+            headers=auth_headers,
+        ).json()
+
+        response = client.put(
+            f"/api/study_sessions/{created['id']}",
+            json={
+                "status": "COMPLETED",
+                "user_email": "outro@test.com",
+                "questions_answered": [str(uuid.uuid4())],
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "COMPLETED"
+        assert data["user_email"] == test_user.email
+        assert len(data["questions_answered"]) == 1
+
+    def test_rejeita_status_invalido(self, client, auth_headers):
+        response = client.post(
+            "/api/study_sessions",
+            json={"status": "PAUSED"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Status de sessão inválido."
 
 
 class TestEntidadeInvalida:

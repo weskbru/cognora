@@ -16,6 +16,7 @@ from infrastructure.database.models import (
     PasswordResetToken,
     PixPaymentRequest,
     QuestionAttempt,
+    StudySession,
     Subject,
     SystemEvent,
     User,
@@ -337,6 +338,7 @@ def admin_delete_user(
     deleted_counts = {
         "password_reset_tokens": db.query(PasswordResetToken).filter(PasswordResetToken.user_email == target_email).delete(),
         "question_attempts": db.query(QuestionAttempt).filter(QuestionAttempt.user_email == target_email).delete(),
+        "study_sessions": db.query(StudySession).filter(StudySession.user_email == target_email).delete(),
         "subjects": db.query(Subject).filter(Subject.owner_email == target_email).delete(),
         "user_progress": db.query(UserProgress).filter(UserProgress.user_email == target_email).delete(),
         "pix_payment_requests": db.query(PixPaymentRequest).filter(PixPaymentRequest.user_id == user.id).delete(),

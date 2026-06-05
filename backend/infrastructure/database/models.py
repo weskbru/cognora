@@ -100,6 +100,24 @@ class QuestionAttempt(Base):
     created_date = Column(DateTime, default=datetime.utcnow)
 
 
+class StudySession(Base):
+    __tablename__ = "study_sessions"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_email = Column(String, nullable=False, index=True)
+    status = Column(String, default="IN_PROGRESS", nullable=False, index=True)
+    subjects = Column(JSON, default=list)
+    questions_planned = Column(JSON, default=list)
+    questions_answered = Column(JSON, default=list)
+    reviews_planned = Column(JSON, default=list)
+    reviews_completed = Column(JSON, default=list)
+    xp_awarded = Column(Integer, default=0)
+    started_at = Column(DateTime, default=datetime.utcnow, index=True)
+    completed_at = Column(DateTime, nullable=True)
+    abandoned_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 class UserProgress(Base):
     __tablename__ = "user_progress"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
