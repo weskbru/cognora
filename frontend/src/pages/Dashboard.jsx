@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   BarChart3,
@@ -44,6 +44,9 @@ function formatAccuracy(value) {
 export default function Dashboard() {
   const { user } = useAuth();
   const { progress } = useRewardsContext();
+  const navigate = useNavigate();
+  const [startingStudy, setStartingStudy] = useState(false);
+  const [studyStartError, setStudyStartError] = useState('');
 
   const { data: subjects = [], isLoading: loadingSubjects } = useQuery({
     queryKey: ['subjects', user?.email],
@@ -119,6 +122,55 @@ export default function Dashboard() {
     };
   });
 
+  const handleStartStudy = async () => {
+    if (startingStudy) return;
+    setStudyStartError('');
+
+    if (recommendedQuestions.length === 0) {
+      setStudyStartError('Gere questões a partir de um documento antes de iniciar uma sessão de estudo.');
+      window.setTimeout(() => navigate('/documents'), 1200);
+      return;
+    }
+
+    setStartingStudy(true);
+    try {
+      const activeSessions = await base44.entities.StudySession.filter({ status: 'IN_PROGRESS' });
+      if (activeSessions.length > 0) {
+        navigate(`/quiz?session=${activeSessions[0].id}`);
+        return;
+      }
+
+      const plannedSubjectIds = Array.from(
+        new Set(recommendedQuestions.map(question => question.subject_id).filter(Boolean))
+      ).slice(0, 2);
+      const questionsFromPlannedSubjects = plannedSubjectIds.length > 0
+        ? recommendedQuestions.filter(question => plannedSubjectIds.includes(question.subject_id))
+        : recommendedQuestions;
+      const plannedQuestions = questionsFromPlannedSubjects.slice(0, 10);
+      const plannedSubjects = plannedSubjectIds
+        .map(subjectId => subjects.find(subject => subject.id === subjectId))
+        .filter(Boolean)
+        .map(subject => ({ id: subject.id, name: subject.name }));
+
+      const session = await base44.entities.StudySession.create({
+        status: 'IN_PROGRESS',
+        subjects: plannedSubjects,
+        questions_planned: plannedQuestions.map(question => question.id),
+        questions_answered: [],
+        reviews_planned: [],
+        reviews_completed: [],
+        xp_awarded: 0,
+      });
+
+      navigate(`/quiz?session=${session.id}`);
+    } catch (error) {
+      console.error('Erro ao iniciar sessão de estudo:', error);
+      setStudyStartError('Não foi possível iniciar sua sessão agora. Tente novamente.');
+    } finally {
+      setStartingStudy(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -144,16 +196,21 @@ export default function Dashboard() {
               </p>
             </div>
             <Button
-              asChild
+              type="button"
               size="lg"
               className="h-14 shrink-0 gap-3 rounded-lg px-8 text-base font-bold shadow-lg shadow-primary/25 md:text-lg"
+              onClick={handleStartStudy}
+              disabled={startingStudy}
             >
-              <Link to={recommendedCount > 0 ? '/quiz' : '/documents'}>
-                <Play className="h-5 w-5" />
-                Comecar Estudo
-              </Link>
+              <Play className="h-5 w-5" />
+              {startingStudy ? 'Preparando...' : 'Comecar Estudo'}
             </Button>
           </div>
+          {studyStartError && (
+            <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {studyStartError}
+            </p>
+          )}
 
           <div className="mt-7 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border bg-background/80 p-4">

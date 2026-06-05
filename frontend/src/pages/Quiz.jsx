@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   HelpCircle, CheckCircle2, RotateCcw, XCircle, Trophy, BookX,
 } from 'lucide-react';
@@ -18,6 +18,8 @@ import EmptyState from '@/components/competitions/shared/EmptyState';
 import QuestionCard from '@/components/competitions/documents/QuestionCard';
 
 export default function Quiz() {
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get('session');
   const [subjectFilter, setSubjectFilter]     = useState('all');
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [typeFilter, setTypeFilter]           = useState('all');
@@ -35,14 +37,30 @@ export default function Quiz() {
     queryFn: () => base44.entities.Subject.list(),
   });
 
+  const { data: studySession = null, isLoading: loadingSession } = useQuery({
+    queryKey: ['study_session', sessionId],
+    queryFn: () => base44.entities.StudySession.get(sessionId),
+    enabled: !!sessionId,
+  });
+
+  const sessionQuestionIds = useMemo(
+    () => new Set((studySession?.questions_planned || []).map(id => String(id))),
+    [studySession]
+  );
+
+  const sessionQuestions = useMemo(() => {
+    if (!sessionId) return questions;
+    return questions.filter(question => sessionQuestionIds.has(String(question.id)));
+  }, [questions, sessionId, sessionQuestionIds]);
+
   const filtered = useMemo(() => {
-    return questions.filter(q => {
+    return sessionQuestions.filter(q => {
       if (subjectFilter !== 'all' && q.subject_id !== subjectFilter) return false;
       if (difficultyFilter !== 'all' && q.difficulty !== difficultyFilter) return false;
       if (typeFilter !== 'all' && q.type !== typeFilter) return false;
       return true;
     });
-  }, [questions, subjectFilter, difficultyFilter, typeFilter]);
+  }, [sessionQuestions, subjectFilter, difficultyFilter, typeFilter]);
 
   useEffect(() => {
     setCurrentIndex(0);
@@ -72,7 +90,7 @@ export default function Quiz() {
     setShowResults(false);
   };
 
-  if (isLoading) {
+  if (isLoading || loadingSession) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-48" />
@@ -85,10 +103,13 @@ export default function Quiz() {
 
   return (
     <div>
-      <PageHeader title="Questões" description="Pratique com questões geradas por IA" />
+      <PageHeader
+        title={sessionId ? 'Sessão de Estudo' : 'Questões'}
+        description={sessionId ? 'Responda as questões planejadas para hoje' : 'Pratique com questões geradas por IA'}
+      />
 
       {/* Filtros */}
-      {questions.length > 0 && (
+      {questions.length > 0 && !sessionId && (
         <div className="flex flex-wrap gap-3 mb-6">
           <Select value={subjectFilter} onValueChange={setSubjectFilter}>
             <SelectTrigger className="w-44">
@@ -135,6 +156,14 @@ export default function Quiz() {
           description="Envie um documento e gere questões automaticamente a partir do conteúdo"
           actionLabel="Ver Documentos"
           actionPath="/documents"
+        />
+      ) : sessionId && sessionQuestions.length === 0 ? (
+        <EmptyState
+          icon={HelpCircle}
+          title="Sessão sem questões disponíveis"
+          description="Esta sessão não encontrou as questões planejadas. Volte ao dashboard e tente iniciar novamente."
+          actionLabel="Voltar ao Dashboard"
+          actionPath="/dashboard"
         />
       ) : filtered.length === 0 ? (
         <p className="text-center py-8 text-muted-foreground">
