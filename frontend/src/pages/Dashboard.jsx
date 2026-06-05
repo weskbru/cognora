@@ -12,7 +12,6 @@ import {
   Flame,
   HelpCircle,
   Play,
-  Sparkles,
   Target,
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
@@ -133,8 +132,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-7">
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background p-6 md:p-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/15 via-background to-background p-6 shadow-sm ring-1 ring-primary/10 md:p-8">
+          <div className="flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl">
               <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/10">Hoje no Cognora</Badge>
               <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">
@@ -144,7 +143,11 @@ export default function Dashboard() {
                 Entre direto no proximo passo: responda questoes recomendadas e mantenha sua rotina andando.
               </p>
             </div>
-            <Button asChild size="lg" className="h-12 shrink-0 gap-2 px-6 text-base">
+            <Button
+              asChild
+              size="lg"
+              className="h-14 shrink-0 gap-3 rounded-lg px-8 text-base font-bold shadow-lg shadow-primary/25 md:text-lg"
+            >
               <Link to={recommendedCount > 0 ? '/quiz' : '/documents'}>
                 <Play className="h-5 w-5" />
                 Comecar Estudo
@@ -152,21 +155,13 @@ export default function Dashboard() {
             </Button>
           </div>
 
-          <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border bg-background/80 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Target className="h-4 w-4 text-primary" />
                 Questoes recomendadas
               </div>
               <p className="text-2xl font-bold">{recommendedCount}</p>
-            </div>
-            <div className="rounded-lg border bg-background/80 p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <BookOpen className="h-4 w-4 text-primary" />
-                Revisoes pendentes
-              </div>
-              <p className="text-2xl font-bold">0</p>
-              <p className="mt-1 text-xs text-muted-foreground">Entram na proxima sprint</p>
             </div>
             <div className="rounded-lg border bg-background/80 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
@@ -213,10 +208,10 @@ export default function Dashboard() {
       </section>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={BookOpen} label="Matérias" value={subjects.length} color="bg-primary/10 text-primary" />
-        <StatCard icon={FileText} label="Documentos" value={documents.length} color="bg-accent/10 text-accent" />
-        <StatCard icon={Sparkles} label="Resumos" value={summaries.length} color="bg-emerald-100 text-emerald-600" />
+        <StatCard icon={Flame} label="XP total" value={xp.toLocaleString('pt-BR')} color="bg-primary/10 text-primary" />
+        <StatCard icon={HelpCircle} label="Questões respondidas" value={attempts.length} color="bg-accent/10 text-accent" />
         <StatCard icon={BarChart3} label="Taxa geral" value={accuracy === null ? '-' : `${accuracy}%`} color="bg-amber-100 text-amber-600" />
+        <StatCard icon={CheckCircle2} label="Sequência atual" value={`${streak} dia${streak !== 1 ? 's' : ''}`} color="bg-emerald-100 text-emerald-600" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -246,12 +241,12 @@ export default function Dashboard() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="font-semibold text-foreground">{subject.name}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {subject.docCount} PDF{subject.docCount !== 1 ? 's' : ''} - {subject.answeredCount} questao{subject.answeredCount !== 1 ? 'es' : ''} respondida{subject.answeredCount !== 1 ? 's' : ''}
-                        </p>
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          <span>{formatAccuracy(subject.accuracy)}</span>
+                          <span>{subject.answeredCount} questao{subject.answeredCount !== 1 ? 'es' : ''} respondida{subject.answeredCount !== 1 ? 's' : ''}</span>
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">{formatAccuracy(subject.accuracy)}</Badge>
                         <Badge variant="outline" className={subject.statusClass}>{subject.status}</Badge>
                       </div>
                     </div>
