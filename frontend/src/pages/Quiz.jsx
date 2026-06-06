@@ -21,7 +21,8 @@ export default function Quiz() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session');
-  const [subjectFilter, setSubjectFilter]     = useState('all');
+  const initialSubjectFilter = searchParams.get('subject') || 'all';
+  const [subjectFilter, setSubjectFilter]     = useState(initialSubjectFilter);
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [typeFilter, setTypeFilter]           = useState('all');
   const [currentIndex, setCurrentIndex]       = useState(0);

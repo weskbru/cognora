@@ -7,6 +7,7 @@ Use estes documentos como referencia tecnica:
 - `deployment.md`: Vercel, Render, Neon e storage local do backend.
 - `pricing-decisions.md`: historico de calculos e decisoes de precificacao.
 - `rewards.md`: regras do sistema de XP e gamificacao.
+- `technical-bugs.md`: backlog de bugs tecnicos separados de decisoes de produto.
 - `v1-dashboard-implementation-sprints.md`: ordem de implementacao do dashboard V1 focada em validar o ciclo de estudo.
 - `v1-learning-dashboard.md`: organizacao do dashboard de aprendizado e da sessao diaria da V1.
 - `v1-product-strategy.md`: documento de consulta para posicionamento, escopo e decisoes da V1.

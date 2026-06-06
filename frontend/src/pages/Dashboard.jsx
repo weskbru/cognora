@@ -37,7 +37,7 @@ function estimateMinutes(questionCount) {
 }
 
 function formatAccuracy(value) {
-  if (value === null) return 'Sem respostas';
+  if (value === null) return 'Sem tentativas';
   return `${value}% acerto`;
 }
 
@@ -56,6 +56,18 @@ function startOfDate(value) {
 function formatReviewDate(value) {
   if (!value) return null;
   return new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function sortSubjectsByStudyPriority(a, b) {
+  if (a.sortGroup !== b.sortGroup) return a.sortGroup - b.sortGroup;
+
+  const aAccuracy = a.accuracy === null ? Number.POSITIVE_INFINITY : a.accuracy;
+  const bAccuracy = b.accuracy === null ? Number.POSITIVE_INFINITY : b.accuracy;
+  if (aAccuracy !== bAccuracy) return aAccuracy - bAccuracy;
+
+  if (a.lastStudySort !== b.lastStudySort) return a.lastStudySort - b.lastStudySort;
+
+  return a.name.localeCompare(b.name, 'pt-BR');
 }
 
 export default function Dashboard() {
@@ -131,18 +143,31 @@ export default function Dashboard() {
 
     let status = 'Em estudo';
     let statusClass = 'bg-blue-100 text-blue-700 border-blue-200';
+    let sortGroup = 4;
+    let actionLabel = 'Estudar materia';
+    let actionPath = `/quiz?subject=${subject.id}`;
     if (subjectDocs.length === 0) {
       status = 'Comece enviando conteudo';
       statusClass = 'bg-slate-100 text-slate-700 border-slate-200';
+      sortGroup = 3;
+      actionLabel = 'Enviar conteudo';
+      actionPath = `/subjects/${subject.id}`;
     } else if (subjectQuestions.length === 0) {
       status = 'Sem questoes';
       statusClass = 'bg-amber-100 text-amber-700 border-amber-200';
+      sortGroup = 3;
+      actionLabel = 'Gerar questoes';
+      actionPath = `/subjects/${subject.id}`;
     } else if (nextReview && nextReview < today) {
       status = 'Revisao atrasada';
       statusClass = 'bg-red-100 text-red-700 border-red-200';
+      sortGroup = 1;
+      actionLabel = 'Revisar agora';
     } else if (nextReview && nextReview.getTime() === today.getTime()) {
       status = 'Revisao hoje';
       statusClass = 'bg-amber-100 text-amber-700 border-amber-200';
+      sortGroup = 2;
+      actionLabel = 'Revisar agora';
     } else if (progressItem) {
       status = 'Em dia';
       statusClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
@@ -157,10 +182,14 @@ export default function Dashboard() {
       lastStudiedAt: progressItem?.last_studied_at || null,
       nextReviewAt: progressItem?.next_review_at || null,
       reviewStage: progressItem?.review_stage || null,
+      lastStudySort: progressItem?.last_studied_at ? new Date(progressItem.last_studied_at).getTime() : 0,
+      sortGroup,
+      actionLabel,
+      actionPath,
       status,
       statusClass,
     };
-  });
+  }).sort(sortSubjectsByStudyPriority);
 
   const handleStartStudy = async () => {
     if (startingStudy) return;
@@ -355,23 +384,32 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {subjectStats.slice(0, 6).map(subject => (
-                  <Link key={subject.id} to={`/subjects/${subject.id}`} className="block rounded-lg border p-4 transition-colors hover:bg-secondary/70">
+                  <div key={subject.id} className="rounded-lg border p-4 transition-colors hover:bg-secondary/70">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="font-semibold text-foreground">{subject.name}</p>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                           <span>{formatAccuracy(subject.accuracy)}</span>
                           <span>{subject.answeredCount} questao{subject.answeredCount !== 1 ? 'es' : ''} respondida{subject.answeredCount !== 1 ? 's' : ''}</span>
+                          {subject.lastStudiedAt && (
+                            <span>Ultimo estudo: {formatReviewDate(subject.lastStudiedAt)}</span>
+                          )}
                           {subject.nextReviewAt && (
                             <span>Proxima revisao: {formatReviewDate(subject.nextReviewAt)}</span>
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <Badge variant="outline" className={subject.statusClass}>{subject.status}</Badge>
+                        <Link to={subject.actionPath}>
+                          <Button size="sm" variant={subject.sortGroup <= 2 ? 'default' : 'outline'} className="gap-1">
+                            {subject.actionLabel}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Button>
+                        </Link>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
             )}
