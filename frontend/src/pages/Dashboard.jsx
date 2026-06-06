@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -88,6 +88,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { progress } = useRewardsContext();
   const navigate = useNavigate();
+  const onboardingRef = useRef(null);
   const [startingStudy, setStartingStudy] = useState(false);
   const [studyStartError, setStudyStartError] = useState('');
 
@@ -124,7 +125,13 @@ export default function Dashboard() {
     enabled: !!user?.email,
   });
 
-  const isLoading = loadingSubjects || loadingDocs || loadingQuestions || loadingSummaries || loadingAttempts || loadingSubjectProgress;
+  const { data: completedSessions = [], isLoading: loadingCompletedSessions } = useQuery({
+    queryKey: ['study_sessions', 'completed', user?.email],
+    queryFn: () => base44.entities.StudySession.filter({ status: 'COMPLETED' }),
+    enabled: !!user?.email,
+  });
+
+  const isLoading = loadingSubjects || loadingDocs || loadingQuestions || loadingSummaries || loadingAttempts || loadingSubjectProgress || loadingCompletedSessions;
   const recentDocs = documents.slice(0, 5);
   const answeredQuestionIds = new Set(attempts.map(attempt => String(attempt.question_id)));
   const unansweredQuestions = questions.filter(question => !answeredQuestionIds.has(String(question.id)));
@@ -156,7 +163,7 @@ export default function Dashboard() {
     ? `Proxima revisao ${nextReviewDistance}${nextReviewSubject ? `: ${nextReviewSubject.name}` : ''}`
     : trackedSubjectsCount > 0
     ? `${trackedSubjectsCount} materia${trackedSubjectsCount !== 1 ? 's' : ''} em acompanhamento`
-    : 'Conclua uma sessao para agendar sua primeira revisao';
+    : 'Conclua sua primeira sessao e o Cognora agenda sua proxima revisao.';
 
   const subjectStats = subjects.map(subject => {
     const subjectDocs = documents.filter(doc => doc.subject_id === subject.id);
@@ -175,18 +182,21 @@ export default function Dashboard() {
     let sortGroup = 4;
     let actionLabel = 'Estudar materia';
     let actionPath = `/quiz?subject=${subject.id}`;
+    let emptyMessage = null;
     if (subjectDocs.length === 0) {
       status = 'Comece enviando conteudo';
       statusClass = 'bg-slate-100 text-slate-700 border-slate-200';
       sortGroup = 3;
       actionLabel = 'Enviar conteudo';
       actionPath = `/subjects/${subject.id}`;
+      emptyMessage = 'Comece enviando conteudo para esta materia.';
     } else if (subjectQuestions.length === 0) {
       status = 'Sem questoes';
       statusClass = 'bg-amber-100 text-amber-700 border-amber-200';
       sortGroup = 3;
       actionLabel = 'Gerar questoes';
-      actionPath = `/subjects/${subject.id}`;
+      actionPath = `/documents/${subjectDocs[0].id}`;
+      emptyMessage = 'Esta materia ainda nao possui questoes.';
     } else if (nextReview && nextReview < today) {
       status = 'Revisao atrasada';
       statusClass = 'bg-red-100 text-red-700 border-red-200';
@@ -215,6 +225,7 @@ export default function Dashboard() {
       sortGroup,
       actionLabel,
       actionPath,
+      emptyMessage,
       status,
       statusClass,
     };
@@ -290,6 +301,78 @@ export default function Dashboard() {
     }
   };
 
+  const onboardingItems = [
+    {
+      label: 'Criar primeira materia',
+      done: subjects.length > 0,
+      actionLabel: 'Criar materia',
+      path: '/subjects/new',
+    },
+    {
+      label: 'Enviar primeiro PDF',
+      done: documents.length > 0,
+      actionLabel: 'Enviar PDF',
+      path: '/documents',
+    },
+    {
+      label: 'Gerar primeiras questoes',
+      done: questions.length > 0,
+      actionLabel: 'Gerar questoes',
+      path: documents[0] ? `/documents/${documents[0].id}` : '/documents',
+    },
+    {
+      label: 'Concluir primeira sessao',
+      done: completedSessions.length > 0,
+      actionLabel: 'Comecar estudo',
+      onClick: handleStartStudy,
+    },
+  ];
+  const completedOnboardingItems = onboardingItems.filter(item => item.done).length;
+  const showOnboardingChecklist = completedOnboardingItems < onboardingItems.length;
+  const nextOnboardingStepIndex = onboardingItems.findIndex(item => !item.done);
+  const onboardingStepsLeft = onboardingItems.length - completedOnboardingItems;
+  const hasQuestions = questions.length > 0;
+  const hasCompletedSession = completedSessions.length > 0;
+  const hasStartedContent = subjects.length > 0 || documents.length > 0;
+  const heroState = hasQuestions
+    ? 'active'
+    : hasStartedContent || hasCompletedSession
+    ? 'onboarding'
+    : 'new';
+  const heroCopy = {
+    new: {
+      title: 'Monte sua primeira sessao de estudo',
+      description: 'Crie conteudo e gere questoes para comecar sua rotina no Cognora.',
+      button: 'Continuar onboarding',
+      badge: 'Primeiros passos',
+    },
+    onboarding: {
+      title: 'Voce esta a poucos passos da primeira sessao',
+      description: 'Conclua os proximos passos abaixo para comecar a estudar.',
+      button: 'Ver proximos passos',
+      badge: 'Onboarding',
+    },
+    active: {
+      title: 'Seu estudo de hoje ja esta pronto.',
+      description: 'Entre direto no proximo passo: responda questoes recomendadas e mantenha sua rotina andando.',
+      button: 'Comecar Estudo',
+      badge: 'Hoje no Cognora',
+    },
+  }[heroState];
+
+  const focusOnboardingChecklist = () => {
+    onboardingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    onboardingRef.current?.focus?.();
+  };
+
+  const handleHeroAction = () => {
+    if (heroState === 'active') {
+      handleStartStudy();
+      return;
+    }
+    focusOnboardingChecklist();
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -306,12 +389,12 @@ export default function Dashboard() {
         <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/15 via-background to-background p-6 shadow-sm ring-1 ring-primary/10 md:p-8">
           <div className="flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl">
-              <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/10">Hoje no Cognora</Badge>
+              <Badge className="mb-4 bg-primary/10 text-primary hover:bg-primary/10">{heroCopy.badge}</Badge>
               <h1 className="text-3xl font-black tracking-tight text-foreground md:text-4xl">
-                Seu estudo de hoje ja esta pronto.
+                {heroCopy.title}
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                Entre direto no proximo passo: responda questoes recomendadas e mantenha sua rotina andando.
+                {heroCopy.description}
               </p>
               <p className="mt-4 inline-flex rounded-lg border border-primary/20 bg-background/80 px-3 py-2 text-sm font-medium text-foreground">
                 {continuityMessage}
@@ -321,11 +404,11 @@ export default function Dashboard() {
               type="button"
               size="lg"
               className="h-14 shrink-0 gap-3 rounded-lg px-8 text-base font-bold shadow-lg shadow-primary/25 md:text-lg"
-              onClick={handleStartStudy}
+              onClick={handleHeroAction}
               disabled={startingStudy}
             >
               <Play className="h-5 w-5" />
-              {startingStudy ? 'Preparando...' : 'Comecar Estudo'}
+              {startingStudy ? 'Preparando...' : heroCopy.button}
             </Button>
           </div>
           {studyStartError && (
@@ -340,54 +423,177 @@ export default function Dashboard() {
                 <Target className="h-4 w-4 text-primary" />
                 Questoes recomendadas
               </div>
-              <p className="text-2xl font-bold">{recommendedCount}</p>
+              {recommendedCount > 0 ? (
+                <p className="text-2xl font-bold">{recommendedCount}</p>
+              ) : (
+                <p className="text-sm font-medium leading-5 text-foreground">Gere questoes para iniciar sua primeira sessao.</p>
+              )}
             </div>
             <div className="rounded-lg border bg-background/80 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4 text-amber-600" />
                 Revisoes pendentes
               </div>
-              <p className="text-2xl font-bold">{reviewsDueCount}</p>
+              {hasCompletedSession ? (
+                <p className="text-2xl font-bold">{reviewsDueCount}</p>
+              ) : (
+                <p className="text-sm font-medium leading-5 text-foreground">As revisoes aparecem apos concluir sua primeira sessao.</p>
+              )}
             </div>
             <div className="rounded-lg border bg-background/80 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4 text-primary" />
                 Tempo estimado
               </div>
-              <p className="text-2xl font-bold">{estimatedMinutes || 0} min</p>
+              {estimatedMinutes > 0 ? (
+                <p className="text-2xl font-bold">{estimatedMinutes} min</p>
+              ) : (
+                <p className="text-sm font-medium leading-5 text-foreground">Disponivel quando houver uma sessao planejada.</p>
+              )}
             </div>
           </div>
         </Card>
 
         <Card className="p-6">
           <div className="flex h-full flex-col justify-between gap-5">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Progresso atual</p>
-              <p className="mt-2 text-3xl font-black text-foreground">{xp.toLocaleString('pt-BR')} XP</p>
-              <p className="mt-1 text-sm text-muted-foreground">Nivel {level.level} - {level.name}</p>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between rounded-lg bg-secondary/70 p-3 text-sm">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                  Taxa geral
-                </span>
-                <strong>{accuracy === null ? 'Sem respostas' : `${accuracy}%`}</strong>
+            {showOnboardingChecklist ? (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Progresso inicial</p>
+                <p className="mt-2 text-3xl font-black text-foreground">{completedOnboardingItems}/4</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {onboardingStepsLeft === 1
+                    ? 'Falta 1 passo para iniciar sua primeira sessao.'
+                    : `Faltam ${onboardingStepsLeft} passos para iniciar sua primeira sessao.`}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-5 gap-2"
+                  onClick={focusOnboardingChecklist}
+                >
+                  Ver checklist <ArrowRight className="h-4 w-4" />
+                </Button>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-secondary/70 p-3 text-sm">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <HelpCircle className="h-4 w-4 text-amber-600" />
-                  Respondidas
-                </span>
-                <strong>{attempts.length}</strong>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Progresso atual</p>
+                  <p className="mt-2 text-3xl font-black text-foreground">{xp.toLocaleString('pt-BR')} XP</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Nivel {level.level} - {level.name}</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg bg-secondary/70 p-3 text-sm">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      Taxa geral
+                    </span>
+                    <strong>{accuracy === null ? 'Sem respostas' : `${accuracy}%`}</strong>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-secondary/70 p-3 text-sm">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <HelpCircle className="h-4 w-4 text-amber-600" />
+                      Respondidas
+                    </span>
+                    <strong>{attempts.length}</strong>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </Card>
       </section>
 
+      {showOnboardingChecklist && (
+        <Card ref={onboardingRef} tabIndex={-1} className="border-primary/30 bg-primary/5 p-6 outline-none ring-1 ring-primary/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-bold">Primeiros passos no Cognora</h2>
+                <Badge className="bg-primary text-primary-foreground hover:bg-primary">{completedOnboardingItems}/4 concluidos</Badge>
+              </div>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                Siga este caminho para criar conteudo, gerar questoes e concluir sua primeira sessao de estudo.
+              </p>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-secondary lg:max-w-56">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${(completedOnboardingItems / onboardingItems.length) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {onboardingItems.map(item => {
+              const itemIndex = onboardingItems.findIndex(onboardingItem => onboardingItem.label === item.label);
+              const isNextStep = itemIndex === nextOnboardingStepIndex;
+              const content = (
+                <div className={`flex h-full flex-col justify-between rounded-lg border p-4 transition-colors ${
+                  item.done
+                    ? 'bg-emerald-50/70 border-emerald-200'
+                    : isNextStep
+                    ? 'border-primary bg-background shadow-sm ring-2 ring-primary/20'
+                    : 'hover:bg-secondary/70'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                      item.done
+                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                        : isNextStep
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-muted-foreground/30 text-muted-foreground'
+                    }`}>
+                      {item.done ? <CheckCircle2 className="h-4 w-4" /> : isNextStep ? <ArrowRight className="h-4 w-4" /> : <span className="h-2 w-2 rounded-full bg-current" />}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">{item.label}</p>
+                        {isNextStep && <Badge variant="outline" className="border-primary/30 text-primary">Proximo passo</Badge>}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.done ? 'Concluido' : item.actionLabel}
+                      </p>
+                    </div>
+                  </div>
+                  {!item.done && (
+                    <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary">
+                      {item.actionLabel}
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </div>
+                  )}
+                </div>
+              );
+
+              if (item.done) return <div key={item.label}>{content}</div>;
+              if (item.onClick) {
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={item.onClick}
+                    disabled={startingStudy}
+                    className="text-left"
+                  >
+                    {content}
+                  </button>
+                );
+              }
+              return (
+                <Link key={item.label} to={item.path}>
+                  {content}
+                </Link>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Flame} label="XP total" value={xp.toLocaleString('pt-BR')} color="bg-primary/10 text-primary" />
+        {showOnboardingChecklist ? (
+          <StatCard icon={Target} label="Progresso do onboarding" value={`${completedOnboardingItems}/4`} color="bg-primary/10 text-primary" />
+        ) : (
+          <StatCard icon={Flame} label="XP total" value={xp.toLocaleString('pt-BR')} color="bg-primary/10 text-primary" />
+        )}
         <StatCard icon={HelpCircle} label="Questões respondidas" value={attempts.length} color="bg-accent/10 text-accent" />
         <StatCard icon={BarChart3} label="Taxa geral" value={accuracy === null ? '-' : `${accuracy}%`} color="bg-amber-100 text-amber-600" />
         <StatCard icon={CheckCircle2} label="Sequência atual" value={`${streak} dia${streak !== 1 ? 's' : ''}`} color="bg-emerald-100 text-emerald-600" />
@@ -420,16 +626,20 @@ export default function Dashboard() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="font-semibold text-foreground">{subject.name}</p>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                          <span>{formatAccuracy(subject.accuracy)}</span>
-                          <span>{subject.answeredCount} questao{subject.answeredCount !== 1 ? 'es' : ''} respondida{subject.answeredCount !== 1 ? 's' : ''}</span>
-                          {subject.lastStudiedAt && (
-                            <span>Ultimo estudo: {formatReviewDate(subject.lastStudiedAt)}</span>
-                          )}
-                          {subject.nextReviewAt && (
-                            <span>Proxima revisao: {formatReviewDate(subject.nextReviewAt)}</span>
-                          )}
-                        </div>
+                        {subject.emptyMessage ? (
+                          <p className="mt-2 text-sm text-muted-foreground">{subject.emptyMessage}</p>
+                        ) : (
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span>{formatAccuracy(subject.accuracy)}</span>
+                            <span>{subject.answeredCount} questao{subject.answeredCount !== 1 ? 'es' : ''} respondida{subject.answeredCount !== 1 ? 's' : ''}</span>
+                            {subject.lastStudiedAt && (
+                              <span>Ultimo estudo: {formatReviewDate(subject.lastStudiedAt)}</span>
+                            )}
+                            {subject.nextReviewAt && (
+                              <span>Proxima revisao: {formatReviewDate(subject.nextReviewAt)}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <Badge variant="outline" className={subject.statusClass}>{subject.status}</Badge>
