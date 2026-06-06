@@ -16,9 +16,11 @@ import { Card } from '@/components/ui/card';
 import PageHeader from '@/components/competitions/shared/PageHeader';
 import EmptyState from '@/components/competitions/shared/EmptyState';
 import QuestionCard from '@/components/competitions/documents/QuestionCard';
+import { useRewardsContext } from '@/context/RewardsContext';
 
 export default function Quiz() {
   const queryClient = useQueryClient();
+  const { refreshProgress } = useRewardsContext();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session');
   const initialSubjectFilter = searchParams.get('subject') || 'all';
@@ -111,7 +113,10 @@ export default function Quiz() {
           ...(shouldComplete ? { status: 'COMPLETED' } : {}),
         });
         queryClient.setQueryData(['study_session', sessionId], updatedSession);
-        if (updatedSession.status === 'COMPLETED') setShowResults(true);
+        if (updatedSession.status === 'COMPLETED') {
+          refreshProgress?.();
+          setShowResults(true);
+        }
       } catch (error) {
         console.error('Erro ao atualizar sessão de estudo:', error);
       }
@@ -215,7 +220,7 @@ export default function Quiz() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div className="rounded-xl bg-secondary p-4">
               <p className="text-2xl font-bold text-foreground">{sessionQuestions.length}</p>
               <p className="mt-1 text-xs text-muted-foreground">Planejadas</p>
@@ -229,6 +234,10 @@ export default function Quiz() {
                 {Math.round((persistedAnsweredIds.size / Math.max(1, sessionQuestions.length)) * 100)}%
               </p>
               <p className="text-xs text-primary">Conclusão</p>
+            </div>
+            <div className="rounded-xl bg-amber-50 p-4">
+              <p className="text-2xl font-bold text-amber-700">+{studySession.xp_awarded || 0}</p>
+              <p className="text-xs text-amber-600">XP ganho</p>
             </div>
           </div>
 
@@ -378,6 +387,7 @@ export default function Quiz() {
             key={filtered[currentIndex]?.id}
             question={filtered[currentIndex]}
             index={currentIndex}
+            awardXp={!sessionId}
             onAnswer={(isCorrect) => handleAnswer(filtered[currentIndex].id, isCorrect)}
           />
 

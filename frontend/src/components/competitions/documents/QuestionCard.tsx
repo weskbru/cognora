@@ -28,6 +28,7 @@ interface QuestionCardProps {
   question: Question;
   index: number;
   onAnswer?: (isCorrect: boolean) => void;
+  awardXp?: boolean;
 }
 
 interface RewardsContextValue {
@@ -52,7 +53,7 @@ const CORRECT_STATE = 'border-emerald-500 bg-emerald-50 text-emerald-950 dark:bo
 const WRONG_STATE = 'border-red-500 bg-red-50 text-red-950 dark:border-red-400/80 dark:bg-red-950/50 dark:text-red-100';
 const DIMMED_STATE = 'border-border opacity-60 dark:border-slate-800 dark:bg-slate-950/25 dark:text-slate-400';
 
-export default function QuestionCard({ question, index, onAnswer }: QuestionCardProps): ReactElement {
+export default function QuestionCard({ question, index, onAnswer, awardXp = true }: QuestionCardProps): ReactElement {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const diff = question.difficulty ? difficultyConfig[question.difficulty] : difficultyConfig.medium;
@@ -65,8 +66,10 @@ export default function QuestionCard({ question, index, onAnswer }: QuestionCard
     if (selectedAnswer !== null) return;
     setSelectedAnswer(altIndex);
     const isCorrect = question.alternatives?.[altIndex]?.correct;
-    if (isCorrect) addXPForCorrectAnswer();
-    else addXPForWrongAnswer();
+    if (awardXp) {
+      if (isCorrect) addXPForCorrectAnswer();
+      else addXPForWrongAnswer();
+    }
     if (user?.email) {
       base44.entities.QuestionAttempt.create({
         question_id: question.id,

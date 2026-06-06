@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc, func, or_
 from typing import Optional
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import uuid
 from core.config.settings import settings
 from infrastructure.database.connection import get_db
@@ -38,6 +39,7 @@ USER_PROGRESS_PROTECTED_FIELDS = {
 STUDY_SESSION_ALLOWED_STATUSES = {"IN_PROGRESS", "COMPLETED", "ABANDONED"}
 STUDY_SESSION_PROTECTED_FIELDS = {
     "user_email",
+    "xp_awarded",
     "started_at",
     "completed_at",
     "created_at",
@@ -49,6 +51,9 @@ SUBJECT_PROGRESS_PROTECTED_FIELDS = {
     "created_at",
     "updated_at",
 }
+
+SESSION_XP_PER_QUESTION = 10
+PRODUCT_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
 def _strip_user_progress_protected_fields(data: dict) -> dict:
@@ -155,6 +160,78 @@ def _update_subject_progress_for_completed_session(db: Session, session: StudySe
         progress.next_review_at = completed_at + _review_interval_for_stage(next_stage)
         progress.updated_at = datetime.utcnow()
 
+    db.commit()
+
+
+def _local_product_date():
+    return datetime.now(PRODUCT_TIMEZONE).date()
+
+
+def _get_or_create_user_progress(db: Session, user_email: str) -> UserProgress:
+    progress = db.query(UserProgress).filter(UserProgress.user_email == user_email).first()
+    if progress:
+        return progress
+    progress = UserProgress(user_email=user_email)
+    db.add(progress)
+    db.flush()
+    return progress
+
+
+def _level_for_xp(xp: int) -> int:
+    levels = [
+        (10000, 10),
+        (6000, 9),
+        (4000, 8),
+        (2500, 7),
+        (1500, 6),
+        (900, 5),
+        (500, 4),
+        (250, 3),
+        (100, 2),
+        (0, 1),
+    ]
+    for minimum, level in levels:
+        if xp >= minimum:
+            return level
+    return 1
+
+
+def _update_user_progress_for_completed_session(db: Session, session: StudySession) -> None:
+    if (session.xp_awarded or 0) > 0:
+        return
+
+    answered_ids = _unique_values(session.questions_answered or [])
+    xp_awarded = len(answered_ids) * SESSION_XP_PER_QUESTION
+    if xp_awarded <= 0:
+        return
+
+    today = _local_product_date()
+    yesterday = today - timedelta(days=1)
+    progress = _get_or_create_user_progress(db, session.user_email)
+
+    progress.xp = (progress.xp or 0) + xp_awarded
+    progress.level = _level_for_xp(progress.xp or 0)
+    progress.total_questions_answered = (progress.total_questions_answered or 0) + len(answered_ids)
+
+    if progress.last_active_date == today:
+        pass
+    elif progress.last_active_date == yesterday:
+        progress.streak_days = (progress.streak_days or 0) + 1
+        progress.last_active_date = today
+    else:
+        progress.streak_days = 1
+        progress.last_active_date = today
+
+    progress.xp_history = [
+        *(progress.xp_history or []),
+        {
+            "amount": xp_awarded,
+            "reason": "Sessao de estudo concluida",
+            "date": today.isoformat(),
+            "study_session_id": str(session.id),
+        },
+    ][-50:]
+    session.xp_awarded = xp_awarded
     db.commit()
 
 
@@ -398,6 +475,7 @@ def update_entity(
         raise HTTPException(status_code=404, detail="Not found")
     if entity == "study_sessions" and should_update_subject_progress:
         _update_subject_progress_for_completed_session(db, row)
+        _update_user_progress_for_completed_session(db, row)
         db.refresh(row)
     return row_to_dict(row)
 

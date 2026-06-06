@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
 
 export const XP_REWARDS = {
   CORRECT_ANSWER: 10,
@@ -62,60 +61,25 @@ export function useRewards() {
       return; // backend indisponivel, nao trava a UI
     }
     const records = await base44.entities.UserProgress.filter({ user_email: user.email });
-    const today = format(new Date(), 'yyyy-MM-dd');
 
     if (records.length === 0) {
-      // Create new progress record
       const newRecord = await base44.entities.UserProgress.create({
         user_email: user.email,
-        xp: XP_REWARDS.DAILY_LOGIN,
+        xp: 0,
         level: 1,
-        streak_days: 1,
-        last_active_date: today,
+        streak_days: 0,
         total_questions_answered: 0,
         total_correct_answers: 0,
         total_summaries_generated: 0,
         total_documents_uploaded: 0,
-        xp_history: [{ amount: XP_REWARDS.DAILY_LOGIN, reason: 'Primeiro acesso!', date: today }],
+        xp_history: [],
       });
       setProgress(newRecord);
       progressRef.current = newRecord;
-      setRewardPopup({ xp: XP_REWARDS.DAILY_LOGIN, reason: '🎉 Bem-vindo! Primeiro acesso', levelUp: false });
-      pushNotification(XP_REWARDS.DAILY_LOGIN, '🎉 Bem-vindo! Primeiro acesso');
     } else {
-      let record = records[0];
-      // Check daily login
-      if (record.last_active_date !== today) {
-        const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
-        const newStreak = record.last_active_date === yesterday ? (record.streak_days || 0) + 1 : 1;
-        const streakBonus = newStreak > 1 ? XP_REWARDS.STREAK_BONUS * Math.min(newStreak, 7) : 0;
-        const totalXP = XP_REWARDS.DAILY_LOGIN + streakBonus;
-        const newXP = (record.xp || 0) + totalXP;
-        const newLevel = getLevelInfo(newXP).level;
-        const levelUp = newLevel > (record.level || 1);
-
-        const updated = await base44.entities.UserProgress.update(record.id, {
-          xp: newXP,
-          level: newLevel,
-          streak_days: newStreak,
-          last_active_date: today,
-          xp_history: [...(record.xp_history || []), {
-            amount: totalXP,
-            reason: newStreak > 1 ? `Login diário + Streak ${newStreak} dias 🔥` : 'Login diário',
-            date: today,
-          }].slice(-50),
-        });
-        setProgress(updated);
-        progressRef.current = updated;
-        const reason = newStreak > 1
-          ? `Login diário + 🔥 Streak de ${newStreak} dias (+${streakBonus} bônus)`
-          : 'Login diário';
-        setRewardPopup({ xp: totalXP, reason, levelUp, newLevel: levelUp ? newLevel : null });
-        pushNotification(totalXP, reason, levelUp, levelUp ? newLevel : null);
-      } else {
-        setProgress(record);
-        progressRef.current = record;
-      }
+      const record = records[0];
+      setProgress(record);
+      progressRef.current = record;
     }
     setLoading(false);
   }, [pushNotification]);
@@ -129,7 +93,7 @@ export function useRewards() {
     const newXP = (current.xp || 0) + amount;
     const newLevel = getLevelInfo(newXP).level;
     const levelUp = newLevel > (current.level || 1);
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const today = new Date().toISOString().slice(0, 10);
 
     const updated = await base44.entities.UserProgress.update(current.id, {
       xp: newXP,
@@ -170,5 +134,6 @@ export function useRewards() {
     addXPForSummary,
     addXPForDocument,
     updateProfile,
+    refreshProgress: loadProgress,
   };
 }
