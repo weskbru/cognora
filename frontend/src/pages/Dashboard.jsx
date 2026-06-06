@@ -11,6 +11,7 @@ import {
   FileText,
   Flame,
   HelpCircle,
+  MessageSquare,
   Play,
   Target,
 } from 'lucide-react';
@@ -83,6 +84,8 @@ function sortSubjectsByStudyPriority(a, b) {
 
   return a.name.localeCompare(b.name, 'pt-BR');
 }
+
+const feedbackEmail = import.meta.env.VITE_FEEDBACK_EMAIL || 'weskdev@gmail.com';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -359,6 +362,11 @@ export default function Dashboard() {
       badge: 'Hoje no Cognora',
     },
   }[heroState];
+  const feedbackMailto = feedbackEmail
+    ? `mailto:${feedbackEmail}?subject=${encodeURIComponent('Feedback sobre o Cognora')}&body=${encodeURIComponent(
+      `O que voce achou do Cognora?\n\nO que ficou confuso?\n\nO que voce melhoraria?\n\nMeu email de cadastro: ${user?.email || ''}`
+    )}`
+    : '';
 
   const focusOnboardingChecklist = () => {
     onboardingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -691,6 +699,32 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      <Card className="border-dashed p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <MessageSquare className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Ajude a melhorar o Cognora</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Encontrou algo confuso, faltando ou ruim de usar? Envie feedback, critica ou sugestao.
+              </p>
+            </div>
+          </div>
+          <a href={feedbackMailto}>
+            <Button variant="outline" className="gap-2">
+              Enviar feedback
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </a>
+        </div>
+      </Card>
+
+      <p className="pb-2 text-center text-xs text-muted-foreground">
+        © 2026 Cognora. Desenvolvido pelo WeskDev.
+      </p>
     </div>
   );
 }
