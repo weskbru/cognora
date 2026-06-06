@@ -118,6 +118,20 @@ class StudySession(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
 
 
+class SubjectProgress(Base):
+    __tablename__ = "subject_progress"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_email = Column(String, nullable=False, index=True)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False, index=True)
+    last_studied_at = Column(DateTime, nullable=True)
+    next_review_at = Column(DateTime, nullable=True, index=True)
+    review_stage = Column(Integer, default=1)
+    completed_reviews_count = Column(Integer, default=0)
+    accuracy_rate = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 class UserProgress(Base):
     __tablename__ = "user_progress"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

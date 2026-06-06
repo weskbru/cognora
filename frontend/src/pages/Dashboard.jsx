@@ -41,6 +41,23 @@ function formatAccuracy(value) {
   return `${value}% acerto`;
 }
 
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function startOfDate(value) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatReviewDate(value) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { progress } = useRewardsContext();
@@ -75,7 +92,13 @@ export default function Dashboard() {
     enabled: !!user?.email,
   });
 
-  const isLoading = loadingSubjects || loadingDocs || loadingQuestions || loadingSummaries || loadingAttempts;
+  const { data: subjectProgress = [], isLoading: loadingSubjectProgress } = useQuery({
+    queryKey: ['subject_progress', user?.email],
+    queryFn: () => base44.entities.SubjectProgress.filter({ user_email: user.email }),
+    enabled: !!user?.email,
+  });
+
+  const isLoading = loadingSubjects || loadingDocs || loadingQuestions || loadingSummaries || loadingAttempts || loadingSubjectProgress;
   const recentDocs = documents.slice(0, 5);
   const answeredQuestionIds = new Set(attempts.map(attempt => String(attempt.question_id)));
   const unansweredQuestions = questions.filter(question => !answeredQuestionIds.has(String(question.id)));
@@ -87,6 +110,12 @@ export default function Dashboard() {
   const streak = progress?.streak_days || 0;
   const xp = progress?.xp || 0;
   const level = getLevelInfo(xp);
+  const today = startOfToday();
+  const progressBySubject = new Map(subjectProgress.map(item => [String(item.subject_id), item]));
+  const reviewsDueCount = subjectProgress.filter(item => {
+    if (!item.next_review_at) return false;
+    return startOfDate(item.next_review_at) <= today;
+  }).length;
 
   const subjectStats = subjects.map(subject => {
     const subjectDocs = documents.filter(doc => doc.subject_id === subject.id);
@@ -97,6 +126,8 @@ export default function Dashboard() {
     const subjectAccuracy = subjectAttempts.length > 0
       ? Math.round((subjectCorrect / subjectAttempts.length) * 100)
       : null;
+    const progressItem = progressBySubject.get(String(subject.id));
+    const nextReview = progressItem?.next_review_at ? startOfDate(progressItem.next_review_at) : null;
 
     let status = 'Em estudo';
     let statusClass = 'bg-blue-100 text-blue-700 border-blue-200';
@@ -106,7 +137,13 @@ export default function Dashboard() {
     } else if (subjectQuestions.length === 0) {
       status = 'Sem questoes';
       statusClass = 'bg-amber-100 text-amber-700 border-amber-200';
-    } else if (subjectAttempts.length > 0) {
+    } else if (nextReview && nextReview < today) {
+      status = 'Revisao atrasada';
+      statusClass = 'bg-red-100 text-red-700 border-red-200';
+    } else if (nextReview && nextReview.getTime() === today.getTime()) {
+      status = 'Revisao hoje';
+      statusClass = 'bg-amber-100 text-amber-700 border-amber-200';
+    } else if (progressItem) {
       status = 'Em dia';
       statusClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
     }
@@ -117,6 +154,9 @@ export default function Dashboard() {
       questionCount: subjectQuestions.length,
       answeredCount: subjectAttempts.length,
       accuracy: subjectAccuracy,
+      lastStudiedAt: progressItem?.last_studied_at || null,
+      nextReviewAt: progressItem?.next_review_at || null,
+      reviewStage: progressItem?.review_stage || null,
       status,
       statusClass,
     };
@@ -243,10 +283,10 @@ export default function Dashboard() {
             </div>
             <div className="rounded-lg border bg-background/80 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Flame className="h-4 w-4 text-orange-500" />
-                Sequencia
+                <Clock className="h-4 w-4 text-amber-600" />
+                Revisoes hoje
               </div>
-              <p className="text-2xl font-bold">{streak} dia{streak !== 1 ? 's' : ''}</p>
+              <p className="text-2xl font-bold">{reviewsDueCount}</p>
             </div>
             <div className="rounded-lg border bg-background/80 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
@@ -322,6 +362,9 @@ export default function Dashboard() {
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                           <span>{formatAccuracy(subject.accuracy)}</span>
                           <span>{subject.answeredCount} questao{subject.answeredCount !== 1 ? 'es' : ''} respondida{subject.answeredCount !== 1 ? 's' : ''}</span>
+                          {subject.nextReviewAt && (
+                            <span>Proxima revisao: {formatReviewDate(subject.nextReviewAt)}</span>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">

@@ -9,7 +9,7 @@ import uuid
 import pytest
 from core.config.settings import settings
 from domain.use_cases.limits import FREE_DOCS_PER_SUBJECT, FREE_SUBJECT_LIMIT
-from infrastructure.database.models import Document, StudySession, Subject, User, UserProgress
+from infrastructure.database.models import Document, StudySession, Subject, SubjectProgress, User, UserProgress
 
 
 class TestPublicLeaderboard:
@@ -426,6 +426,99 @@ class TestStudySessions:
 
         assert response.status_code == 400
         assert response.json()["detail"] == "Status de sessão inválido."
+
+    def test_concluir_sessao_cria_progresso_da_materia(self, client, auth_headers, db, test_user):
+        subject = Subject(name="Banco de Dados", owner_email=test_user.email)
+        db.add(subject)
+        db.commit()
+        db.refresh(subject)
+        created = client.post(
+            "/api/study_sessions",
+            json={
+                "status": "IN_PROGRESS",
+                "subjects": [{"id": str(subject.id), "name": subject.name}],
+            },
+            headers=auth_headers,
+        ).json()
+
+        response = client.put(
+            f"/api/study_sessions/{created['id']}",
+            json={"status": "COMPLETED"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        progress = db.query(SubjectProgress).filter(
+            SubjectProgress.user_email == test_user.email,
+            SubjectProgress.subject_id == subject.id,
+        ).first()
+        assert progress is not None
+        assert progress.review_stage == 1
+        assert progress.completed_reviews_count == 0
+        assert progress.last_studied_at is not None
+        assert progress.next_review_at is not None
+
+    def test_concluir_sessao_avanca_progresso_ate_stage_4(self, client, auth_headers, db, test_user):
+        subject = Subject(name="Redes", owner_email=test_user.email)
+        db.add(subject)
+        db.commit()
+        db.refresh(subject)
+        db.add(SubjectProgress(
+            user_email=test_user.email,
+            subject_id=subject.id,
+            review_stage=4,
+            completed_reviews_count=3,
+        ))
+        db.commit()
+        created = client.post(
+            "/api/study_sessions",
+            json={
+                "status": "IN_PROGRESS",
+                "subjects": [{"id": str(subject.id), "name": subject.name}],
+            },
+            headers=auth_headers,
+        ).json()
+
+        response = client.put(
+            f"/api/study_sessions/{created['id']}",
+            json={"status": "COMPLETED"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        progress = db.query(SubjectProgress).filter(
+            SubjectProgress.user_email == test_user.email,
+            SubjectProgress.subject_id == subject.id,
+        ).first()
+        assert progress.review_stage == 4
+        assert progress.completed_reviews_count == 4
+
+    def test_sessao_incompleta_nao_atualiza_progresso_da_materia(self, client, auth_headers, db, test_user):
+        subject = Subject(name="Sistemas", owner_email=test_user.email)
+        db.add(subject)
+        db.commit()
+        db.refresh(subject)
+        created = client.post(
+            "/api/study_sessions",
+            json={
+                "status": "IN_PROGRESS",
+                "subjects": [{"id": str(subject.id), "name": subject.name}],
+            },
+            headers=auth_headers,
+        ).json()
+
+        response = client.put(
+            f"/api/study_sessions/{created['id']}",
+            json={"status": "ABANDONED"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        progress = db.query(SubjectProgress).filter(
+            SubjectProgress.user_email == test_user.email,
+            SubjectProgress.subject_id == subject.id,
+        ).first()
+        assert progress is None
 
 
 class TestEntidadeInvalida:

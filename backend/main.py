@@ -122,6 +122,18 @@ def _run_migrations():
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW()
         )""",
+        """CREATE TABLE IF NOT EXISTS subject_progress (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_email VARCHAR NOT NULL,
+            subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+            last_studied_at TIMESTAMP,
+            next_review_at TIMESTAMP,
+            review_stage INTEGER DEFAULT 1,
+            completed_reviews_count INTEGER DEFAULT 0,
+            accuracy_rate INTEGER,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )""",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_id ON pix_payment_requests (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_user_email ON pix_payment_requests (user_email)",
         "CREATE INDEX IF NOT EXISTS ix_pix_payment_requests_status ON pix_payment_requests (status)",
@@ -137,6 +149,9 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_study_sessions_user_email ON study_sessions (user_email)",
         "CREATE INDEX IF NOT EXISTS ix_study_sessions_status ON study_sessions (status)",
         "CREATE INDEX IF NOT EXISTS ix_study_sessions_started_at ON study_sessions (started_at)",
+        "CREATE INDEX IF NOT EXISTS ix_subject_progress_user_email ON subject_progress (user_email)",
+        "CREATE INDEX IF NOT EXISTS ix_subject_progress_subject_id ON subject_progress (subject_id)",
+        "CREATE INDEX IF NOT EXISTS ix_subject_progress_next_review_at ON subject_progress (next_review_at)",
     ]
     with engine.connect() as conn:
         for sql in migrations:

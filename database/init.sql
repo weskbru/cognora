@@ -104,6 +104,19 @@ CREATE TABLE IF NOT EXISTS study_sessions (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS subject_progress (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_email TEXT NOT NULL,
+    subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    last_studied_at TIMESTAMPTZ,
+    next_review_at TIMESTAMPTZ,
+    review_stage INTEGER DEFAULT 1,
+    completed_reviews_count INTEGER DEFAULT 0,
+    accuracy_rate INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS user_progress (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_email TEXT UNIQUE NOT NULL,
@@ -200,3 +213,6 @@ CREATE INDEX IF NOT EXISTS ix_admin_audit_logs_action ON admin_audit_logs (actio
 CREATE INDEX IF NOT EXISTS ix_study_sessions_user_email ON study_sessions (user_email);
 CREATE INDEX IF NOT EXISTS ix_study_sessions_status ON study_sessions (status);
 CREATE INDEX IF NOT EXISTS ix_study_sessions_started_at ON study_sessions (started_at);
+CREATE INDEX IF NOT EXISTS ix_subject_progress_user_email ON subject_progress (user_email);
+CREATE INDEX IF NOT EXISTS ix_subject_progress_subject_id ON subject_progress (subject_id);
+CREATE INDEX IF NOT EXISTS ix_subject_progress_next_review_at ON subject_progress (next_review_at);

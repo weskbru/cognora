@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc, func, or_
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+import uuid
 from core.config.settings import settings
 from infrastructure.database.connection import get_db
-from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt, StudySession
+from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt, StudySession, SubjectProgress
 from infrastructure.repositories.base import BaseRepository, row_to_dict
 from api.dependencies import get_current_user, is_admin_user
 from infrastructure.database.models import User
@@ -22,6 +23,7 @@ ENTITY_MAP = {
     "flashcards": Flashcard,
     "question_attempts": QuestionAttempt,
     "study_sessions": StudySession,
+    "subject_progress": SubjectProgress,
 }
 
 USER_PROGRESS_PROTECTED_FIELDS = {
@@ -38,6 +40,12 @@ STUDY_SESSION_PROTECTED_FIELDS = {
     "user_email",
     "started_at",
     "completed_at",
+    "created_at",
+    "updated_at",
+}
+
+SUBJECT_PROGRESS_PROTECTED_FIELDS = {
+    "user_email",
     "created_at",
     "updated_at",
 }
@@ -81,6 +89,73 @@ def _normalize_study_session_data(
     if status == "COMPLETED":
         normalized["completed_at"] = datetime.utcnow()
     return normalized
+
+
+def _normalize_subject_progress_data(data: dict, *, user_email: str | None = None) -> dict:
+    normalized = {key: value for key, value in data.items() if key not in SUBJECT_PROGRESS_PROTECTED_FIELDS}
+    if user_email:
+        normalized["user_email"] = user_email
+    return normalized
+
+
+def _review_interval_for_stage(stage: int) -> timedelta:
+    if stage <= 1:
+        return timedelta(days=1)
+    if stage == 2:
+        return timedelta(days=7)
+    if stage == 3:
+        return timedelta(days=21)
+    return timedelta(days=30)
+
+
+def _subject_ids_from_session(session: StudySession) -> list[uuid.UUID]:
+    subject_ids = []
+    seen = set()
+    for subject in session.subjects or []:
+        if isinstance(subject, dict):
+            subject_id = subject.get("id")
+        else:
+            subject_id = subject
+        if not subject_id:
+            continue
+        try:
+            normalized_id = uuid.UUID(str(subject_id))
+        except (ValueError, TypeError):
+            continue
+        if normalized_id in seen:
+            continue
+        seen.add(normalized_id)
+        subject_ids.append(normalized_id)
+    return subject_ids
+
+
+def _update_subject_progress_for_completed_session(db: Session, session: StudySession) -> None:
+    completed_at = session.completed_at or datetime.utcnow()
+    for subject_id in _subject_ids_from_session(session):
+        progress = db.query(SubjectProgress).filter(
+            SubjectProgress.user_email == session.user_email,
+            SubjectProgress.subject_id == subject_id,
+        ).first()
+
+        if progress:
+            next_stage = min((progress.review_stage or 1) + 1, 4)
+            progress.review_stage = next_stage
+            progress.completed_reviews_count = (progress.completed_reviews_count or 0) + 1
+        else:
+            next_stage = 1
+            progress = SubjectProgress(
+                user_email=session.user_email,
+                subject_id=subject_id,
+                review_stage=next_stage,
+                completed_reviews_count=0,
+            )
+            db.add(progress)
+
+        progress.last_studied_at = completed_at
+        progress.next_review_at = completed_at + _review_interval_for_stage(next_stage)
+        progress.updated_at = datetime.utcnow()
+
+    db.commit()
 
 
 def _repo(entity: str, db: Session) -> BaseRepository:
@@ -143,6 +218,8 @@ def list_entities(
     elif entity == "question_attempts":
         filters.setdefault("user_email", current_user.email)
     elif entity == "study_sessions":
+        filters["user_email"] = current_user.email
+    elif entity == "subject_progress":
         filters["user_email"] = current_user.email
     elif entity == "summaries" and "document_id" not in filters:
         user_subject_ids = [
@@ -235,6 +312,8 @@ def get_entity(
         raise HTTPException(status_code=403, detail="Acesso negado.")
     if entity == "study_sessions" and row.user_email != current_user.email and not is_admin_user(current_user):
         raise HTTPException(status_code=403, detail="Acesso negado.")
+    if entity == "subject_progress" and row.user_email != current_user.email and not is_admin_user(current_user):
+        raise HTTPException(status_code=403, detail="Acesso negado.")
     return row_to_dict(row)
 
 
@@ -287,6 +366,8 @@ def create_entity(
         data = {**data, "user_email": current_user.email}
     elif entity == "study_sessions":
         data = _normalize_study_session_data(data, user_email=current_user.email)
+    elif entity == "subject_progress":
+        data = _normalize_subject_progress_data(data, user_email=current_user.email)
     return row_to_dict(_repo(entity, db).create(data))
 
 
@@ -298,7 +379,8 @@ def update_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if entity in ("user_progress", "study_sessions"):
+    should_update_subject_progress = False
+    if entity in ("user_progress", "study_sessions", "subject_progress"):
         row = _repo(entity, db).get_by_id(item_id)
         if not row:
             raise HTTPException(status_code=404, detail="Not found")
@@ -307,10 +389,16 @@ def update_entity(
         if entity == "user_progress":
             data = _strip_user_progress_protected_fields(data)
         elif entity == "study_sessions":
+            should_update_subject_progress = row.status != "COMPLETED" and data.get("status") == "COMPLETED"
             data = _normalize_study_session_data(data, existing_session=row)
+        elif entity == "subject_progress":
+            data = _normalize_subject_progress_data(data)
     row = _repo(entity, db).update(item_id, data)
     if not row:
         raise HTTPException(status_code=404, detail="Not found")
+    if entity == "study_sessions" and should_update_subject_progress:
+        _update_subject_progress_for_completed_session(db, row)
+        db.refresh(row)
     return row_to_dict(row)
 
 
@@ -321,7 +409,7 @@ def delete_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if entity in ("user_progress", "study_sessions"):
+    if entity in ("user_progress", "study_sessions", "subject_progress"):
         row = _repo(entity, db).get_by_id(item_id)
         if not row:
             raise HTTPException(status_code=404, detail="Not found")
