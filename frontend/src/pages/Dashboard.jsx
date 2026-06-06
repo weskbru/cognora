@@ -58,6 +58,20 @@ function formatReviewDate(value) {
   return new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+function daysFromToday(value, today) {
+  if (!value) return null;
+  const target = startOfDate(value);
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
+}
+
+function formatReviewDistance(days) {
+  if (days === null) return null;
+  if (days < 0) return 'atrasada';
+  if (days === 0) return 'hoje';
+  if (days === 1) return 'amanha';
+  return `em ${days} dias`;
+}
+
 function sortSubjectsByStudyPriority(a, b) {
   if (a.sortGroup !== b.sortGroup) return a.sortGroup - b.sortGroup;
 
@@ -128,6 +142,21 @@ export default function Dashboard() {
     if (!item.next_review_at) return false;
     return startOfDate(item.next_review_at) <= today;
   }).length;
+  const trackedSubjectsCount = subjectProgress.length;
+  const nextReviewProgress = subjectProgress
+    .filter(item => item.next_review_at)
+    .sort((a, b) => new Date(a.next_review_at).getTime() - new Date(b.next_review_at).getTime())[0];
+  const nextReviewSubject = nextReviewProgress
+    ? subjects.find(subject => String(subject.id) === String(nextReviewProgress.subject_id))
+    : null;
+  const nextReviewDistance = nextReviewProgress
+    ? formatReviewDistance(daysFromToday(nextReviewProgress.next_review_at, today))
+    : null;
+  const continuityMessage = nextReviewProgress
+    ? `Proxima revisao ${nextReviewDistance}${nextReviewSubject ? `: ${nextReviewSubject.name}` : ''}`
+    : trackedSubjectsCount > 0
+    ? `${trackedSubjectsCount} materia${trackedSubjectsCount !== 1 ? 's' : ''} em acompanhamento`
+    : 'Conclua uma sessao para agendar sua primeira revisao';
 
   const subjectStats = subjects.map(subject => {
     const subjectDocs = documents.filter(doc => doc.subject_id === subject.id);
@@ -284,6 +313,9 @@ export default function Dashboard() {
               <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
                 Entre direto no proximo passo: responda questoes recomendadas e mantenha sua rotina andando.
               </p>
+              <p className="mt-4 inline-flex rounded-lg border border-primary/20 bg-background/80 px-3 py-2 text-sm font-medium text-foreground">
+                {continuityMessage}
+              </p>
             </div>
             <Button
               type="button"
@@ -313,7 +345,7 @@ export default function Dashboard() {
             <div className="rounded-lg border bg-background/80 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4 text-amber-600" />
-                Revisoes hoje
+                Revisoes pendentes
               </div>
               <p className="text-2xl font-bold">{reviewsDueCount}</p>
             </div>

@@ -18,6 +18,27 @@ import EmptyState from '@/components/competitions/shared/EmptyState';
 import QuestionCard from '@/components/competitions/documents/QuestionCard';
 import { useRewardsContext } from '@/context/RewardsContext';
 
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function startOfDate(value) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function formatReviewDistance(value) {
+  if (!value) return null;
+  const days = Math.round((startOfDate(value).getTime() - startOfToday().getTime()) / 86400000);
+  if (days < 0) return 'atrasada';
+  if (days === 0) return 'hoje';
+  if (days === 1) return 'amanha';
+  return `em ${days} dias`;
+}
+
 export default function Quiz() {
   const queryClient = useQueryClient();
   const { refreshProgress } = useRewardsContext();
@@ -47,6 +68,12 @@ export default function Quiz() {
     enabled: !!sessionId,
   });
 
+  const { data: subjectProgress = [] } = useQuery({
+    queryKey: ['subject_progress', 'session', sessionId],
+    queryFn: () => base44.entities.SubjectProgress.list(),
+    enabled: !!sessionId,
+  });
+
   const sessionQuestionIds = useMemo(
     () => new Set((studySession?.questions_planned || []).map(id => String(id))),
     [studySession]
@@ -61,6 +88,25 @@ export default function Quiz() {
     () => new Set((studySession?.questions_answered || []).map(id => String(id))),
     [studySession]
   );
+
+  const sessionSubjectIds = useMemo(() => {
+    return new Set((studySession?.subjects || []).map(subject => (
+      typeof subject === 'object' ? String(subject.id) : String(subject)
+    )).filter(Boolean));
+  }, [studySession]);
+
+  const nextSessionReview = useMemo(() => {
+    return subjectProgress
+      .filter(item => sessionSubjectIds.has(String(item.subject_id)) && item.next_review_at)
+      .sort((a, b) => new Date(a.next_review_at).getTime() - new Date(b.next_review_at).getTime())[0] || null;
+  }, [subjectProgress, sessionSubjectIds]);
+
+  const nextSessionReviewSubject = nextSessionReview
+    ? subjects.find(subject => String(subject.id) === String(nextSessionReview.subject_id))
+    : null;
+  const nextSessionReviewText = nextSessionReview
+    ? `${nextSessionReviewSubject?.name || 'Materia'} sera revisada ${formatReviewDistance(nextSessionReview.next_review_at)}`
+    : null;
 
   const filtered = useMemo(() => {
     return sessionQuestions.filter(q => {
@@ -114,6 +160,7 @@ export default function Quiz() {
         });
         queryClient.setQueryData(['study_session', sessionId], updatedSession);
         if (updatedSession.status === 'COMPLETED') {
+          queryClient.invalidateQueries({ queryKey: ['subject_progress'] });
           refreshProgress?.();
           setShowResults(true);
         }
@@ -245,6 +292,12 @@ export default function Quiz() {
             <p className="text-sm text-muted-foreground">
               Concluída em {new Date(studySession.completed_at).toLocaleString('pt-BR')}
             </p>
+          )}
+
+          {nextSessionReviewText && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm font-medium text-foreground">
+              {nextSessionReviewText}.
+            </div>
           )}
 
           <div className="flex justify-center">
