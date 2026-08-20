@@ -50,7 +50,7 @@ export default function CompetitionResults({
       <div className={`border-b p-6 text-center ${
         live
           ? 'border-blue-100/80 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 dark:border-blue-900/50 dark:from-blue-950/50 dark:via-indigo-950/40 dark:to-violet-950/30'
-          : 'border-amber-100/80 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 dark:border-amber-900/50 dark:from-amber-950/45 dark:via-yellow-950/30 dark:to-orange-950/35'
+          : 'border-ring/40 bg-gradient-to-br from-slate-950 via-slate-950 to-ring/50 text-white'
       }`}>
         {live ? (
           <>
@@ -65,19 +65,19 @@ export default function CompetitionResults({
             {isWinner ? (
               <>
                 <p className="text-5xl mb-2">🏆</p>
-                <p className="text-xl font-bold text-amber-700 dark:text-amber-300">Você venceu!</p>
-                <p className="text-sm text-amber-600 mt-1 dark:text-amber-400">{myResult?.score} pontos · {myResult?.correct} acertos</p>
+                <p className="text-xl font-bold text-white">Você venceu!</p>
+                <p className="mt-1 text-sm text-white/75">{myResult?.score} pontos · {myResult?.correct} acertos</p>
               </>
             ) : myRank > 0 ? (
               <>
                 <p className="text-4xl mb-2">{medals[myRank - 1] || `#${myRank}`}</p>
-                <p className="text-lg font-bold text-foreground">Você ficou em {myRank}º lugar</p>
-                <p className="text-sm text-muted-foreground mt-1">{myResult?.score} pontos · {myResult?.correct} acertos</p>
+                <p className="text-lg font-bold text-white">Você ficou em {myRank}º lugar</p>
+                <p className="mt-1 text-sm text-white/75">{myResult?.score} pontos · {myResult?.correct} acertos</p>
               </>
             ) : (
               <>
                 <Trophy className="h-10 w-10 text-amber-500 mx-auto mb-2" />
-                <p className="text-lg font-bold">Resultado Final</p>
+                <p className="text-lg font-bold text-white">Resultado Final</p>
               </>
             )}
           </>
