@@ -47,41 +47,44 @@ export default function CompetitionResults({
   return (
     <Card className="overflow-hidden">
       {/* Banner */}
-      <div className={`border-b p-6 text-center ${
+      <div className={`relative overflow-hidden border-b p-6 text-center ${
         live
           ? 'border-blue-100/80 bg-gradient-to-r from-blue-50 via-indigo-50 to-violet-50 dark:border-blue-900/50 dark:from-blue-950/50 dark:via-indigo-950/40 dark:to-violet-950/30'
           : 'border-ring/40 bg-gradient-to-br from-slate-950 via-slate-950 to-ring/50 text-white'
       }`}>
-        {live ? (
-          <>
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.75)] animate-pulse" />
-              <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Placar ao vivo</p>
-            </div>
-            <p className="text-xs text-blue-700/65 dark:text-blue-200/60">{sorted.length} de {allParticipants.length} finalizado(s)</p>
-          </>
-        ) : (
-          <>
-            {isWinner ? (
-              <>
-                <p className="text-5xl mb-2">🏆</p>
-                <p className="text-xl font-bold text-white">Você venceu!</p>
-                <p className="mt-1 text-sm text-white/75">{myResult?.score} pontos · {myResult?.correct} acertos</p>
-              </>
-            ) : myRank > 0 ? (
-              <>
-                <p className="text-4xl mb-2">{medals[myRank - 1] || `#${myRank}`}</p>
-                <p className="text-lg font-bold text-white">Você ficou em {myRank}º lugar</p>
-                <p className="mt-1 text-sm text-white/75">{myResult?.score} pontos · {myResult?.correct} acertos</p>
-              </>
-            ) : (
-              <>
-                <Trophy className="h-10 w-10 text-amber-500 mx-auto mb-2" />
-                <p className="text-lg font-bold text-white">Resultado Final</p>
-              </>
-            )}
-          </>
-        )}
+        {!live && <div aria-hidden="true" className="absolute -right-12 top-4 text-8xl opacity-20">🪐</div>}
+        <div className="relative z-10">
+          {live ? (
+            <>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <div className="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.75)] animate-pulse" />
+                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">Placar ao vivo</p>
+              </div>
+              <p className="text-xs text-blue-700/65 dark:text-blue-200/60">{sorted.length} de {allParticipants.length} finalizado(s)</p>
+            </>
+          ) : (
+            <>
+              {isWinner ? (
+                <>
+                  <p className="text-5xl mb-2">🏆</p>
+                  <p className="text-xl font-bold text-white">Você venceu!</p>
+                  <p className="mt-1 text-sm text-white/75">{myResult?.score} pontos · {myResult?.correct} acertos</p>
+                </>
+              ) : myRank > 0 ? (
+                <>
+                  <p className="text-4xl mb-2">{medals[myRank - 1] || `#${myRank}`}</p>
+                  <p className="text-lg font-bold text-white">Você ficou em {myRank}º lugar</p>
+                  <p className="mt-1 text-sm text-white/75">{myResult?.score} pontos · {myResult?.correct} acertos</p>
+                </>
+              ) : (
+                <>
+                  <Trophy className="h-10 w-10 text-amber-500 mx-auto mb-2" />
+                  <p className="text-lg font-bold text-white">Resultado Final</p>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Rankings */}
