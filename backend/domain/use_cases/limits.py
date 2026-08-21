@@ -28,6 +28,12 @@ class AIUsageType(str, Enum):
 
 AIAction = AIUsageType
 
+USAGE_COUNTER_FIELDS: dict[AIUsageType, str] = {
+    AIUsageType.SUMMARY: "summaries_used_month",
+    AIUsageType.QUESTIONS: "questions_used_month",
+    AIUsageType.FLASHCARDS: "flashcards_used_month",
+}
+
 
 @dataclass(frozen=True)
 class PlanLimits:
@@ -266,20 +272,16 @@ def _normalize_usage_type(usage_type: AIUsageType | str) -> AIUsageType:
 
 
 def _usage_limit_and_value(progress: UserProgress, limits: PlanLimits, usage_type: AIUsageType) -> tuple[int, int]:
-    if usage_type == AIUsageType.SUMMARY:
-        return limits.maxMonthlySummaries, progress.summaries_used_month or 0
-    if usage_type == AIUsageType.QUESTIONS:
-        return limits.maxMonthlyQuestions, progress.questions_used_month or 0
-    return limits.maxMonthlyFlashcards, progress.flashcards_used_month or 0
+    limits_by_type = {
+        AIUsageType.SUMMARY: limits.maxMonthlySummaries,
+        AIUsageType.QUESTIONS: limits.maxMonthlyQuestions,
+        AIUsageType.FLASHCARDS: limits.maxMonthlyFlashcards,
+    }
+    return limits_by_type[usage_type], getattr(progress, USAGE_COUNTER_FIELDS[usage_type]) or 0
 
 
 def _set_usage_value(progress: UserProgress, usage_type: AIUsageType, value: int) -> None:
-    if usage_type == AIUsageType.SUMMARY:
-        progress.summaries_used_month = value
-    elif usage_type == AIUsageType.QUESTIONS:
-        progress.questions_used_month = value
-    else:
-        progress.flashcards_used_month = value
+    setattr(progress, USAGE_COUNTER_FIELDS[usage_type], value)
 
 
 def _usage_message(usage_type: AIUsageType) -> str:

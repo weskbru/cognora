@@ -6,7 +6,7 @@ if (!API_URL) {
   throw new Error('[Cognora] VITE_API_URL não configurada.');
 }
 
-interface AuthUser {
+export interface AuthUser {
   id: string;
   email: string;
   username: string | null;

@@ -1,11 +1,12 @@
-// @ts-nocheck
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays } from 'date-fns';
 import { base44 } from '@/api/base44Client';
 import { subscriptionsApi } from '@/api/subscriptions';
 import { useAuth } from '@/lib/AuthContext';
+import type { AuthUser } from '@/lib/AuthContext';
 import { useRewardsContext } from '@/context/RewardsContext';
 import { getLevelInfo, getXpProgressPercent, LEVELS, XP_REWARDS } from '@/hooks/useRewards';
 import { Card } from '@/components/ui/card';
@@ -16,6 +17,9 @@ import {
   ArrowRight, CalendarDays, Camera, Check, CheckCircle2, Crown, FileText,
   Flame, Gift, Lock, Mail, Pencil, Sparkles, Trophy, X, Zap,
 } from 'lucide-react';
+import type { Document, Subject, UserProgress, XpHistoryEntry } from '@/types/entities';
+import type { SubscriptionStatus } from '@/api/subscriptions';
+import type { LevelInfo } from '@/hooks/useRewards';
 
 const LEVEL_ICONS = ['🌱', '📖', '💡', '🎯', '🚀', '⚡', '🏆', '🧠', '🌟', '👑'];
 const AVATAR_OPTIONS = ['🧑‍🎓', '👩‍🎓', '🦊', '🐼', '🦁', '🐯', '🦄', '🐉', '🤖', '👾', '🧙', '🦸'];
@@ -63,7 +67,7 @@ const ACTIVITY_MAP = [
   { key: 'acesso', icon: Flame, color: 'bg-orange-100 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400' },
 ];
 
-function getActivityStyle(reason) {
+function getActivityStyle(reason?: string | null) {
   const lower = reason?.toLowerCase() || '';
   return ACTIVITY_MAP.find(activity => lower.includes(activity.key)) || {
     icon: Zap,
@@ -71,12 +75,14 @@ function getActivityStyle(reason) {
   };
 }
 
-function getInitials(entry) {
+function getInitials(entry: UserProgress) {
   const value = entry?.display_name || entry?.user_email?.split('@')[0] || '?';
   return value.slice(0, 2).toUpperCase();
 }
 
-function getWeekActivity(xpHistory) {
+interface WeekActivityDay { key: string; active: boolean; today: boolean; }
+
+function getWeekActivity(xpHistory?: XpHistoryEntry[] | null): WeekActivityDay[] {
   const activeDates = new Set((xpHistory || []).map(entry => entry.date).filter(Boolean));
   return Array.from({ length: 7 }, (_, index) => {
     const date = subDays(new Date(), 6 - index);
@@ -119,7 +125,7 @@ export default function Profile() {
     setEditOpen(true);
   };
 
-  const handlePhotoUpload = async (event) => {
+  const handlePhotoUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setUploadingPhoto(true);
@@ -198,7 +204,6 @@ export default function Profile() {
         <div className="grid gap-5 xl:grid-cols-12">
           <HeroCard
             avatarEmoji={avatarEmoji}
-            displayName={displayName}
             level={level}
             onEdit={handleOpenEdit}
             percent={percent}
@@ -220,7 +225,19 @@ export default function Profile() {
   );
 }
 
-function HeroCard({ avatarEmoji, level, onEdit, percent, progress, rank, user, xp, xpToNext }) {
+interface HeroCardProps {
+  avatarEmoji: string;
+  level: LevelInfo;
+  onEdit: () => void;
+  percent: number;
+  progress: UserProgress;
+  rank: number;
+  user: AuthUser | null;
+  xp: number;
+  xpToNext: number;
+}
+
+function HeroCard({ avatarEmoji, level, onEdit, percent, progress, rank, user, xp, xpToNext }: HeroCardProps) {
   const levelLimit = level.maxXP ?? xp;
   return (
     <Card className="relative overflow-hidden border-ring/40 bg-gradient-to-br from-slate-950 via-slate-950 to-ring/50 p-6 text-white shadow-lg shadow-ring/20 xl:col-span-9">
@@ -265,11 +282,11 @@ function HeroCard({ avatarEmoji, level, onEdit, percent, progress, rank, user, x
   );
 }
 
-function nextLevelText(xpToNext) {
+function nextLevelText(xpToNext: number): string {
   return xpToNext > 0 ? `Próximo nível: faltam ${xpToNext.toLocaleString('pt-BR')} XP` : 'Você chegou ao nível máximo.';
 }
 
-function WeeklyLeague({ entries, progress }) {
+function WeeklyLeague({ entries, progress }: { entries: UserProgress[]; progress: UserProgress }) {
   return (
     <Card className="p-5 xl:col-span-3 xl:row-span-2">
       <div className="mb-5">
@@ -288,7 +305,7 @@ function WeeklyLeague({ entries, progress }) {
   );
 }
 
-function LeagueRow({ entry, isMe, rank }) {
+function LeagueRow({ entry, isMe, rank }: { entry: UserProgress; isMe: boolean; rank: number }) {
   return (
     <div className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${isMe ? 'bg-primary/15 ring-1 ring-primary/30' : 'bg-secondary/70'}`}>
       <span className="w-5 text-center text-sm font-black">{rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}</span>
@@ -299,7 +316,7 @@ function LeagueRow({ entry, isMe, rank }) {
   );
 }
 
-function StreakCard({ streak, weekActivity }) {
+function StreakCard({ streak, weekActivity }: { streak: number; weekActivity: WeekActivityDay[] }) {
   const rewardDays = streak < 7 ? 7 : Math.ceil((streak + 1) / 7) * 7;
   return (
     <Card className="p-5 xl:col-span-9">
@@ -332,7 +349,7 @@ function StreakCard({ streak, weekActivity }) {
   );
 }
 
-function RecentActivities({ entries }) {
+function RecentActivities({ entries }: { entries: XpHistoryEntry[] }) {
   return (
     <Card className="p-5 xl:col-span-6">
       <h2 className="mb-4 flex items-center gap-2 text-base font-black"><Sparkles className="h-4 w-4 text-primary" /> Atividades Recentes</h2>
@@ -371,7 +388,7 @@ function XpRules() {
   );
 }
 
-function RankingPreview({ entries, progress, rank }) {
+function RankingPreview({ entries, progress, rank }: { entries: UserProgress[]; progress: UserProgress; rank: number }) {
   return (
     <Card className="p-5 xl:col-span-7">
       <div className="mb-4 flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-black"><Trophy className="h-4 w-4 text-amber-500" /> Seu Ranking</h2>{rank > 0 && <Badge variant="secondary">Sua posição: #{rank}</Badge>}</div>
@@ -383,20 +400,20 @@ function RankingPreview({ entries, progress, rank }) {
   );
 }
 
-function PlanCard({ documents, subjects, subscriptionStatus }) {
+function PlanCard({ documents, subjects, subscriptionStatus }: { documents: Document[]; subjects: Subject[]; subscriptionStatus?: SubscriptionStatus }) {
   const currentPlan = subscriptionStatus?.plan || 'free';
-  const normalizedPlan = PLAN_CARD_CONFIG[currentPlan] ? currentPlan : 'free';
+  const normalizedPlan: PlanId = currentPlan in PLAN_CARD_CONFIG ? currentPlan as PlanId : 'free';
   const planConfig = PLAN_CARD_CONFIG[normalizedPlan];
   const expiresAt = subscriptionStatus?.plan_expires_at
     ? new Date(subscriptionStatus.plan_expires_at).toLocaleDateString('pt-BR')
     : null;
 
-  const usageWidth = (value, max) => {
+  const usageWidth = (value: number, max: number | null): number => {
     if (max === null) return value > 0 ? 100 : 0;
     return Math.min(100, (value / max) * 100);
   };
 
-  const usageLimit = (max) => (max === null ? 'Sem limite' : max);
+  const usageLimit = (max: number | null): string | number => (max === null ? 'Sem limite' : max);
 
   return (
     <Card className="p-5 xl:col-span-5">
@@ -421,7 +438,21 @@ function PlanCard({ documents, subjects, subscriptionStatus }) {
   );
 }
 
-function EditProfileModal({ avatar, avatarUrl, editName, onAvatarChange, onAvatarUrlChange, onClose, onNameChange, onPhotoUpload, onSave, saving, uploadingPhoto }) {
+interface EditProfileModalProps {
+  avatar: string;
+  avatarUrl: string;
+  editName: string;
+  onAvatarChange: (value: string) => void;
+  onAvatarUrlChange: (value: string) => void;
+  onClose: () => void;
+  onNameChange: (value: string) => void;
+  onPhotoUpload: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onSave: () => void | Promise<void>;
+  saving: boolean;
+  uploadingPhoto: boolean;
+}
+
+function EditProfileModal({ avatar, avatarUrl, editName, onAvatarChange, onAvatarUrlChange, onClose, onNameChange, onPhotoUpload, onSave, saving, uploadingPhoto }: EditProfileModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <Card className="w-full max-w-sm space-y-5 p-6 shadow-2xl">

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import type { DocumentStatus } from '@/types/entities';
 import { ArrowLeft, FileText, Sparkles, HelpCircle, Layers, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +13,7 @@ import SummarySection from '@/components/documents/SummarySection';
 import QuestionsSection from '@/components/documents/QuestionsSection';
 import FlashcardsSection from '@/components/documents/FlashcardsSection';
 
-const statusMap = {
+const statusMap: Record<DocumentStatus, { label: string; class: string }> = {
   pending:    { label: 'Pendente',    class: 'bg-amber-100 text-amber-700' },
   processing: { label: 'Processando', class: 'bg-blue-100 text-blue-700' },
   completed:  { label: 'Concluído',   class: 'bg-emerald-100 text-emerald-700' },
@@ -20,7 +21,7 @@ const statusMap = {
 };
 
 export default function DocumentDetail() {
-  const documentId = window.location.pathname.split('/documents/')[1];
+  const { id: documentId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [deleteDialog, setDeleteDialog] = useState({ open: false, loading: false });
@@ -62,6 +63,7 @@ export default function DocumentDetail() {
   };
 
   const confirmDelete = async () => {
+    if (!documentId) return;
     setDeleteDialog(prev => ({ ...prev, loading: true }));
     try {
       await base44.entities.Document.delete(documentId);
@@ -136,7 +138,7 @@ export default function DocumentDetail() {
 
       <DeleteConfirmDialog
         open={deleteDialog.open}
-        onOpenChange={(open) => !deleteDialog.loading && setDeleteDialog({ ...deleteDialog, open })}
+        onOpenChange={(open: boolean) => !deleteDialog.loading && setDeleteDialog({ ...deleteDialog, open })}
         title="Excluir documento?"
         description="Este documento será removido permanentemente. Todos os resumos, questões e flashcards associados também serão excluídos."
         confirmLabel="Excluir documento"

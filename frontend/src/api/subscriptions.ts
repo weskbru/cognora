@@ -1,10 +1,4 @@
-import { getToken } from '@/lib/tokenStorage';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
-
-if (!API_URL) {
-  throw new Error('[Cognora] VITE_API_URL não configurada.');
-}
+import { apiRequest } from '@/api/base44Client';
 
 export type PaidPlan = 'pro' | 'premium';
 export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'expired';
@@ -43,25 +37,7 @@ export interface AdminDecisionPayload {
   admin_note?: string;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-
-  const data = await res.json().catch(() => ({ detail: res.statusText }));
-  if (!res.ok) {
-    const detail = data.detail;
-    const message = typeof detail === 'string' ? detail : detail?.message || 'Erro na requisição';
-    throw new Error(message);
-  }
-  return data as T;
-}
+const request = apiRequest;
 
 export const subscriptionsApi = {
   createPixPayment(plan: PaidPlan): Promise<PixPaymentRequest> {

@@ -106,6 +106,25 @@ class TestUploadRoute:
         response = client.post("/api/upload", headers=auth_headers)
         assert response.status_code == 422
 
+    def test_rejeita_extensao_nao_permitida(self, client, auth_headers):
+        response = client.post(
+            "/api/upload",
+            files={"file": ("pagina.html", io.BytesIO(b"<script>alert(1)</script>"), "text/html")},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 415
+        assert response.json()["detail"]["code"] == "UNSUPPORTED_FILE_TYPE"
+
+    def test_rejeita_mime_incompativel_com_extensao(self, client, auth_headers):
+        response = client.post(
+            "/api/upload",
+            files={"file": ("avatar.png", io.BytesIO(b"not an image"), "text/plain")},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 415
+
     def test_upload_arquivo_sem_extensao_usa_pdf_como_default(self, client, auth_headers):
         subject_id = self._subject_id(client, auth_headers)
         response = client.post(

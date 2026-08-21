@@ -8,6 +8,8 @@ Endpoints:
 
 import logging
 import os
+import shutil
+import tempfile
 import urllib.parse
 from typing import Annotated
 
@@ -48,35 +50,25 @@ def _resolve_servico(request: Request) -> ServicoAnaliseNLP:
 
 
 def _file_url_to_path(file_url: str) -> str:
-    import tempfile
-    import httpx
-
     parsed = urllib.parse.urlparse(file_url)
-    if parsed.path.startswith("/uploads/"):
-        filename = os.path.basename(urllib.parse.unquote(parsed.path))
-        local_path = os.path.join(settings.upload_dir, filename)
-        if not os.path.isfile(local_path):
-            raise FileNotFoundError(f"Arquivo local nao encontrado: {filename}")
-        ext = os.path.splitext(local_path)[1] or ".pdf"
-        tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
-        with open(local_path, "rb") as source:
-            tmp.write(source.read())
-        tmp.close()
-        return tmp.name
+    if parsed.scheme not in {"", "http", "https"} or not parsed.path.startswith("/uploads/"):
+        raise ValueError("Apenas arquivos enviados pelo Cognora podem ser processados.")
 
-    try:
-        r = httpx.get(file_url, follow_redirects=True, timeout=30)
-    except Exception as exc:
-        raise FileNotFoundError(f"Erro ao baixar arquivo: {exc}")
+    filename = os.path.basename(urllib.parse.unquote(parsed.path))
+    if not filename.lower().endswith(".pdf"):
+        raise ValueError("O arquivo informado precisa ser um PDF.")
 
-    if r.status_code != 200:
-        raise FileNotFoundError(f"Arquivo nao encontrado na URL (status {r.status_code})")
+    upload_root = os.path.realpath(settings.upload_dir)
+    local_path = os.path.realpath(os.path.join(upload_root, filename))
+    if os.path.commonpath((upload_root, local_path)) != upload_root:
+        raise ValueError("Caminho de arquivo invalido.")
+    if not os.path.isfile(local_path):
+        raise FileNotFoundError(f"Arquivo local nao encontrado: {filename}")
 
-    ext = os.path.splitext(parsed.path)[1] or ".pdf"
-    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
-    tmp.write(r.content)
-    tmp.close()
-    return tmp.name
+    descriptor, temporary_path = tempfile.mkstemp(suffix=".pdf")
+    os.close(descriptor)
+    shutil.copyfile(local_path, temporary_path)
+    return temporary_path
 
 
 def _record_limit_event(db: Session, user_email: str, exc: HTTPException, source: str) -> None:
@@ -138,6 +130,9 @@ async def analisar_documento(
 
     try:
         filepath = _file_url_to_path(body.file_url)
+    except ValueError as exc:
+        refund_ai_usage(reservation, db)
+        raise HTTPException(status_code=400, detail=str(exc))
     except FileNotFoundError as exc:
         refund_ai_usage(reservation, db)
         record_system_event(
@@ -180,8 +175,8 @@ async def analisar_documento(
     finally:
         try:
             os.unlink(filepath)
-        except Exception:
-            pass
+        except FileNotFoundError:
+            logger.debug("Arquivo temporario ja removido: %s", filepath)
 
     try:
         servico = _resolve_servico(request)

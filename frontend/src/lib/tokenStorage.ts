@@ -2,21 +2,22 @@ const TOKEN_KEY = 'cognora_token'
 const REMEMBER_KEY = 'cognora_remember'
 
 export function getToken(): string | null {
-  return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY)
+  return getStoredValue('session', TOKEN_KEY) || getStoredValue('local', TOKEN_KEY)
 }
 
 export function setToken(token: string, remember: boolean): void {
   removeToken()
   if (remember) {
-    localStorage.setItem(TOKEN_KEY, token)
-    localStorage.setItem(REMEMBER_KEY, '1')
+    setStoredValue('local', TOKEN_KEY, token)
+    setStoredValue('local', REMEMBER_KEY, '1')
   } else {
-    sessionStorage.setItem(TOKEN_KEY, token)
+    setStoredValue('session', TOKEN_KEY, token)
   }
 }
 
 export function removeToken(): void {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(REMEMBER_KEY)
-  sessionStorage.removeItem(TOKEN_KEY)
+  removeStoredValue('local', TOKEN_KEY)
+  removeStoredValue('local', REMEMBER_KEY)
+  removeStoredValue('session', TOKEN_KEY)
 }
+import { getStoredValue, removeStoredValue, setStoredValue } from '@/lib/safeStorage'

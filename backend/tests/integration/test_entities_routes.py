@@ -288,7 +288,7 @@ class TestCompetitions:
             "/api/competitions",
             json={
                 "title": "Concurso Teste",
-                "mode": "solo",
+                "mode": "duel",
                 "host_email": "host@test.com",
                 "invite_code": uuid.uuid4().hex[:8],
             },
@@ -296,6 +296,47 @@ class TestCompetitions:
         )
         assert response.status_code == 201
         assert response.json()["title"] == "Concurso Teste"
+
+    def test_persiste_campos_de_configuracao_e_resultado(self, client, auth_headers):
+        subject = client.post(
+            "/api/subjects",
+            json={"name": "Matéria da competição"},
+            headers=auth_headers,
+        ).json()
+        question_id = str(uuid.uuid4())
+        response = client.post(
+            "/api/competitions",
+            json={
+                "title": "Liga persistida",
+                "mode": "weekly_league",
+                "subject_id": subject["id"],
+                "question_ids": [question_id],
+                "week_start": "2026-08-17",
+                "week_end": "2026-08-23",
+                "invite_code": uuid.uuid4().hex[:8],
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 201
+        created = response.json()
+        assert created["subject_id"] == subject["id"]
+        assert created["question_ids"] == [question_id]
+        assert created["week_start"] == "2026-08-17"
+
+        update = client.put(
+            f"/api/competitions/{created['id']}",
+            json={
+                "status": "finished",
+                "winner_email": "winner@example.com",
+                "finished_at": "2026-08-21 12:30",
+            },
+            headers=auth_headers,
+        )
+
+        assert update.status_code == 200
+        assert update.json()["winner_email"] == "winner@example.com"
+        assert update.json()["finished_at"].startswith("2026-08-21T12:30")
 
     def test_bloqueia_segunda_competicao_ativa_no_free(self, client, auth_headers):
         client.post(

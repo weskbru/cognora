@@ -61,6 +61,12 @@ def _run_migrations():
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR",
         "ALTER TABLE subjects ADD COLUMN IF NOT EXISTS owner_email VARCHAR",
         "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS questions_data JSONB DEFAULT '[]'",
+        "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL",
+        "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS question_ids JSONB DEFAULT '[]'",
+        "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS winner_email VARCHAR",
+        "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS finished_at TIMESTAMP",
+        "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS week_start DATE",
+        "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS week_end DATE",
         """CREATE TABLE IF NOT EXISTS pix_payment_requests (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

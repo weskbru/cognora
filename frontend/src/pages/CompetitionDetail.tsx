@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
@@ -15,14 +15,19 @@ import WeeklyLeagueMode from '@/components/competitions/modes/WeeklyLeagueMode';
 import CompetitionResults from '@/components/competitions/CompetitionResults';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
+import { getErrorMessage } from '@/lib/apiError';
+import type { LucideIcon } from 'lucide-react';
+import type { Competition, CompetitionMode, CompetitionParticipant, User } from '@/types/entities';
 
-const MODE_CONFIG = {
+interface ModeConfig { label: string; icon: LucideIcon; color: string; }
+
+const MODE_CONFIG: Record<CompetitionMode, ModeConfig> = {
   duel: { label: 'Duelo Rápido', icon: Swords, color: 'bg-red-100 text-red-700' },
   time_attack: { label: 'Contra o Tempo', icon: Timer, color: 'bg-blue-100 text-blue-700' },
   weekly_league: { label: 'Liga Semanal', icon: Trophy, color: 'bg-amber-100 text-amber-700' },
 };
 
-const BOT = {
+const BOT: CompetitionParticipant = {
   email: 'bot@studyai.app',
   display_name: '🤖 Bot',
   status: 'joined',
@@ -30,7 +35,7 @@ const BOT = {
 };
 
 export default function CompetitionDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [playing, setPlaying] = useState(false);
@@ -45,6 +50,7 @@ export default function CompetitionDetail() {
       return results[0] || null;
     },
     refetchInterval: playing ? false : 5000,
+    enabled: Boolean(id),
   });
 
   if (isLoading) return (
@@ -81,52 +87,72 @@ export default function CompetitionDetail() {
   const participantCount = competition.participants?.length || 0;
   const needsMorePlayers = isDuel && participantCount < 2 && competition.status === 'waiting';
 
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(competition.invite_code);
-    toast({ title: 'Código copiado!', description: `Compartilhe o código: ${competition.invite_code}` });
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(competition.invite_code || '');
+      toast({ title: 'Código copiado!', description: `Compartilhe o código: ${competition.invite_code}` });
+    } catch (error) {
+      toast({ title: 'Não foi possível copiar o código', description: getErrorMessage(error), variant: 'destructive' });
+    }
   };
 
   const handleStartCompetition = async () => {
-    const filter = competition.subject_id ? { subject_id: competition.subject_id } : {};
-    let qs = await base44.entities.Question.filter(filter, '-created_date', 100);
-    qs = qs.sort(() => Math.random() - 0.5).slice(0, competition.question_count || 5);
-    await base44.entities.Competition.update(id, { status: 'active', questions_data: qs });
-    queryClient.invalidateQueries({ queryKey: ['competition', id] });
+    if (!id) return;
+    try {
+      const filter = competition.subject_id ? { subject_id: competition.subject_id } : {};
+      let qs = await base44.entities.Question.filter(filter, '-created_date', 100);
+      qs = qs.sort(() => Math.random() - 0.5).slice(0, competition.question_count || 5);
+      await base44.entities.Competition.update(id, { status: 'active', questions_data: qs });
+      await queryClient.invalidateQueries({ queryKey: ['competition', id] });
+    } catch (error) {
+      toast({ title: 'Não foi possível iniciar a competição', description: getErrorMessage(error), variant: 'destructive' });
+    }
   };
 
   const handleAddBot = async () => {
+    if (!id) return;
     setAddingBot(true);
-    const updatedParticipants = [...(competition.participants || []), BOT];
-    await base44.entities.Competition.update(id, { participants: updatedParticipants });
-    queryClient.invalidateQueries({ queryKey: ['competition', id] });
-    setAddingBot(false);
+    try {
+      const updatedParticipants = [...(competition.participants || []), BOT];
+      await base44.entities.Competition.update(id, { participants: updatedParticipants });
+      await queryClient.invalidateQueries({ queryKey: ['competition', id] });
+    } catch (error) {
+      toast({ title: 'Não foi possível adicionar o bot', description: getErrorMessage(error), variant: 'destructive' });
+    } finally {
+      setAddingBot(false);
+    }
   };
 
   // When game ends, also simulate bot result if bot is present
   const handleFinish = async () => {
     setPlaying(false);
-    // Simulate bot finishing if it hasn't yet
-    const latest = await base44.entities.Competition.filter({ id });
-    const comp = latest[0];
-    if (comp && comp.participants?.some(p => p.email === BOT.email && p.status !== 'finished')) {
-      const qCount = comp.question_count || 5;
-      const botCorrect = Math.floor(Math.random() * (qCount + 1));
-      const botWrong = qCount - botCorrect;
-      const botScore = Math.max(0, botCorrect * 100 - botWrong * 10);
-      const botTime = Math.floor(Math.random() * 120) + 30;
-      const updatedParticipants = comp.participants.map(p =>
-        p.email === BOT.email
-          ? { ...p, status: 'finished', correct: botCorrect, wrong: botWrong, score: botScore, time_spent_seconds: botTime, finished_at: format(new Date(), 'yyyy-MM-dd HH:mm') }
-          : p
-      );
-      const allFinished = updatedParticipants.every(p => p.status === 'finished');
-      const winner = allFinished ? [...updatedParticipants].sort((a, b) => b.score - a.score)[0]?.email : undefined;
-      await base44.entities.Competition.update(id, {
-        participants: updatedParticipants,
-        ...(allFinished ? { status: 'finished', winner_email: winner, finished_at: format(new Date(), 'yyyy-MM-dd HH:mm') } : {}),
-      });
+    if (!id) return;
+    try {
+      const latest = await base44.entities.Competition.filter({ id });
+      const comp = latest[0];
+      if (comp && comp.participants?.some(p => p.email === BOT.email && p.status !== 'finished')) {
+        const qCount = comp.question_count || 5;
+        const botCorrect = Math.floor(Math.random() * (qCount + 1));
+        const botWrong = qCount - botCorrect;
+        const botScore = Math.max(0, botCorrect * 100 - botWrong * 10);
+        const botTime = Math.floor(Math.random() * 120) + 30;
+        const updatedParticipants = comp.participants.map(p =>
+          p.email === BOT.email
+            ? { ...p, status: 'finished', correct: botCorrect, wrong: botWrong, score: botScore, time_spent_seconds: botTime, finished_at: format(new Date(), 'yyyy-MM-dd HH:mm') }
+            : p
+        );
+        const allFinished = updatedParticipants.every(p => p.status === 'finished');
+        const winner = allFinished ? [...updatedParticipants].sort((a, b) => b.score - a.score)[0]?.email : undefined;
+        await base44.entities.Competition.update(id, {
+          participants: updatedParticipants,
+          ...(allFinished ? { status: 'finished', winner_email: winner, finished_at: format(new Date(), 'yyyy-MM-dd HH:mm') } : {}),
+        });
+      }
+    } catch (error) {
+      toast({ title: 'Não foi possível finalizar a competição', description: getErrorMessage(error), variant: 'destructive' });
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: ['competition', id] });
     }
-    queryClient.invalidateQueries({ queryKey: ['competition', id] });
   };
 
   // Render gameplay
@@ -255,7 +281,14 @@ export default function CompetitionDetail() {
   );
 }
 
-function InviteCodeGate({ competition, cfg, user, onJoined }) {
+interface InviteCodeGateProps {
+  competition: Competition;
+  cfg: ModeConfig;
+  user?: User;
+  onJoined: () => void | Promise<void>;
+}
+
+function InviteCodeGate({ competition, cfg, user, onJoined }: InviteCodeGateProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -277,18 +310,29 @@ function InviteCodeGate({ competition, cfg, user, onJoined }) {
       return;
     }
 
-    const updatedParticipants = [
-      ...(competition.participants || []),
-      {
-        email: user.email,
-        display_name: user.full_name || user.email.split('@')[0],
-        status: 'joined',
-        score: 0, correct: 0, wrong: 0, time_spent_seconds: 0,
-      },
-    ];
-    await base44.entities.Competition.update(competition.id, { participants: updatedParticipants });
-    onJoined();
-    setLoading(false);
+    if (!user) {
+      setError('Não foi possível identificar o usuário. Tente novamente.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const updatedParticipants: CompetitionParticipant[] = [
+        ...(competition.participants || []),
+        {
+          email: user.email,
+          display_name: user.full_name || user.email.split('@')[0],
+          status: 'joined',
+          score: 0, correct: 0, wrong: 0, time_spent_seconds: 0,
+        },
+      ];
+      await base44.entities.Competition.update(competition.id, { participants: updatedParticipants });
+      await onJoined();
+    } catch (joinError) {
+      setError(getErrorMessage(joinError, 'Não foi possível entrar na competição.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
