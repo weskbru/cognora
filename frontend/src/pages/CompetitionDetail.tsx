@@ -317,16 +317,7 @@ function InviteCodeGate({ competition, cfg, user, onJoined }: InviteCodeGateProp
     }
 
     try {
-      const updatedParticipants: CompetitionParticipant[] = [
-        ...(competition.participants || []),
-        {
-          email: user.email,
-          display_name: user.full_name || user.email.split('@')[0],
-          status: 'joined',
-          score: 0, correct: 0, wrong: 0, time_spent_seconds: 0,
-        },
-      ];
-      await base44.entities.Competition.update(competition.id, { participants: updatedParticipants });
+      await base44.competitions.join(competition.id, code.trim().toUpperCase());
       await onJoined();
     } catch (joinError) {
       setError(getErrorMessage(joinError, 'Não foi possível entrar na competição.'));

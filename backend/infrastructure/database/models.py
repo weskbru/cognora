@@ -40,7 +40,7 @@ class Document(Base):
     name = Column(String, nullable=False)
     file_url = Column(String)
     status = Column(String, default="pending")
-    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
     created_date = Column(DateTime, default=datetime.utcnow)
 
 
@@ -53,8 +53,9 @@ class Question(Base):
     alternatives = Column(JSON)   # [{text, correct}]
     correct_answer = Column(Text)
     explanation = Column(Text)
-    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    owner_email = Column(String, nullable=True, index=True)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True)
     created_date = Column(DateTime, default=datetime.utcnow)
 
 
@@ -62,7 +63,7 @@ class Summary(Base):
     __tablename__ = "summaries"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     content = Column(Text)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=True, index=True)
     created_date = Column(DateTime, default=datetime.utcnow)
 
 
@@ -72,8 +73,8 @@ class Competition(Base):
     title = Column(String, nullable=False)
     mode = Column(String)
     status = Column(String, default="waiting")
-    host_email = Column(String)
-    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
+    host_email = Column(String, index=True)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
     participants = Column(JSON, default=list)
     questions_data = Column(JSON, default=list)
     question_ids = Column(JSON, default=list)
@@ -92,8 +93,9 @@ class Flashcard(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     front = Column(Text, nullable=False)
     back = Column(Text, nullable=False)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=True)
-    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
+    owner_email = Column(String, nullable=True, index=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=True, index=True)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
     created_date = Column(DateTime, default=datetime.utcnow)
 
 

@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS questions (
     alternatives JSONB,
     correct_answer TEXT,
     explanation TEXT,
+    owner_email TEXT,
     subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL,
     document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
     created_date TIMESTAMPTZ DEFAULT NOW()
@@ -80,6 +81,7 @@ CREATE TABLE IF NOT EXISTS flashcards (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     front TEXT NOT NULL,
     back TEXT NOT NULL,
+    owner_email TEXT,
     document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
     subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL,
     created_date TIMESTAMPTZ DEFAULT NOW()
@@ -211,6 +213,8 @@ ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFA
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan_started_at TIMESTAMP;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP;
 ALTER TABLE subjects ADD COLUMN IF NOT EXISTS owner_email TEXT;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS owner_email TEXT;
+ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS owner_email TEXT;
 
 CREATE INDEX IF NOT EXISTS ix_users_username ON users (username);
 CREATE INDEX IF NOT EXISTS ix_users_google_id ON users (google_id);
@@ -228,3 +232,14 @@ CREATE INDEX IF NOT EXISTS ix_study_sessions_started_at ON study_sessions (start
 CREATE INDEX IF NOT EXISTS ix_subject_progress_user_email ON subject_progress (user_email);
 CREATE INDEX IF NOT EXISTS ix_subject_progress_subject_id ON subject_progress (subject_id);
 CREATE INDEX IF NOT EXISTS ix_subject_progress_next_review_at ON subject_progress (next_review_at);
+CREATE INDEX IF NOT EXISTS ix_subjects_owner_email ON subjects (owner_email);
+CREATE INDEX IF NOT EXISTS ix_documents_subject_id ON documents (subject_id);
+CREATE INDEX IF NOT EXISTS ix_questions_subject_id ON questions (subject_id);
+CREATE INDEX IF NOT EXISTS ix_questions_document_id ON questions (document_id);
+CREATE INDEX IF NOT EXISTS ix_questions_owner_email ON questions (owner_email);
+CREATE INDEX IF NOT EXISTS ix_summaries_document_id ON summaries (document_id);
+CREATE INDEX IF NOT EXISTS ix_flashcards_subject_id ON flashcards (subject_id);
+CREATE INDEX IF NOT EXISTS ix_flashcards_document_id ON flashcards (document_id);
+CREATE INDEX IF NOT EXISTS ix_flashcards_owner_email ON flashcards (owner_email);
+CREATE INDEX IF NOT EXISTS ix_competitions_host_email ON competitions (host_email);
+CREATE INDEX IF NOT EXISTS ix_competitions_subject_id ON competitions (subject_id);

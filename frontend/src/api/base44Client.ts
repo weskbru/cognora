@@ -93,6 +93,10 @@ export const base44 = {
       apiRequest<{ resumo: string; perguntas: unknown[]; flashcards: unknown[] }>('POST', '/api/nlp/analisar-documento', payload),
   } },
   limits: { getStatus: () => apiRequest<GenerationStatus>('GET', '/api/limits/status') },
+  competitions: {
+    join: (id: string, inviteCode: string) =>
+      apiRequest<Competition>('POST', `/api/competitions/${id}/join`, { invite_code: inviteCode }),
+  },
   subscriptions: {
     createCheckout: (plan: string) => apiRequest<{ checkout_url?: string }>('POST', '/api/subscriptions/checkout', { plan }),
     openPortal: () => apiRequest<{ portal_url?: string }>('POST', '/api/subscriptions/portal'),

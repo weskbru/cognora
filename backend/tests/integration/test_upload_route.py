@@ -165,7 +165,7 @@ class TestUploadRoute:
             raise RuntimeError("falha simulada")
 
         monkeypatch.setattr(
-            "domain.use_cases.limits.check_upload_size",
+            "domain.use_cases.limits.check_document_limit",
             raise_unexpected_error,
         )
 

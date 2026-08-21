@@ -37,13 +37,14 @@ export interface Question {
   alternatives?: QuestionAlternative[] | null;
   correct_answer?: string | null;
   explanation?: string | null;
+  owner_email?: string | null;
   subject_id?: EntityId | null;
   document_id?: EntityId | null;
   created_date?: string;
 }
 
 export interface Summary { id: EntityId; content?: string | null; document_id?: EntityId | null; created_date?: string; }
-export interface Flashcard { id: EntityId; front: string; back: string; subject_id?: EntityId | null; document_id?: EntityId | null; created_date?: string; }
+export interface Flashcard { id: EntityId; front: string; back: string; owner_email?: string | null; subject_id?: EntityId | null; document_id?: EntityId | null; created_date?: string; }
 
 export type CompetitionMode = 'duel' | 'time_attack' | 'weekly_league';
 export type CompetitionStatus = 'waiting' | 'active' | 'finished';
