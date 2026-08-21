@@ -71,4 +71,33 @@ describe('base44Client', () => {
       message: 'Selecione uma matéria.',
     });
   });
+
+  it('inicia geracao assincrona com resposta imediata do backend', async () => {
+    const job = {
+      id: 'job-1',
+      document_id: 'document-1',
+      operation: 'summary',
+      status: 'queued',
+      result: {},
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(job), {
+      status: 202,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(base44.aiGeneration.start({
+      document_id: 'document-1',
+      operation: 'summary',
+    })).resolves.toEqual(job);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/nlp/jobs'),
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ document_id: 'document-1', operation: 'summary' }),
+      }),
+    );
+  });
 });

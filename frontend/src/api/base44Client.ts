@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/apiError';
-import type { Competition, DashboardSnapshot, Document, Flashcard, GenerationStatus, Question, QuestionAttempt, StudySession, Subject, SubjectProgress, Summary, User, UserProgress } from '@/types/entities';
+import type { AIGenerationJob, AIGenerationOperation, Competition, DashboardSnapshot, Document, Flashcard, GenerationStatus, Question, QuestionAttempt, StudySession, Subject, SubjectProgress, Summary, User, UserProgress } from '@/types/entities';
 import { API_URL } from './apiUrl';
 
 type EntityFilters = Record<string, string | number | boolean | null | undefined>;
@@ -96,6 +96,15 @@ export const base44 = {
       apiRequest<{ resumo: string; perguntas: unknown[]; flashcards: unknown[] }>('POST', '/api/nlp/analisar-documento', payload),
   } },
   limits: { getStatus: () => apiRequest<GenerationStatus>('GET', '/api/limits/status') },
+  aiGeneration: {
+    start: (payload: {
+      document_id: string;
+      operation: AIGenerationOperation;
+      question_type?: string;
+      question_count?: number;
+    }) => apiRequest<AIGenerationJob>('POST', '/api/nlp/jobs', payload),
+    get: (jobId: string) => apiRequest<AIGenerationJob>('GET', `/api/nlp/jobs/${jobId}`),
+  },
   competitions: {
     join: (id: string, inviteCode: string) =>
       apiRequest<Competition>('POST', `/api/competitions/${id}/join`, { invite_code: inviteCode }),

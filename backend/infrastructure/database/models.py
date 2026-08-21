@@ -44,6 +44,24 @@ class Document(Base):
     created_date = Column(DateTime, default=datetime.utcnow)
 
 
+class AIGenerationJob(Base):
+    __tablename__ = "ai_generation_jobs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_email = Column(String, nullable=False, index=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    operation = Column(String, nullable=False, index=True)
+    status = Column(String, nullable=False, default="queued", index=True)
+    question_type = Column(String, nullable=False, default="multiple_choice")
+    question_count = Column(Integer, nullable=False, default=5)
+    result = Column(JSON, default=dict)
+    error_code = Column(String, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+
 class Question(Base):
     __tablename__ = "questions"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
