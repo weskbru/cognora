@@ -6,13 +6,14 @@ O ServicoAnaliseNLP é mockado para evitar chamadas reais à API externa.
 """
 import io
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from api.routes.nlp import _get_servico
-from infrastructure.database.models import Document, Flashcard, Question, Subject, Summary, UserProgress
+from infrastructure.ai.gemini_nlp_adapter import ResultadoGeminiNLP
+from infrastructure.database.models import AIGenerationJob, Document, Flashcard, Question, Subject, Summary, UserProgress
 from main import app
 
 # ── Resultado mockado retornado pelo serviço NLP ──────────────────────────
@@ -250,6 +251,170 @@ class TestAnalisarDocumento:
             headers=auth_headers,
         )
         assert response.status_code == 422
+
+
+class TestGeracaoDocumentoAssincrona:
+    def _documento_com_upload(self, client, auth_headers):
+        subject_response = client.post(
+            "/api/subjects",
+            json={"name": "Materia job de IA"},
+            headers=auth_headers,
+        )
+        upload_response = client.post(
+            "/api/upload",
+            files={"file": ("documento-job.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
+            data={"subject_id": subject_response.json()["id"]},
+            headers=auth_headers,
+        )
+        document_response = client.post(
+            "/api/documents",
+            json={
+                "name": "Documento job",
+                "subject_id": subject_response.json()["id"],
+                "file_url": upload_response.json()["file_url"],
+                "status": "pending",
+            },
+            headers=auth_headers,
+        )
+        assert document_response.status_code == 201
+        return document_response.json()
+
+    def _servico_resultado_real(self):
+        service = AsyncMock()
+        service.analisar.return_value = ResultadoGeminiNLP.model_validate(
+            _MOCK_RESULTADO.model_dump.return_value
+        )
+        return service
+
+    def test_job_retorna_202_e_persiste_resumo_no_backend(self, client, auth_headers, db, test_user):
+        from unittest.mock import patch
+
+        document = self._documento_com_upload(client, auth_headers)
+        service = self._servico_resultado_real()
+        app.dependency_overrides[_get_servico] = lambda: service
+        try:
+            with patch("api.routes.nlp.extrair_texto_pdf", return_value="Conteudo do PDF " * 20):
+                response = client.post(
+                    "/api/nlp/jobs",
+                    json={"document_id": document["id"], "operation": "summary"},
+                    headers=auth_headers,
+                )
+        finally:
+            app.dependency_overrides.pop(_get_servico, None)
+
+        assert response.status_code == 202
+        job_response = client.get(f"/api/nlp/jobs/{response.json()['id']}", headers=auth_headers)
+        assert job_response.status_code == 200
+        assert job_response.json()["status"] == "completed"
+        assert job_response.json()["result"]["created_count"] == 1
+
+        db.expire_all()
+        summary = db.query(Summary).filter(Summary.document_id == document["id"]).first()
+        progress = db.query(UserProgress).filter(UserProgress.user_email == test_user.email).first()
+        assert summary.content == "Resumo gerado pelo mock."
+        assert progress.summaries_used_month == 1
+
+    def test_falha_do_job_estorna_uso_e_expoe_mensagem_segura(self, client, auth_headers, db, test_user):
+        from unittest.mock import patch
+
+        document = self._documento_com_upload(client, auth_headers)
+        service = AsyncMock()
+        service.analisar.side_effect = RuntimeError("detalhe interno do provedor")
+        app.dependency_overrides[_get_servico] = lambda: service
+        try:
+            with patch("api.routes.nlp.extrair_texto_pdf", return_value="Conteudo do PDF " * 20):
+                response = client.post(
+                    "/api/nlp/jobs",
+                    json={"document_id": document["id"], "operation": "summary"},
+                    headers=auth_headers,
+                )
+        finally:
+            app.dependency_overrides.pop(_get_servico, None)
+
+        job_response = client.get(f"/api/nlp/jobs/{response.json()['id']}", headers=auth_headers)
+        assert job_response.json()["status"] == "failed"
+        assert job_response.json()["error_code"] == "AI_GENERATION_FAILED"
+        assert "detalhe interno" not in job_response.json()["error_message"]
+
+        db.expire_all()
+        progress = db.query(UserProgress).filter(UserProgress.user_email == test_user.email).first()
+        stored_document = db.query(Document).filter(Document.id == document["id"]).first()
+        assert progress.summaries_used_month == 0
+        assert stored_document.status == "error"
+
+    def test_plano_expirado_e_informado_e_usa_limites_free(self, client, auth_headers, db, test_user):
+        from unittest.mock import patch
+
+        document = self._documento_com_upload(client, auth_headers)
+        progress = db.query(UserProgress).filter(UserProgress.user_email == test_user.email).first()
+        progress.plan = "premium"
+        progress.subscription_status = "active"
+        progress.plan_expires_at = datetime.utcnow() - timedelta(minutes=1)
+        progress.usage_month = date.today().replace(day=1)
+        db.commit()
+        app.dependency_overrides[_get_servico] = self._servico_resultado_real
+        try:
+            with patch("api.routes.nlp.extrair_texto_pdf", return_value="Conteudo do PDF " * 20):
+                response = client.post(
+                    "/api/nlp/jobs",
+                    json={"document_id": document["id"], "operation": "summary"},
+                    headers=auth_headers,
+                )
+        finally:
+            app.dependency_overrides.pop(_get_servico, None)
+
+        assert response.status_code == 202
+        assert response.json()["plan"] == "free"
+        assert response.json()["subscription_status"] == "expired"
+
+    def test_repetir_requisicao_reutiliza_job_ativo_sem_consumir_novo_uso(self, client, auth_headers, db, test_user):
+        document = self._documento_com_upload(client, auth_headers)
+        existing_job = AIGenerationJob(
+            user_email=test_user.email,
+            document_id=document["id"],
+            operation="summary",
+            status="queued",
+        )
+        db.add(existing_job)
+        db.commit()
+
+        response = client.post(
+            "/api/nlp/jobs",
+            json={"document_id": document["id"], "operation": "summary"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 202
+        assert response.json()["id"] == str(existing_job.id)
+        db.expire_all()
+        progress = db.query(UserProgress).filter(UserProgress.user_email == test_user.email).first()
+        assert progress.summaries_used_month == 0
+
+    def test_usuario_nao_consulta_job_de_outra_conta(self, client, auth_headers, db):
+        subject = Subject(name="Materia alheia", owner_email="outra-conta@example.com")
+        db.add(subject)
+        db.commit()
+        db.refresh(subject)
+        document = Document(name="Documento alheio", subject_id=subject.id)
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+        job = AIGenerationJob(
+            user_email="outra-conta@example.com",
+            document_id=document.id,
+            operation="summary",
+            status="queued",
+        )
+        db.add(job)
+        db.commit()
+
+        response = client.get(f"/api/nlp/jobs/{job.id}", headers=auth_headers)
+
+        assert response.status_code == 404
+
+
+class TestAnalisarDocumentoRestante:
+    _documento_do_usuario = TestAnalisarDocumento._documento_do_usuario
 
     def test_bloqueia_segundo_resumo_no_mesmo_pdf(self, client, auth_headers, db, test_user):
         document = self._documento_do_usuario(db, test_user.email)
