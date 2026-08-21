@@ -139,7 +139,6 @@ def _get_or_create_progress(email: str, db: Session, *, for_update: bool = False
         progress = UserProgress(user_email=email)
         db.add(progress)
         db.commit()
-        db.refresh(progress)
     return progress
 
 
@@ -151,7 +150,6 @@ def _ensure_monthly_reset(progress: UserProgress, db: Session) -> UserProgress:
         progress.flashcards_used_month = 0
         progress.usage_month = current_month
         db.commit()
-        db.refresh(progress)
     return progress
 
 
@@ -164,7 +162,6 @@ def sync_plan_expiration(progress: UserProgress, db: Session) -> UserProgress:
         progress.plan = PlanType.FREE.value
         progress.subscription_status = "expired"
         db.commit()
-        db.refresh(progress)
     return progress
 
 
@@ -172,6 +169,11 @@ def _progress_for_limits(email: str, db: Session, *, for_update: bool = False) -
     progress = _get_or_create_progress(email, db, for_update=for_update)
     progress = sync_plan_expiration(progress, db)
     return _ensure_monthly_reset(progress, db)
+
+
+def _progress_for_plan_limits(email: str, db: Session) -> UserProgress:
+    """Carrega apenas o plano; limites estruturais não dependem do contador mensal."""
+    return sync_plan_expiration(_get_or_create_progress(email, db), db)
 
 
 def _document_for_user(document_id: str, email: str, db: Session) -> Document:
@@ -401,7 +403,7 @@ def apply_daily_bonus(email: str, db: Session) -> bool:
 
 
 def check_subject_limit(email: str, db: Session) -> None:
-    progress = _progress_for_limits(email, db)
+    progress = _progress_for_plan_limits(email, db)
     limit = get_plan_limits(progress.plan).maxSubjects
     count = db.query(Subject).filter(Subject.owner_email == email).count()
     if count >= limit:
@@ -413,11 +415,15 @@ def check_subject_limit(email: str, db: Session) -> None:
         )
 
 
-def check_document_limit(subject_id: str, email: str, db: Session) -> None:
-    progress = _progress_for_limits(email, db)
+def check_document_limit(subject_id: str, email: str, db: Session) -> PlanLimits:
+    progress = _progress_for_plan_limits(email, db)
     limits = get_plan_limits(progress.plan)
-    subject_ids = _user_subject_ids(email, db)
-    total_count = db.query(Document).filter(Document.subject_id.in_(subject_ids)).count() if subject_ids else 0
+    total_count = (
+        db.query(Document)
+        .join(Subject, Subject.id == Document.subject_id)
+        .filter(Subject.owner_email == email)
+        .count()
+    )
     if total_count >= limits.maxTotalPdfs:
         raise _limit_error(
             403,
@@ -434,12 +440,11 @@ def check_document_limit(subject_id: str, email: str, db: Session) -> None:
             "Você atingiu o limite de PDFs desta matéria.",
             limit=limits.maxPdfsPerSubject,
         )
+    return limits
 
 
 def check_upload_size(email: str, file_size_bytes: int, db: Session) -> None:
-    progress = _progress_for_limits(email, db)
-    limit_mb = get_plan_limits(progress.plan).maxUploadSizeMb
-    limit_bytes = limit_mb * 1024 * 1024
+    limit_bytes, limit_mb = get_upload_size_limit(email, db)
     if file_size_bytes > limit_bytes:
         raise _limit_error(
             413,
@@ -449,8 +454,14 @@ def check_upload_size(email: str, file_size_bytes: int, db: Session) -> None:
         )
 
 
+def get_upload_size_limit(email: str, db: Session) -> tuple[int, int]:
+    progress = _progress_for_plan_limits(email, db)
+    limit_mb = get_plan_limits(progress.plan).maxUploadSizeMb
+    return limit_mb * 1024 * 1024, limit_mb
+
+
 def check_competition_limit(email: str, db: Session) -> None:
-    progress = _progress_for_limits(email, db)
+    progress = _progress_for_plan_limits(email, db)
     limit = get_plan_limits(progress.plan).maxActiveCompetitions
     count = db.query(Competition).filter(
         Competition.host_email == email,

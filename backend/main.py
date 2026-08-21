@@ -1,15 +1,17 @@
 import os
 import logging
 import uuid
+from time import perf_counter
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from core.config.settings import settings
 from api.routes import admin, auth, entities, upload, nlp, limits, observability, subscriptions
-from infrastructure.database.connection import SessionLocal
+from infrastructure.database.connection import SessionLocal, engine
 from infrastructure.observability import (
     cleanup_old_system_events,
     record_system_event,
@@ -18,6 +20,8 @@ from infrastructure.observability import (
 )
 
 logger = logging.getLogger(__name__)
+MAX_JSON_REQUEST_BYTES = 2 * 1024 * 1024
+MAX_UPLOAD_REQUEST_BYTES = 55 * 1024 * 1024
 
 
 def _run_migrations():
@@ -60,6 +64,8 @@ def _run_migrations():
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR UNIQUE",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR",
         "ALTER TABLE subjects ADD COLUMN IF NOT EXISTS owner_email VARCHAR",
+        "ALTER TABLE questions ADD COLUMN IF NOT EXISTS owner_email VARCHAR",
+        "ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS owner_email VARCHAR",
         "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS questions_data JSONB DEFAULT '[]'",
         "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL",
         "ALTER TABLE competitions ADD COLUMN IF NOT EXISTS question_ids JSONB DEFAULT '[]'",
@@ -158,6 +164,17 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_subject_progress_user_email ON subject_progress (user_email)",
         "CREATE INDEX IF NOT EXISTS ix_subject_progress_subject_id ON subject_progress (subject_id)",
         "CREATE INDEX IF NOT EXISTS ix_subject_progress_next_review_at ON subject_progress (next_review_at)",
+        "CREATE INDEX IF NOT EXISTS ix_subjects_owner_email ON subjects (owner_email)",
+        "CREATE INDEX IF NOT EXISTS ix_documents_subject_id ON documents (subject_id)",
+        "CREATE INDEX IF NOT EXISTS ix_questions_subject_id ON questions (subject_id)",
+        "CREATE INDEX IF NOT EXISTS ix_questions_document_id ON questions (document_id)",
+        "CREATE INDEX IF NOT EXISTS ix_questions_owner_email ON questions (owner_email)",
+        "CREATE INDEX IF NOT EXISTS ix_summaries_document_id ON summaries (document_id)",
+        "CREATE INDEX IF NOT EXISTS ix_flashcards_subject_id ON flashcards (subject_id)",
+        "CREATE INDEX IF NOT EXISTS ix_flashcards_document_id ON flashcards (document_id)",
+        "CREATE INDEX IF NOT EXISTS ix_flashcards_owner_email ON flashcards (owner_email)",
+        "CREATE INDEX IF NOT EXISTS ix_competitions_host_email ON competitions (host_email)",
+        "CREATE INDEX IF NOT EXISTS ix_competitions_subject_id ON competitions (subject_id)",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -172,17 +189,19 @@ def _run_migrations():
 async def lifespan(app: FastAPI):
     try:
         _run_migrations()
-        db = SessionLocal()
-        try:
-            cleanup_old_system_events(db)
-        finally:
-            db.close()
+        if engine.dialect.name != "sqlite":
+            db = SessionLocal()
+            try:
+                cleanup_old_system_events(db)
+            finally:
+                db.close()
     except Exception:
         logger.exception("Falha ao executar migrações de startup")
     yield
 
 
 api = FastAPI(title="Cognora API", lifespan=lifespan)
+api.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
 
 
 def _request_id_from_headers(request: Request) -> str:
@@ -197,9 +216,20 @@ def _request_id_from_headers(request: Request) -> str:
 @api.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     request_id = _request_id_from_headers(request)
+    started_at = perf_counter()
     token = set_current_request_id(request_id)
     try:
-        response = await call_next(request)
+        content_length = request.headers.get("content-length")
+        request_limit = MAX_UPLOAD_REQUEST_BYTES if request.url.path == "/api/upload" else MAX_JSON_REQUEST_BYTES
+        if content_length and int(content_length) > request_limit:
+            response = JSONResponse(
+                status_code=413,
+                content={"detail": {"code": "REQUEST_TOO_LARGE", "message": "Requisição muito grande."}},
+            )
+        else:
+            response = await call_next(request)
+    except ValueError:
+        response = JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
     except Exception as exc:
         db = SessionLocal()
         try:
@@ -221,6 +251,20 @@ async def request_id_middleware(request: Request, call_next):
     finally:
         reset_current_request_id(token)
     response.headers["X-Request-ID"] = request_id
+    duration_ms = (perf_counter() - started_at) * 1000
+    response.headers["Server-Timing"] = f"app;dur={duration_ms:.2f}"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if duration_ms >= settings.slow_request_ms:
+        logger.warning(
+            "Requisição lenta: method=%s path=%s status=%s duration_ms=%.2f request_id=%s",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+            request_id,
+        )
     return response
 
 
