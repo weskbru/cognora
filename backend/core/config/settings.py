@@ -53,6 +53,7 @@ class Settings:
     observability_alert_error_threshold: int = int(os.getenv("OBSERVABILITY_ALERT_ERROR_THRESHOLD", "5"))
     observability_alert_window_minutes: int = int(os.getenv("OBSERVABILITY_ALERT_WINDOW_MINUTES", "10"))
     observability_alert_cooldown_minutes: int = int(os.getenv("OBSERVABILITY_ALERT_COOLDOWN_MINUTES", "60"))
+    slow_request_ms: int = int(os.getenv("SLOW_REQUEST_MS", "500"))
     # ALLOWED_ORIGINS: lista separada por vírgula, ex: "https://app.com,https://www.app.com"
     # Em desenvolvimento, deixe vazio ou use "*" (qualquer origem)
     allowed_origins: list[str] = [

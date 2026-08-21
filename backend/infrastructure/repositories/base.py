@@ -41,11 +41,10 @@ class BaseRepository:
         row = self.model(**{k: v for k, v in data.items() if k in valid})
         self.db.add(row)
         self.db.commit()
-        self.db.refresh(row)
         return row
 
-    def update(self, item_id: str, data: dict):
-        row = self.get_by_id(item_id)
+    def update(self, item_id: str, data: dict, *, row=None):
+        row = row or self.get_by_id(item_id)
         if not row:
             return None
         valid = {c.name for c in self.model.__table__.columns} - {"id", "created_date", "created_at"}
@@ -53,11 +52,10 @@ class BaseRepository:
             if key in valid:
                 setattr(row, key, value)
         self.db.commit()
-        self.db.refresh(row)
         return row
 
-    def delete(self, item_id: str) -> bool:
-        row = self.get_by_id(item_id)
+    def delete(self, item_id: str, *, row=None) -> bool:
+        row = row or self.get_by_id(item_id)
         if not row:
             return False
         self.db.delete(row)

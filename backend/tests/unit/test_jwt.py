@@ -5,7 +5,7 @@ Cobre: create_token, decode_token
 from datetime import datetime, timedelta
 
 import pytest
-from jose import jwt
+import jwt
 
 from core.config.settings import settings
 from core.security.jwt import create_token, decode_token

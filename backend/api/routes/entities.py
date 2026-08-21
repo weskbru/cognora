@@ -5,6 +5,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import uuid
+import hmac
 from core.config.settings import settings
 from infrastructure.database.connection import get_db
 from infrastructure.database.models import Subject, Document, Question, Summary, Competition, UserProgress, Flashcard, QuestionAttempt, StudySession, SubjectProgress
@@ -275,6 +276,95 @@ def _repo(entity: str, db: Session) -> BaseRepository:
     return BaseRepository(model, db)
 
 
+def _owned_entity_query(entity: str, db: Session, user_email: str):
+    """Retorna uma consulta já limitada aos dados privados do usuário."""
+    model = ENTITY_MAP[entity]
+    query = db.query(model)
+    owned_subject_ids = db.query(Subject.id).filter(Subject.owner_email == user_email)
+    owned_document_ids = db.query(Document.id).filter(Document.subject_id.in_(owned_subject_ids))
+
+    if entity == "subjects":
+        return query.filter(Subject.owner_email == user_email)
+    if entity == "documents":
+        return query.filter(Document.subject_id.in_(owned_subject_ids))
+    if entity in ("questions", "flashcards"):
+        return query.filter(
+            or_(
+                model.owner_email == user_email,
+                model.subject_id.in_(owned_subject_ids),
+                model.document_id.in_(owned_document_ids),
+            )
+        )
+    if entity == "summaries":
+        return query.filter(Summary.document_id.in_(owned_document_ids))
+    if entity in ("question_attempts", "study_sessions", "subject_progress"):
+        return query.filter(model.user_email == user_email)
+    if entity == "user_progress":
+        return query.filter(UserProgress.user_email == user_email)
+    return query
+
+
+def _apply_query_options(query, model, filters: dict, sort: str | None, limit: int | None):
+    for field, value in filters.items():
+        if hasattr(model, field):
+            query = query.filter(getattr(model, field) == value)
+    if sort and hasattr(model, sort.lstrip("-")):
+        column = getattr(model, sort.lstrip("-"))
+        query = query.order_by(desc(column) if sort.startswith("-") else asc(column))
+    if limit:
+        query = query.limit(limit)
+    return query
+
+
+def _authorized_row(entity: str, item_id: str, db: Session, current_user: User):
+    if entity not in ENTITY_MAP:
+        _repo(entity, db)
+    if is_admin_user(current_user) or entity == "competitions":
+        return _repo(entity, db).get_by_id(item_id)
+    if entity in ("user_progress", "study_sessions", "subject_progress"):
+        row = _repo(entity, db).get_by_id(item_id)
+        if row and row.user_email != current_user.email:
+            raise HTTPException(status_code=403, detail="Acesso negado.")
+        return row
+    return _owned_entity_query(entity, db, current_user.email).filter(ENTITY_MAP[entity].id == item_id).first()
+
+
+def _public_progress_dict(progress: UserProgress) -> dict:
+    return {
+        "id": str(progress.id),
+        "user_email": progress.user_email,
+        "xp": progress.xp or 0,
+        "level": progress.level or 1,
+        "streak_days": progress.streak_days or 0,
+        "display_name": progress.display_name,
+        "avatar_emoji": progress.avatar_emoji,
+        "avatar_url": progress.avatar_url,
+    }
+
+
+def _validate_parent_ownership(entity: str, data: dict, db: Session, user_email: str) -> None:
+    if entity not in ("documents", "questions", "summaries", "flashcards"):
+        return
+    subject_id = data.get("subject_id")
+    document_id = data.get("document_id")
+    if subject_id:
+        subject_exists = db.query(Subject.id).filter(
+            Subject.id == subject_id,
+            Subject.owner_email == user_email,
+        ).first()
+        if not subject_exists:
+            raise HTTPException(status_code=404, detail="Subject not found")
+    if document_id:
+        document_exists = (
+            db.query(Document.id)
+            .join(Subject, Subject.id == Document.subject_id)
+            .filter(Document.id == document_id, Subject.owner_email == user_email)
+            .first()
+        )
+        if not document_exists:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+
 @router.get("/leaderboard/public")
 def public_leaderboard(
     limit: int = Query(2, ge=1, le=10),
@@ -324,54 +414,22 @@ def list_entities(
         "difficulty": difficulty, "type": type, "invite_code": invite_code,
     }.items() if v is not None}
     if entity == "subjects":
-        filters.setdefault("owner_email", current_user.email)
-    elif entity == "question_attempts":
-        filters.setdefault("user_email", current_user.email)
-    elif entity == "study_sessions":
+        filters["owner_email"] = current_user.email
+    elif entity in ("question_attempts", "study_sessions", "subject_progress"):
         filters["user_email"] = current_user.email
-    elif entity == "subject_progress":
-        filters["user_email"] = current_user.email
-    elif entity == "summaries" and "document_id" not in filters:
-        user_subject_ids = [
-            str(s.id)
-            for s in db.query(Subject).filter(Subject.owner_email == current_user.email).all()
-        ]
-        if not user_subject_ids:
-            return []
-        user_doc_ids = [
-            str(d.id)
-            for d in db.query(Document).filter(Document.subject_id.in_(user_subject_ids)).all()
-        ]
-        if not user_doc_ids:
-            return []
-        query = db.query(Summary).filter(Summary.document_id.in_(user_doc_ids))
-        for field, value in filters.items():
-            if hasattr(Summary, field):
-                query = query.filter(getattr(Summary, field) == value)
-        if sort and hasattr(Summary, sort.lstrip("-")):
-            col = getattr(Summary, sort.lstrip("-"))
-            query = query.order_by(desc(col) if sort.startswith("-") else asc(col))
-        if limit:
-            query = query.limit(limit)
-        return [row_to_dict(r) for r in query.all()]
-    elif entity in ("documents", "questions", "flashcards") and "subject_id" not in filters:
-        user_subject_ids = [
-            str(s.id)
-            for s in db.query(Subject).filter(Subject.owner_email == current_user.email).all()
-        ]
-        if not user_subject_ids:
-            return []
+    if entity == "user_progress":
+        rows = repo.list(sort=sort, limit=limit, **filters)
+        return [_public_progress_dict(row) for row in rows]
+    if entity != "competitions":
         model = ENTITY_MAP[entity]
-        query = db.query(model).filter(model.subject_id.in_(user_subject_ids))
-        for field, value in filters.items():
-            if hasattr(model, field):
-                query = query.filter(getattr(model, field) == value)
-        if sort and hasattr(model, sort.lstrip("-")):
-            col = getattr(model, sort.lstrip("-"))
-            query = query.order_by(desc(col) if sort.startswith("-") else asc(col))
-        if limit:
-            query = query.limit(limit)
-        return [row_to_dict(r) for r in query.all()]
+        query = _apply_query_options(
+            _owned_entity_query(entity, db, current_user.email),
+            model,
+            filters,
+            sort,
+            limit,
+        )
+        return [row_to_dict(row) for row in query.all()]
     return [row_to_dict(r) for r in repo.list(sort=sort, limit=limit, **filters)]
 
 
@@ -395,17 +453,61 @@ def bulk_create_entities(
         check_pdf_generation_limit(current_user.email, db, document_id=document_id, action=action)
     if any(item.get("document_id") != document_id for item in items):
         raise HTTPException(status_code=400, detail="Todos os itens do lote devem pertencer ao mesmo documento.")
+    if not document_id:
+        validated_subject_ids = set()
+        for item in items:
+            subject_id = item.get("subject_id")
+            if subject_id and subject_id not in validated_subject_ids:
+                _validate_parent_ownership(entity, item, db, current_user.email)
+                validated_subject_ids.add(subject_id)
 
     model = ENTITY_MAP.get(entity)
     if not model:
         raise HTTPException(status_code=404, detail=f"Entity '{entity}' not found")
     valid = {c.name for c in model.__table__.columns} - {"id", "created_date", "created_at"}
-    rows = [model(**{key: value for key, value in item.items() if key in valid}) for item in items]
+    rows = [
+        model(**{
+            **{key: value for key, value in item.items() if key in valid},
+            "owner_email": current_user.email,
+        })
+        for item in items
+    ]
     db.add_all(rows)
     db.commit()
-    for row in rows:
-        db.refresh(row)
     return [row_to_dict(row) for row in rows]
+
+
+@router.post("/competitions/{item_id}/join")
+def join_competition(
+    item_id: str,
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    competition = db.query(Competition).filter(Competition.id == item_id).with_for_update().first()
+    if not competition:
+        raise HTTPException(status_code=404, detail="Not found")
+    supplied_code = str(data.get("invite_code") or "").strip().upper()
+    expected_code = str(competition.invite_code or "").strip().upper()
+    if not expected_code or not hmac.compare_digest(supplied_code, expected_code):
+        raise HTTPException(status_code=403, detail="Código de convite inválido.")
+    if competition.status == "finished":
+        raise HTTPException(status_code=409, detail="A competição já foi encerrada.")
+
+    participants = list(competition.participants or [])
+    if not any(item.get("email") == current_user.email for item in participants):
+        participants.append({
+            "email": current_user.email,
+            "display_name": current_user.username or current_user.email.split("@")[0],
+            "status": "joined",
+            "score": 0,
+            "correct": 0,
+            "wrong": 0,
+            "time_spent_seconds": 0,
+        })
+        competition.participants = participants
+        db.commit()
+    return row_to_dict(competition)
 
 
 @router.get("/{entity}/{item_id}")
@@ -415,15 +517,9 @@ def get_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    row = _repo(entity, db).get_by_id(item_id)
+    row = _authorized_row(entity, item_id, db, current_user)
     if not row:
         raise HTTPException(status_code=404, detail="Not found")
-    if entity == "user_progress" and row.user_email != current_user.email and not is_admin_user(current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado.")
-    if entity == "study_sessions" and row.user_email != current_user.email and not is_admin_user(current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado.")
-    if entity == "subject_progress" and row.user_email != current_user.email and not is_admin_user(current_user):
-        raise HTTPException(status_code=403, detail="Acesso negado.")
     return row_to_dict(row)
 
 
@@ -441,6 +537,7 @@ def create_entity(
         check_pdf_generation_limit,
         check_subject_limit,
     )
+    _validate_parent_ownership(entity, data, db, current_user.email)
     if entity == "subjects":
         check_subject_limit(current_user.email, db)
         data = {**data, "owner_email": current_user.email}
@@ -464,10 +561,12 @@ def create_entity(
             raise HTTPException(status_code=400, detail="Informe o documento do resumo.")
         check_pdf_generation_limit(current_user.email, db, document_id=document_id, action=AIUsageType.SUMMARY)
     elif entity == "questions":
+        data = {**data, "owner_email": current_user.email}
         document_id = data.get("document_id")
         if document_id:
             check_pdf_generation_limit(current_user.email, db, document_id=document_id, action=AIUsageType.QUESTIONS)
     elif entity == "flashcards":
+        data = {**data, "owner_email": current_user.email}
         document_id = data.get("document_id")
         if document_id:
             check_pdf_generation_limit(current_user.email, db, document_id=document_id, action=AIUsageType.FLASHCARDS)
@@ -490,12 +589,13 @@ def update_entity(
     current_user: User = Depends(get_current_user),
 ):
     should_update_subject_progress = False
+    row = _authorized_row(entity, item_id, db, current_user)
+    if not row:
+        raise HTTPException(status_code=404, detail="Not found")
+    if entity in ("subjects", "questions", "flashcards"):
+        data.pop("owner_email", None)
+    _validate_parent_ownership(entity, data, db, current_user.email)
     if entity in ("user_progress", "study_sessions", "subject_progress"):
-        row = _repo(entity, db).get_by_id(item_id)
-        if not row:
-            raise HTTPException(status_code=404, detail="Not found")
-        if row.user_email != current_user.email and not is_admin_user(current_user):
-            raise HTTPException(status_code=403, detail="Acesso negado.")
         if entity == "user_progress":
             data = _strip_user_progress_protected_fields(data)
         elif entity == "study_sessions":
@@ -504,11 +604,13 @@ def update_entity(
         elif entity == "subject_progress":
             data = _normalize_subject_progress_data(data)
     elif entity == "competitions":
+        participants = row.participants or []
+        is_member = any(item.get("email") == current_user.email for item in participants)
+        if row.host_email != current_user.email and not is_member and not is_admin_user(current_user):
+            raise HTTPException(status_code=403, detail="Entre na competição antes de alterá-la.")
         data.pop("host_email", None)
         data = _normalize_competition_data(data)
-    row = _repo(entity, db).update(item_id, data)
-    if not row:
-        raise HTTPException(status_code=404, detail="Not found")
+    row = _repo(entity, db).update(item_id, data, row=row)
     if entity == "study_sessions" and should_update_subject_progress:
         _update_subject_progress_for_completed_session(db, row)
         _update_user_progress_for_completed_session(db, row)
@@ -523,11 +625,13 @@ def delete_entity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if entity in ("user_progress", "study_sessions", "subject_progress"):
-        row = _repo(entity, db).get_by_id(item_id)
-        if not row:
-            raise HTTPException(status_code=404, detail="Not found")
-        if row.user_email != current_user.email and not is_admin_user(current_user):
-            raise HTTPException(status_code=403, detail="Acesso negado.")
-    if not _repo(entity, db).delete(item_id):
+    row = _authorized_row(entity, item_id, db, current_user)
+    if not row:
         raise HTTPException(status_code=404, detail="Not found")
+    if (
+        entity == "competitions"
+        and row.host_email != current_user.email
+        and not is_admin_user(current_user)
+    ):
+        raise HTTPException(status_code=403, detail="Apenas o criador pode excluir a competição.")
+    _repo(entity, db).delete(item_id, row=row)

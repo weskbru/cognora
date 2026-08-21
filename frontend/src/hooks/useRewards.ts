@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
 import type { UserProgress } from '@/types/entities';
 import type { ProfileUpdate, RewardNotification, RewardPopupState, RewardsContextValue } from '@/types/rewards';
+import { useAuth } from '@/lib/AuthContext';
 
 export const XP_REWARDS = {
   CORRECT_ANSWER: 10,
@@ -49,6 +50,7 @@ export function useRewards(): RewardsContextValue {
   const [loading, setLoading] = useState(true);
   const progressRef = useRef<UserProgress | null>(null);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const pushNotification = useCallback((xp: number, reason: string, levelUp = false, newLevel: number | null = null) => {
     const notif = { id: Date.now(), xp, reason, levelUp, newLevel, date: new Date().toISOString() };
@@ -57,8 +59,11 @@ export function useRewards(): RewardsContextValue {
   }, []);
 
   const loadProgress = useCallback(async () => {
+    if (!user?.email) {
+      setLoading(false);
+      return;
+    }
     try {
-      const user = await base44.auth.me();
       const records = await base44.entities.UserProgress.filter({ user_email: user.email });
 
       if (records.length === 0) {
@@ -85,7 +90,7 @@ export function useRewards(): RewardsContextValue {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.email]);
 
   useEffect(() => { loadProgress(); }, [loadProgress]);
 

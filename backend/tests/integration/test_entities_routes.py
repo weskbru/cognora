@@ -9,7 +9,7 @@ import uuid
 import pytest
 from core.config.settings import settings
 from domain.use_cases.limits import FREE_DOCS_PER_SUBJECT, FREE_SUBJECT_LIMIT
-from infrastructure.database.models import Document, StudySession, Subject, SubjectProgress, User, UserProgress
+from infrastructure.database.models import Competition, Document, StudySession, Subject, SubjectProgress, User, UserProgress
 
 
 class TestPublicLeaderboard:
@@ -40,6 +40,29 @@ class TestPublicLeaderboard:
 
 
 class TestSubjects:
+    def test_isola_materias_de_outro_usuario(self, client, auth_headers, db):
+        other_subject = Subject(name="Privada", owner_email="other@cognora.com")
+        db.add(other_subject)
+        db.commit()
+        db.refresh(other_subject)
+
+        list_response = client.get(
+            "/api/subjects?owner_email=other@cognora.com",
+            headers=auth_headers,
+        )
+        get_response = client.get(f"/api/subjects/{other_subject.id}", headers=auth_headers)
+        update_response = client.put(
+            f"/api/subjects/{other_subject.id}",
+            json={"name": "Invadida"},
+            headers=auth_headers,
+        )
+        delete_response = client.delete(f"/api/subjects/{other_subject.id}", headers=auth_headers)
+
+        assert list_response.json() == []
+        assert get_response.status_code == 404
+        assert update_response.status_code == 404
+        assert delete_response.status_code == 404
+
     def test_criar_subject_retorna_201(self, client, auth_headers):
         response = client.post(
             "/api/subjects",
@@ -164,6 +187,22 @@ class TestDocuments:
         )
         return resp.json()["id"]
 
+    def test_nao_lista_documentos_de_materia_alheia(self, client, auth_headers, db):
+        subject = Subject(name="Alheia", owner_email="other@cognora.com")
+        db.add(subject)
+        db.flush()
+        document = Document(name="privado.pdf", subject_id=subject.id)
+        db.add(document)
+        db.commit()
+
+        response = client.get(
+            f"/api/documents?subject_id={subject.id}",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json() == []
+
     def test_criar_documento(self, client, auth_headers):
         subject_id = self._criar_subject(client, auth_headers)
         response = client.post(
@@ -283,6 +322,36 @@ class TestFlashcards:
 
 
 class TestCompetitions:
+    def test_entrada_valida_codigo_e_exclusao_exige_criador(self, client, auth_headers, db, test_user):
+        competition = Competition(
+            title="Privada",
+            mode="duel",
+            status="waiting",
+            host_email="host@cognora.com",
+            invite_code=uuid.uuid4().hex[:8].upper(),
+            participants=[],
+        )
+        db.add(competition)
+        db.commit()
+        db.refresh(competition)
+
+        invalid = client.post(
+            f"/api/competitions/{competition.id}/join",
+            json={"invite_code": "INVALID"},
+            headers=auth_headers,
+        )
+        joined = client.post(
+            f"/api/competitions/{competition.id}/join",
+            json={"invite_code": competition.invite_code},
+            headers=auth_headers,
+        )
+        deleted = client.delete(f"/api/competitions/{competition.id}", headers=auth_headers)
+
+        assert invalid.status_code == 403
+        assert joined.status_code == 200
+        assert any(item["email"] == test_user.email for item in joined.json()["participants"])
+        assert deleted.status_code == 403
+
     def test_criar_competition(self, client, auth_headers):
         response = client.post(
             "/api/competitions",

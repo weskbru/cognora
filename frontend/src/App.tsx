@@ -4,14 +4,16 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
-import Login from '@/pages/Login';
-import ResetPassword from '@/pages/ResetPassword';
-import Landing from '@/pages/Landing';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import AppLayout from '@/components/layout/AppLayout';
-import { RewardsProvider } from '@/context/RewardsContext';
 
 const Pricing = lazy(() => import('@/pages/Pricing'));
+const Landing = lazy(() => import('@/pages/Landing'));
+const Login = lazy(() => import('@/pages/Login'));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
+const AppLayout = lazy(() => import('@/components/layout/AppLayout'));
+const RewardsProvider = lazy(() =>
+  import('@/context/RewardsContext').then(module => ({ default: module.RewardsProvider }))
+);
 const AdminAudit = lazy(() => import('@/pages/AdminAudit'));
 const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
 const AdminObservability = lazy(() => import('@/pages/AdminObservability'));
@@ -49,8 +51,8 @@ const ProtectedRoutes = () => {
   }
 
   return (
-    <RewardsProvider>
-      <Suspense fallback={<LoadingScreen />}>
+    <Suspense fallback={<LoadingScreen />}>
+      <RewardsProvider>
         <Routes>
           <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
@@ -74,8 +76,8 @@ const ProtectedRoutes = () => {
           </Route>
           <Route path="*" element={<PageNotFound />} />
         </Routes>
-      </Suspense>
-    </RewardsProvider>
+      </RewardsProvider>
+    </Suspense>
   );
 };
 
@@ -83,13 +85,13 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Router>
           <Routes>
             {/* Sempre pública — landing page independente de auth */}
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={<Suspense fallback={<LoadingScreen />}><Landing /></Suspense>} />
             {/* Rotas publicas */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/login" element={<Suspense fallback={<LoadingScreen />}><Login /></Suspense>} />
+            <Route path="/reset-password" element={<Suspense fallback={<LoadingScreen />}><ResetPassword /></Suspense>} />
             {/* Rotas protegidas */}
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
