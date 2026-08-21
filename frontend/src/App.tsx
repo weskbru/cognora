@@ -27,6 +27,7 @@ import Competitions from '@/pages/Competitions';
 import CompetitionDetail from '@/pages/CompetitionDetail';
 import ErrorNotebook from '@/pages/ErrorNotebook';
 import { RewardsProvider } from '@/context/RewardsContext';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Rotas protegidas — redireciona nao autenticados para /login
 const ProtectedRoutes = () => {
@@ -89,6 +90,7 @@ function App() {
           </Routes>
         </Router>
         <Toaster />
+        <SpeedInsights />
       </QueryClientProvider>
     </AuthProvider>
   )
