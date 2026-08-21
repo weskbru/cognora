@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
@@ -66,6 +66,9 @@ export default function JoinCompetitionDialog({ open, onOpenChange, onJoined, in
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Entrar com Código</DialogTitle>
+          <DialogDescription className="sr-only">
+            Informe o código de convite para entrar em uma competição.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <p className="text-sm text-muted-foreground">Digite o código de convite compartilhado pelo criador da competição.</p>

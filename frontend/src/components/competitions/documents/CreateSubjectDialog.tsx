@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { Subject } from '@/types/entities';
@@ -84,6 +84,9 @@ export default function CreateSubjectDialog({ open, onOpenChange, onCreated }: C
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nova Matéria</DialogTitle>
+          <DialogDescription className="sr-only">
+            Informe o nome e, opcionalmente, uma descrição para criar a matéria.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleCreate} className="space-y-4 mt-2">
           <Input

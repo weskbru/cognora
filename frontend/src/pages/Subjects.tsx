@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import PageHeader from '@/components/shared/PageHeader';
@@ -166,6 +166,9 @@ export default function Subjects() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nova Matéria</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Informe o nome e, opcionalmente, uma descrição para criar a matéria.
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4 mt-2">
                 <Input
