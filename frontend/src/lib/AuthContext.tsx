@@ -1,9 +1,5 @@
 import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
-if (!API_URL) {
-  throw new Error('[Cognora] VITE_API_URL não configurada.');
-}
+import { API_URL } from '@/api/apiUrl';
 
 export interface AuthUser {
   id: string;

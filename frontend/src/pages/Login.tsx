@@ -8,8 +8,8 @@ import {
 // Loader2 é usado no botão de submit
 import { rememberGenerationLimitAfterLogin } from '@/lib/postLoginNotice';
 import { useAuth, type AuthUser } from '@/lib/AuthContext';
+import { API_URL } from '@/api/apiUrl';
 
-const API_URL = import.meta.env.VITE_API_URL as string;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
 type Mode = 'login' | 'register' | 'forgot';
@@ -247,6 +247,10 @@ export default function Login() {
       });
       const data = await res.json() as AuthResponse & { detail?: string };
       if (!res.ok) { setError(data.detail || 'Erro ao autenticar com Google'); return; }
+      if (!data.user) {
+        setError('O servidor ainda esta atualizando. Aguarde um instante e tente novamente.');
+        return;
+      }
       rememberGenerationLimitAfterLogin(data.generations_remaining);
       completeLogin(data.user);
       navigate(data.user.role === 'admin' ? '/admin' : '/dashboard', { replace: true });
@@ -346,6 +350,10 @@ export default function Login() {
       });
       const data = await res.json() as AuthResponse & { detail?: string };
       if (!res.ok) { setError(data.detail || 'Erro ao processar solicitação'); return; }
+      if (!data.user) {
+        setError('O servidor ainda esta atualizando. Aguarde um instante e tente novamente.');
+        return;
+      }
       rememberGenerationLimitAfterLogin(data.generations_remaining);
       completeLogin(data.user);
       navigate(data.user.role === 'admin' ? '/admin' : '/dashboard', { replace: true });
