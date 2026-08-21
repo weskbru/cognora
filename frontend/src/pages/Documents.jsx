@@ -12,6 +12,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import DeleteConfirmDialog from '@/components/shared/DeleteConfirmDialog';
 import UploadDialog from '@/components/documents/UploadDialog';
+import CreateSubjectDialog from '@/components/documents/CreateSubjectDialog';
 import { format } from 'date-fns';
 
 const statusMap = {
@@ -23,6 +24,8 @@ const statusMap = {
 
 export default function Documents() {
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [createSubjectOpen, setCreateSubjectOpen] = useState(false);
+  const [uploadSubjectId, setUploadSubjectId] = useState(undefined);
   const [search, setSearch] = useState('');
   const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, loading: false });
   const queryClient = useQueryClient();
@@ -32,10 +35,30 @@ export default function Documents() {
     queryFn: () => base44.entities.Document.list('-created_date'),
   });
 
-  const { data: subjects = [] } = useQuery({
+  const { data: subjects = [], isLoading: loadingSubjects } = useQuery({
     queryKey: ['subjects'],
     queryFn: () => base44.entities.Subject.list(),
   });
+
+  const openUpload = () => {
+    if (loadingSubjects) return;
+    if (subjects.length === 0) {
+      setCreateSubjectOpen(true);
+      return;
+    }
+    setUploadSubjectId(undefined);
+    setUploadOpen(true);
+  };
+
+  const handleSubjectCreated = (subject) => {
+    setUploadSubjectId(subject.id);
+    setUploadOpen(true);
+  };
+
+  const handleUploadOpenChange = (open) => {
+    setUploadOpen(open);
+    if (!open) setUploadSubjectId(undefined);
+  };
 
   const handleDelete = async (e, docId) => {
     e.preventDefault();
@@ -73,7 +96,7 @@ export default function Documents() {
   return (
     <div>
       <PageHeader title="Documentos" description="Todos os seus PDFs enviados">
-        <Button className="gap-2" onClick={() => setUploadOpen(true)}>
+        <Button className="gap-2" onClick={openUpload} disabled={loadingSubjects}>
           <Upload className="h-4 w-4" /> Enviar PDF
         </Button>
       </PageHeader>
@@ -94,9 +117,11 @@ export default function Documents() {
         <EmptyState
           icon={FileText}
           title="Nenhum documento"
-          description="Envie seu primeiro PDF para começar"
-          actionLabel="Enviar PDF"
-          onAction={() => setUploadOpen(true)}
+          description={subjects.length === 0
+            ? 'Para fazer seu primeiro upload, crie uma matéria. Assim seus PDFs ficam organizados no lugar certo.'
+            : 'Envie seu primeiro PDF para começar'}
+          actionLabel={subjects.length === 0 ? 'Criar matéria' : 'Enviar PDF'}
+          onAction={openUpload}
         />
       ) : filtered.length === 0 ? (
         <p className="text-center py-8 text-muted-foreground">Nenhum documento encontrado</p>
@@ -143,7 +168,18 @@ export default function Documents() {
         isLoading={deleteDialog.loading}
       />
 
-      <UploadDialog open={uploadOpen} onOpenChange={setUploadOpen} subjectId={undefined} />
+      <CreateSubjectDialog
+        open={createSubjectOpen}
+        onOpenChange={setCreateSubjectOpen}
+        onCreated={handleSubjectCreated}
+      />
+
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={handleUploadOpenChange}
+        subjectId={uploadSubjectId}
+        onCreateSubject={() => setCreateSubjectOpen(true)}
+      />
     </div>
   );
 }

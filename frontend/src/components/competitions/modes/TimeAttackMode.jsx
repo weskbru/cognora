@@ -116,6 +116,7 @@ export default function TimeAttackMode({ competition, user, onFinish }) {
           index={currentIndex}
           total={pool.length}
           onAnswer={handleAnswer}
+          timePerQuestion={30}
         />
       )}
 

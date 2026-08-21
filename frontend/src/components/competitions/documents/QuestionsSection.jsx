@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQueryClient } from '@tanstack/react-query';
-import { HelpCircle, Sparkles, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { HelpCircle, Sparkles, CheckCircle2 } from 'lucide-react';
 import AILoadingCard from '@/components/shared/AILoadingCard';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,11 @@ import QuestionCard from './QuestionCard';
 import EmptyState from '@/components/competitions/shared/EmptyState';
 import LimitReachedCard from '@/components/freemium/LimitReachedCard';
 
+
 export default function QuestionsSection({ document, questions, documentId, subjectId }) {
   const [generating, setGenerating] = useState(false);
   const [questionCount, setQuestionCount] = useState('5');
+  const [questionType, setQuestionType] = useState('multiple_choice');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [limitCode, setLimitCode] = useState(null);
   const queryClient = useQueryClient();
@@ -24,6 +26,10 @@ export default function QuestionsSection({ document, questions, documentId, subj
     try {
       const result = await base44.integrations.Core.AnalisarDocumento({
         file_url: document.file_url,
+        question_type: questionType,
+        document_id: documentId,
+        operation: 'questions',
+        question_count: Number(questionCount),
       });
 
       if (result.perguntas?.length > 0) {
@@ -45,7 +51,7 @@ export default function QuestionsSection({ document, questions, documentId, subj
       queryClient.invalidateQueries({ queryKey: ['limits-status'] });
     } catch (err) {
       if (err?.status === 429 || err?.status === 403) {
-        setLimitCode(err.message?.code || 'GENERATION_LIMIT_REACHED');
+        setLimitCode(err.code || 'AI_CREDITS_INSUFFICIENT');
       } else {
         console.error('Erro ao gerar questões:', err);
       }
@@ -62,7 +68,7 @@ export default function QuestionsSection({ document, questions, documentId, subj
     return (
       <AILoadingCard
         title="Gerando questões com IA..."
-        subtitle={`Criando ${questionCount} questões de múltipla escolha`}
+        subtitle={`Criando ${questionCount} questões de ${questionType === 'true_false' ? 'Verdadeiro/Falso' : 'Múltipla Escolha'}`}
       />
     );
   }
@@ -71,7 +77,16 @@ export default function QuestionsSection({ document, questions, documentId, subj
     <div className="space-y-6">
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-center gap-3 flex-1">
+        <div className="flex items-center gap-3 flex-1 flex-wrap">
+          <Select value={questionType} onValueChange={setQuestionType}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="multiple_choice">Múltipla Escolha</SelectItem>
+              <SelectItem value="true_false">Verdadeiro/Falso</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={questionCount} onValueChange={setQuestionCount}>
             <SelectTrigger className="w-32">
               <SelectValue />

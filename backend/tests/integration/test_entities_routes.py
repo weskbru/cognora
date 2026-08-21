@@ -7,6 +7,36 @@ Entidades testadas: subjects, documents, questions, flashcards,
 import uuid
 
 import pytest
+from core.config.settings import settings
+from domain.use_cases.limits import FREE_DOCS_PER_SUBJECT, FREE_SUBJECT_LIMIT
+from infrastructure.database.models import Document, StudySession, Subject, SubjectProgress, User, UserProgress
+
+
+class TestPublicLeaderboard:
+    def test_ranking_publico_omite_admins(self, client, db, monkeypatch):
+        suffix = uuid.uuid4().hex[:8]
+        admin_role_email = f"admin_role_{suffix}@test.com"
+        admin_env_email = f"admin_env_{suffix}@test.com"
+        student_email = f"student_{suffix}@test.com"
+        monkeypatch.setattr(settings, "admin_emails", [admin_env_email])
+
+        db.add_all([
+            User(email=admin_role_email, username=f"AdminRole_{suffix}", role="admin"),
+            User(email=admin_env_email, username=f"AdminEnv_{suffix}", role="user"),
+            User(email=student_email, username=f"Student_{suffix}", role="user"),
+            UserProgress(user_email=admin_role_email, xp=9000),
+            UserProgress(user_email=admin_env_email, xp=8000),
+            UserProgress(user_email=student_email, xp=100),
+        ])
+        db.commit()
+
+        response = client.get("/api/leaderboard/public?limit=10")
+
+        assert response.status_code == 200
+        names = [row["display_name"] for row in response.json()]
+        assert f"AdminRole_{suffix}" not in names
+        assert f"AdminEnv_{suffix}" not in names
+        assert f"Student_{suffix}" in names
 
 
 class TestSubjects:
@@ -36,6 +66,23 @@ class TestSubjects:
             headers=auth_headers,
         )
         assert response.json()["owner_email"] == test_user.email
+
+    def test_bloqueia_criacao_da_quarta_materia_no_free(self, client, auth_headers):
+        for index in range(FREE_SUBJECT_LIMIT):
+            client.post(
+                "/api/subjects",
+                json={"name": f"Matéria {index}"},
+                headers=auth_headers,
+            )
+
+        response = client.post(
+            "/api/subjects",
+            json={"name": "Quarta matéria"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["message"] == "Você atingiu o limite de matérias do seu plano."
 
     def test_listar_subjects_sem_auth_retorna_401(self, client):
         response = client.get("/api/subjects")
@@ -127,7 +174,49 @@ class TestDocuments:
         assert response.status_code == 201
         assert response.json()["name"] == "doc.pdf"
 
-    def test_listar_documentos_por_subject(self, client, auth_headers):
+    def test_bloqueia_segundo_pdf_na_mesma_materia_free(self, client, auth_headers):
+        subject_id = self._criar_subject(client, auth_headers)
+        for index in range(FREE_DOCS_PER_SUBJECT):
+            client.post(
+                "/api/documents",
+                json={"name": f"doc{index}.pdf", "subject_id": subject_id},
+                headers=auth_headers,
+            )
+
+        response = client.post(
+            "/api/documents",
+            json={"name": "segundo.pdf", "subject_id": subject_id},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["message"] == "Você atingiu o limite de PDFs desta matéria."
+
+    def test_bloqueia_quarto_pdf_total_do_usuario(self, client, auth_headers, db, test_user):
+        subjects = [
+            Subject(name=f"Sub {index}", owner_email=test_user.email)
+            for index in range(FREE_SUBJECT_LIMIT)
+        ]
+        db.add_all(subjects)
+        db.commit()
+        for subject in subjects:
+            db.refresh(subject)
+        for index in range(3):
+            db.add(Document(name=f"doc{index}.pdf", subject_id=subjects[index % len(subjects)].id))
+        db.commit()
+
+        response = client.post(
+            "/api/documents",
+            json={"name": "quarto.pdf", "subject_id": str(subjects[0].id)},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["message"] == "Você atingiu o limite total de PDFs do seu plano."
+
+    def test_listar_documentos_por_subject(self, client, auth_headers, db, test_user):
+        db.add(UserProgress(user_email=test_user.email, plan="pro"))
+        db.commit()
         subject_id = self._criar_subject(client, auth_headers)
         client.post(
             "/api/documents",
@@ -199,7 +288,7 @@ class TestCompetitions:
             "/api/competitions",
             json={
                 "title": "Concurso Teste",
-                "mode": "solo",
+                "mode": "duel",
                 "host_email": "host@test.com",
                 "invite_code": uuid.uuid4().hex[:8],
             },
@@ -207,6 +296,63 @@ class TestCompetitions:
         )
         assert response.status_code == 201
         assert response.json()["title"] == "Concurso Teste"
+
+    def test_persiste_campos_de_configuracao_e_resultado(self, client, auth_headers):
+        subject = client.post(
+            "/api/subjects",
+            json={"name": "Matéria da competição"},
+            headers=auth_headers,
+        ).json()
+        question_id = str(uuid.uuid4())
+        response = client.post(
+            "/api/competitions",
+            json={
+                "title": "Liga persistida",
+                "mode": "weekly_league",
+                "subject_id": subject["id"],
+                "question_ids": [question_id],
+                "week_start": "2026-08-17",
+                "week_end": "2026-08-23",
+                "invite_code": uuid.uuid4().hex[:8],
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 201
+        created = response.json()
+        assert created["subject_id"] == subject["id"]
+        assert created["question_ids"] == [question_id]
+        assert created["week_start"] == "2026-08-17"
+
+        update = client.put(
+            f"/api/competitions/{created['id']}",
+            json={
+                "status": "finished",
+                "winner_email": "winner@example.com",
+                "finished_at": "2026-08-21 12:30",
+            },
+            headers=auth_headers,
+        )
+
+        assert update.status_code == 200
+        assert update.json()["winner_email"] == "winner@example.com"
+        assert update.json()["finished_at"].startswith("2026-08-21T12:30")
+
+    def test_bloqueia_segunda_competicao_ativa_no_free(self, client, auth_headers):
+        client.post(
+            "/api/competitions",
+            json={"title": "Primeira", "mode": "duel", "invite_code": uuid.uuid4().hex[:8]},
+            headers=auth_headers,
+        )
+
+        response = client.post(
+            "/api/competitions",
+            json={"title": "Segunda", "mode": "duel", "invite_code": uuid.uuid4().hex[:8]},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["message"] == "Você atingiu o limite de competições ativas do seu plano."
 
 
 class TestQuestionAttempts:
@@ -234,6 +380,186 @@ class TestQuestionAttempts:
         assert response.status_code == 200
         data = response.json()
         assert all(a["user_email"] == email for a in data)
+
+
+class TestStudySessions:
+    def test_criar_sessao_define_usuario_logado(self, client, auth_headers, test_user):
+        response = client.post(
+            "/api/study_sessions",
+            json={
+                "status": "IN_PROGRESS",
+                "subjects": [{"id": str(uuid.uuid4()), "name": "Banco de Dados"}],
+                "questions_planned": [str(uuid.uuid4())],
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["user_email"] == test_user.email
+        assert data["status"] == "IN_PROGRESS"
+        assert data["subjects"][0]["name"] == "Banco de Dados"
+
+    def test_criar_sessao_ignora_user_email_informado(self, client, auth_headers, test_user):
+        response = client.post(
+            "/api/study_sessions",
+            json={"user_email": "outro@test.com", "status": "IN_PROGRESS"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 201
+        assert response.json()["user_email"] == test_user.email
+
+    def test_listar_sessoes_forca_usuario_logado(self, client, auth_headers, db, test_user):
+        db.add(StudySession(user_email=test_user.email, status="IN_PROGRESS"))
+        db.add(StudySession(user_email="outro@test.com", status="IN_PROGRESS"))
+        db.commit()
+
+        response = client.get(
+            "/api/study_sessions?user_email=outro@test.com",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data
+        assert all(session["user_email"] == test_user.email for session in data)
+
+    def test_bloqueia_busca_de_sessao_de_outro_usuario(self, client, auth_headers, db):
+        session = StudySession(user_email="outro@test.com", status="IN_PROGRESS")
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+
+        response = client.get(f"/api/study_sessions/{session.id}", headers=auth_headers)
+
+        assert response.status_code == 403
+
+    def test_atualizar_sessao_sem_alterar_user_email(self, client, auth_headers, test_user):
+        created = client.post(
+            "/api/study_sessions",
+            json={"status": "IN_PROGRESS"},
+            headers=auth_headers,
+        ).json()
+
+        response = client.put(
+            f"/api/study_sessions/{created['id']}",
+            json={
+                "status": "COMPLETED",
+                "user_email": "outro@test.com",
+                "questions_answered": [str(uuid.uuid4())],
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "COMPLETED"
+        assert data["user_email"] == test_user.email
+        assert len(data["questions_answered"]) == 1
+
+    def test_rejeita_status_invalido(self, client, auth_headers):
+        response = client.post(
+            "/api/study_sessions",
+            json={"status": "PAUSED"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Status de sessão inválido."
+
+    def test_concluir_sessao_cria_progresso_da_materia(self, client, auth_headers, db, test_user):
+        subject = Subject(name="Banco de Dados", owner_email=test_user.email)
+        db.add(subject)
+        db.commit()
+        db.refresh(subject)
+        created = client.post(
+            "/api/study_sessions",
+            json={
+                "status": "IN_PROGRESS",
+                "subjects": [{"id": str(subject.id), "name": subject.name}],
+            },
+            headers=auth_headers,
+        ).json()
+
+        response = client.put(
+            f"/api/study_sessions/{created['id']}",
+            json={"status": "COMPLETED"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        progress = db.query(SubjectProgress).filter(
+            SubjectProgress.user_email == test_user.email,
+            SubjectProgress.subject_id == subject.id,
+        ).first()
+        assert progress is not None
+        assert progress.review_stage == 1
+        assert progress.completed_reviews_count == 0
+        assert progress.last_studied_at is not None
+        assert progress.next_review_at is not None
+
+    def test_concluir_sessao_avanca_progresso_ate_stage_4(self, client, auth_headers, db, test_user):
+        subject = Subject(name="Redes", owner_email=test_user.email)
+        db.add(subject)
+        db.commit()
+        db.refresh(subject)
+        db.add(SubjectProgress(
+            user_email=test_user.email,
+            subject_id=subject.id,
+            review_stage=4,
+            completed_reviews_count=3,
+        ))
+        db.commit()
+        created = client.post(
+            "/api/study_sessions",
+            json={
+                "status": "IN_PROGRESS",
+                "subjects": [{"id": str(subject.id), "name": subject.name}],
+            },
+            headers=auth_headers,
+        ).json()
+
+        response = client.put(
+            f"/api/study_sessions/{created['id']}",
+            json={"status": "COMPLETED"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        progress = db.query(SubjectProgress).filter(
+            SubjectProgress.user_email == test_user.email,
+            SubjectProgress.subject_id == subject.id,
+        ).first()
+        assert progress.review_stage == 4
+        assert progress.completed_reviews_count == 4
+
+    def test_sessao_incompleta_nao_atualiza_progresso_da_materia(self, client, auth_headers, db, test_user):
+        subject = Subject(name="Sistemas", owner_email=test_user.email)
+        db.add(subject)
+        db.commit()
+        db.refresh(subject)
+        created = client.post(
+            "/api/study_sessions",
+            json={
+                "status": "IN_PROGRESS",
+                "subjects": [{"id": str(subject.id), "name": subject.name}],
+            },
+            headers=auth_headers,
+        ).json()
+
+        response = client.put(
+            f"/api/study_sessions/{created['id']}",
+            json={"status": "ABANDONED"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        progress = db.query(SubjectProgress).filter(
+            SubjectProgress.user_email == test_user.email,
+            SubjectProgress.subject_id == subject.id,
+        ).first()
+        assert progress is None
 
 
 class TestEntidadeInvalida:

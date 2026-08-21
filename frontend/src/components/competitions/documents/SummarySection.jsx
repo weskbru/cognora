@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRewardsContext } from '@/context/RewardsContext';
 import { Sparkles } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ReactMarkdown from 'react-markdown';
-import EmptyState from '@/components/shared/EmptyState';
 import LimitReachedCard from '@/components/freemium/LimitReachedCard';
 import AILoadingCard from '@/components/shared/AILoadingCard';
 
@@ -25,6 +24,8 @@ export default function SummarySection({ document, summaries, documentId }) {
 
       const result = await base44.integrations.Core.AnalisarDocumento({
         file_url: document.file_url,
+        document_id: documentId,
+        operation: 'summary',
       });
 
       await base44.entities.Summary.create({
@@ -42,11 +43,8 @@ export default function SummarySection({ document, summaries, documentId }) {
       queryClient.invalidateQueries({ queryKey: ['summaries'] });
       queryClient.invalidateQueries({ queryKey: ['limits-status'] });
     } catch (err) {
-      const code = err?.message?.code || (typeof err?.message === 'object' ? err.message?.code : null)
-        || (err?.status === 429 ? 'GENERATION_LIMIT_REACHED' : null);
       if (err?.status === 429 || err?.status === 403) {
-        const detail = err.message;
-        setLimitCode(detail?.code || 'GENERATION_LIMIT_REACHED');
+        setLimitCode(err.code || 'AI_CREDITS_INSUFFICIENT');
         await base44.entities.Document.update(documentId, { status: 'pending' }).catch(() => {});
       } else {
         await base44.entities.Document.update(documentId, { status: 'error' }).catch(() => {});

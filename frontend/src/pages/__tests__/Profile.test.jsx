@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import Profile from '../Profile'
 
 vi.mock('@/lib/AuthContext', () => ({
@@ -30,7 +31,7 @@ vi.mock('@tanstack/react-query', () => ({
 }))
 
 test('Profile renders level card and user name', () => {
-  render(<Profile />)
+  render(<MemoryRouter><Profile /></MemoryRouter>)
   expect(screen.getAllByText(/Nível 2/i)[0]).toBeInTheDocument()
   expect(screen.getAllByText(/Estudante/i)[0]).toBeInTheDocument()
   expect(screen.getAllByText(/182/i)[0]).toBeInTheDocument()

@@ -1,10 +1,28 @@
 import json
 import logging
+import random
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from core.config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+_REGRAS_MULTIPLA_ESCOLHA = """━━━ REGRAS PARA "perguntas" ━━━
+- Gere exatamente {n_perguntas} questões de múltipla escolha
+- Questões objetivas, no estilo de concurso público
+- "type" deve ser "multiple_choice"
+- Cada questão deve ter exatamente 4 alternativas
+- Apenas UMA alternativa deve ter "correct": true"""
+
+_REGRAS_VERDADEIRO_FALSO = """━━━ REGRAS PARA "perguntas" ━━━
+- Gere exatamente {n_perguntas} afirmações de VERDADEIRO ou FALSO
+- "type" deve ser "true_false"
+- Cada questão deve ser uma AFIRMAÇÃO objetiva sobre o conteúdo (não uma pergunta)
+- Varie entre afirmações verdadeiras e falsas de forma equilibrada
+- Cada questão deve ter EXATAMENTE 2 alternativas nesta ordem:
+  [{{"text": "Verdadeiro", "correct": true_ou_false}}, {{"text": "Falso", "correct": false_ou_true}}]
+- Se a afirmação é verdadeira: Verdadeiro tem "correct": true e Falso tem "correct": false
+- Se a afirmação é falsa: Verdadeiro tem "correct": false e Falso tem "correct": true"""
 
 _PROMPT_TEMPLATE = """
 Você é um especialista em educação para concursos públicos. Analise o texto abaixo e responda SOMENTE com um JSON válido, sem markdown, sem explicações adicionais.
@@ -14,7 +32,8 @@ O JSON deve ter exatamente esta estrutura:
   "resumo": "resumo estruturado aqui",
   "perguntas": [
     {{
-      "statement": "pergunta aqui",
+      "statement": "enunciado aqui",
+      "type": "multiple_choice",
       "alternatives": [
         {{"text": "opção A", "correct": true}},
         {{"text": "opção B", "correct": false}},
@@ -60,9 +79,7 @@ Síntese do conteúdo em linguagem direta, estilo revisão rápida.
 - Sem repetição de informações entre seções
 - Ideal para leitura rápida e revisão de véspera
 
-━━━ REGRAS PARA "perguntas" ━━━
-- Gere exatamente {n_perguntas} questões de múltipla escolha
-- Questões objetivas, no estilo de concurso público
+{regras_perguntas}
 
 ━━━ REGRAS PARA "flashcards" ━━━
 - Gere exatamente 10 flashcards com os conceitos mais importantes
@@ -100,44 +117,76 @@ class ResultadoGeminiNLP(BaseModel):
 
 class GeminiNLPAdapter:
     def __init__(self) -> None:
-        if not settings.openrouter_api_key:
-            raise ValueError("OPENROUTER_API_KEY não configurada.")
+        if not settings.nvidia_api_key and not settings.gemini_api_key and not settings.openrouter_api_key:
+            raise ValueError("Configure NVIDIA_API_KEY, GEMINI_API_KEY ou OPENROUTER_API_KEY.")
 
-        self.client = AsyncOpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=settings.openrouter_api_key,
-        )
+        # (client, model) — NVIDIA primeiro, Gemini segundo, OpenRouter fallback
+        self._candidates: list[tuple[AsyncOpenAI, str]] = []
 
-    async def analisar(self, texto: str, n_perguntas: int = 5) -> ResultadoGeminiNLP:
+        if settings.nvidia_api_key:
+            nvidia = AsyncOpenAI(
+                base_url="https://integrate.api.nvidia.com/v1",
+                api_key=settings.nvidia_api_key,
+            )
+            for model in (
+                "meta/llama-3.3-70b-instruct",
+                "nvidia/llama-3.1-nemotron-70b-instruct",
+                "meta/llama-3.1-70b-instruct",
+                "mistralai/mixtral-8x7b-instruct-v0.1",
+            ):
+                self._candidates.append((nvidia, model))
+
+        if settings.gemini_api_key:
+            gemini = AsyncOpenAI(
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=settings.gemini_api_key,
+            )
+            for model in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"):
+                self._candidates.append((gemini, model))
+
+        if settings.openrouter_api_key:
+            openrouter = AsyncOpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=settings.openrouter_api_key,
+            )
+            for model in (
+                "google/gemma-3-27b-it:free",
+                "google/gemma-3-12b-it:free",
+                "google/gemma-3-4b-it:free",
+                "meta-llama/llama-3.3-70b-instruct:free",
+                "nvidia/nemotron-3-super-120b-a12b:free",
+                "z-ai/glm-4.5-air:free",
+            ):
+                self._candidates.append((openrouter, model))
+
+    async def analisar(self, texto: str, n_perguntas: int = 5, question_type: str = "multiple_choice") -> ResultadoGeminiNLP:
         if not texto or not texto.strip():
             raise ValueError("Texto vazio.")
 
+        if question_type == "true_false":
+            regras = _REGRAS_VERDADEIRO_FALSO.format(n_perguntas=n_perguntas)
+        else:
+            regras = _REGRAS_MULTIPLA_ESCOLHA.format(n_perguntas=n_perguntas)
+
         prompt = _PROMPT_TEMPLATE.format(
             n_perguntas=n_perguntas,
+            regras_perguntas=regras,
             texto=texto[:30_000],
         )
 
-        _MODELS = [
-            "google/gemma-3-27b-it:free",    # Google AI Studio
-            "google/gemma-3-12b-it:free",    # Google AI Studio
-            "google/gemma-3-4b-it:free",     # Google AI Studio
-            "nvidia/nemotron-3-super-120b-a12b:free",  # NVIDIA
-            "minimax/minimax-m2.5:free",     # MiniMax
-            "stepfun/step-3.5-flash:free",   # StepFun
-            "z-ai/glm-4.5-air:free",         # ZhipuAI
-            "meta-llama/llama-3.3-70b-instruct:free",  # Venice (fallback)
-        ]
-
-        last_exc: Exception = RuntimeError("Nenhum modelo disponível.")
-        for model in _MODELS:
+        falhas: list[str] = []
+        for client, model in self._candidates:
             try:
                 logger.info("Tentando modelo: %s", model)
-                response = await self.client.chat.completions.create(
+                response = await client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
                 )
 
-                raw = response.choices[0].message.content.strip()
+                raw = (response.choices[0].message.content or "").strip()
+                if not raw:
+                    falhas.append(f"{model}: resposta vazia")
+                    continue
 
                 if raw.startswith("```"):
                     raw = raw.split("```")[1]
@@ -146,15 +195,38 @@ class GeminiNLPAdapter:
                     raw = raw.strip()
 
                 data = json.loads(raw)
+                resultado = ResultadoGeminiNLP.model_validate(data)
+                for pergunta in resultado.perguntas:
+                    if pergunta.type != "true_false":
+                        random.shuffle(pergunta.alternatives)
                 logger.info("Sucesso com modelo: %s", model)
-                return ResultadoGeminiNLP.model_validate(data)
+                return resultado
 
             except json.JSONDecodeError as exc:
-                logger.error("JSON inválido do modelo %s: %s", model, exc)
-                raise RuntimeError(f"Resposta da IA não é JSON válido: {exc}") from exc
+                motivo = "resposta fora do formato JSON esperado"
+                logger.warning("Modelo %s — %s: %s", model, motivo, exc)
+                falhas.append(f"{model}: {motivo}")
+                continue
             except Exception as exc:
-                logger.warning("Modelo %s falhou (%s), tentando próximo...", model, exc)
-                last_exc = exc
+                erro = str(exc)
+                logger.warning("Modelo %s falhou — %s: %s", model, type(exc).__name__, erro)
+                if "401" in erro or "authentication" in erro.lower():
+                    motivo = "chave de API inválida ou sem permissão"
+                elif "403" in erro or "permission" in erro.lower() or "forbidden" in erro.lower():
+                    motivo = "acesso negado — verifique se a API está ativada no Google Cloud"
+                elif "429" in erro or "rate" in erro.lower() or "quota" in erro.lower() or "exhausted" in erro.lower():
+                    motivo = "limite de requisições atingido"
+                elif "503" in erro or "unavailable" in erro.lower():
+                    motivo = "modelo temporariamente indisponível"
+                elif "404" in erro:
+                    motivo = "modelo não encontrado"
+                else:
+                    motivo = erro
+                falhas.append(f"{model}: {motivo}")
                 continue
 
-        raise RuntimeError(f"Todos os modelos falharam. Último erro: {last_exc}") from last_exc
+        resumo_falhas = "; ".join(falhas) if falhas else "motivo desconhecido"
+        raise RuntimeError(
+            f"Nenhum modelo de IA conseguiu processar o documento. "
+            f"Detalhes: {resumo_falhas}"
+        )

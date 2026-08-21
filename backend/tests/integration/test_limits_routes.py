@@ -4,7 +4,7 @@ Cobre: GET /api/limits/status
 """
 import pytest
 
-from domain.use_cases.limits import FREE_DAILY_LIMIT, FREE_DOCS_PER_SUBJECT, FREE_SUBJECT_LIMIT
+from domain.use_cases.limits import FREE_DOCS_PER_SUBJECT, FREE_MONTHLY_AI_CREDITS, FREE_SUBJECT_LIMIT
 
 
 class TestLimitsStatus:
@@ -29,6 +29,7 @@ class TestLimitsStatus:
         campos_esperados = {
             "used", "limit", "remaining", "can_generate",
             "plan", "has_daily_bonus", "subject_limit", "docs_per_subject_limit",
+            "monthly_ai_credits", "ai_credits_used", "ai_credits_remaining",
         }
         assert campos_esperados.issubset(data.keys())
 
@@ -51,8 +52,7 @@ class TestLimitsStatus:
     def test_limite_base_e_free_daily_limit(self, client, auth_headers):
         response = client.get("/api/limits/status", headers=auth_headers)
         data = response.json()
-        # Limite pode ser FREE_DAILY_LIMIT ou FREE_DAILY_LIMIT+1 (com bônus)
-        assert data["limit"] in (FREE_DAILY_LIMIT, FREE_DAILY_LIMIT + 1)
+        assert data["limit"] == FREE_MONTHLY_AI_CREDITS
 
     def test_remaining_e_limit_menos_used(self, client, auth_headers):
         response = client.get("/api/limits/status", headers=auth_headers)

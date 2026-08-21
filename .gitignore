@@ -1,52 +1,74 @@
-# ── Variáveis de ambiente (NUNCA commitar) ────────────────────────────────────
+# Environment variables and secrets
 .env
-.env.local
-.env.*.local
-*.env.local
+.env.*
+!.env.example
+!**/.env.example
 
-# ── Dependências ──────────────────────────────────────────────────────────────
+# Node dependencies and package manager caches
 node_modules/
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/install-state.gz
 
-# ── Build / dist ──────────────────────────────────────────────────────────────
+# Frontend builds and tooling caches
 dist/
 build/
-frontend/dist/
-frontend/build/
+.vite/
+*.tsbuildinfo
+.eslintcache
+.vercel/
 
-# ── Python ────────────────────────────────────────────────────────────────────
+# Python bytecode and compiled files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
+*$py.class
+*.so
+
+# Python packages and virtual environments
 *.egg-info/
 .eggs/
-
-# ── Ambientes virtuais Python ─────────────────────────────────────────────────
+.Python
 .venv/
 venv/
 env/
-backend/.venv/
+ENV/
+pip-wheel-metadata/
 
-# ── Testes e cobertura ────────────────────────────────────────────────────────
+# Tests, coverage, and static analysis caches
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+coverage/
 coverage.xml
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
 
-# ── Uploads do backend ────────────────────────────────────────────────────────
+# Backend runtime files
 backend/uploads/
+*.sqlite
+*.sqlite3
 
-# ── IDE / Editor ─────────────────────────────────────────────────────────────
+# IDE and editor settings
 .vscode/
 .idea/
+*.iml
 *.swp
 *.swo
 
-# ── SO ────────────────────────────────────────────────────────────────────────
+# Operating system files
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# ── Logs ─────────────────────────────────────────────────────────────────────
+# Logs and temporary files
 *.log
 logs/
+*.tmp
+*.temp
+.cache/

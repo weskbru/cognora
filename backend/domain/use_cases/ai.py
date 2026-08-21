@@ -17,9 +17,13 @@ class AIUseCases:
         )
 
     def _url_to_path(self, file_url: str) -> str:
-        filename = os.path.basename(urllib.parse.urlparse(file_url).path)
-        path = os.path.join(self.upload_dir, filename)
-        if not os.path.exists(path):
+        parsed = urllib.parse.urlparse(file_url)
+        if parsed.scheme not in {"", "http", "https"} or not parsed.path.startswith("/uploads/"):
+            raise ValueError("Apenas arquivos enviados pelo Cognora podem ser processados")
+        filename = os.path.basename(urllib.parse.unquote(parsed.path))
+        upload_root = os.path.realpath(self.upload_dir)
+        path = os.path.realpath(os.path.join(upload_root, filename))
+        if os.path.commonpath((upload_root, path)) != upload_root or not os.path.isfile(path):
             raise FileNotFoundError(f"Arquivo não encontrado: {filename}")
         return path
 
@@ -45,12 +49,13 @@ class AIUseCases:
             f"{json.dumps(response_json_schema, ensure_ascii=False)}"
         )
 
-        response = self.model.generate_content([uploaded, full_prompt])
-
         try:
-            genai.delete_file(uploaded.name)
-        except Exception:
-            pass
+            response = self.model.generate_content([uploaded, full_prompt])
+        finally:
+            try:
+                genai.delete_file(uploaded.name)
+            except Exception:
+                pass
 
         text = response.text.strip()
         if text.startswith("```"):

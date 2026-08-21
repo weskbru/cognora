@@ -9,8 +9,20 @@ class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=False, index=True)
-    hashed_password = Column(String, nullable=False)
+    username = Column(String, unique=True, nullable=True, index=True)
+    hashed_password = Column(String, nullable=True)   # nullable para login Google sem senha
+    google_id = Column(String, unique=True, nullable=True, index=True)
+    role = Column(String, default="user", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_email = Column(String, nullable=False, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
 
 
 class Subject(Base):
@@ -61,10 +73,17 @@ class Competition(Base):
     mode = Column(String)
     status = Column(String, default="waiting")
     host_email = Column(String)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
     participants = Column(JSON, default=list)
+    questions_data = Column(JSON, default=list)
+    question_ids = Column(JSON, default=list)
     question_count = Column(Integer, default=5)
     time_limit_seconds = Column(Integer)
     invite_code = Column(String, unique=True)
+    winner_email = Column(String, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    week_start = Column(Date, nullable=True)
+    week_end = Column(Date, nullable=True)
     created_date = Column(DateTime, default=datetime.utcnow)
 
 
@@ -87,6 +106,38 @@ class QuestionAttempt(Base):
     created_date = Column(DateTime, default=datetime.utcnow)
 
 
+class StudySession(Base):
+    __tablename__ = "study_sessions"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_email = Column(String, nullable=False, index=True)
+    status = Column(String, default="IN_PROGRESS", nullable=False, index=True)
+    subjects = Column(JSON, default=list)
+    questions_planned = Column(JSON, default=list)
+    questions_answered = Column(JSON, default=list)
+    reviews_planned = Column(JSON, default=list)
+    reviews_completed = Column(JSON, default=list)
+    xp_awarded = Column(Integer, default=0)
+    started_at = Column(DateTime, default=datetime.utcnow, index=True)
+    completed_at = Column(DateTime, nullable=True)
+    abandoned_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SubjectProgress(Base):
+    __tablename__ = "subject_progress"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_email = Column(String, nullable=False, index=True)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="CASCADE"), nullable=False, index=True)
+    last_studied_at = Column(DateTime, nullable=True)
+    next_review_at = Column(DateTime, nullable=True, index=True)
+    review_stage = Column(Integer, default=1)
+    completed_reviews_count = Column(Integer, default=0)
+    accuracy_rate = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
 class UserProgress(Base):
     __tablename__ = "user_progress"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -104,7 +155,69 @@ class UserProgress(Base):
     display_name = Column(String, nullable=True)
     avatar_emoji = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
-    # Freemium
+    # Freemium / Subscription
     plan = Column(String, default="free")
+    subscription_status = Column(String, default="inactive")
+    plan_started_at = Column(DateTime, nullable=True)
+    plan_expires_at = Column(DateTime, nullable=True)
     daily_generations_used = Column(Integer, default=0)
     last_generation_date = Column(Date, nullable=True)
+    summaries_used_month = Column(Integer, default=0)
+    questions_used_month = Column(Integer, default=0)
+    flashcards_used_month = Column(Integer, default=0)
+    usage_month = Column(Date, nullable=True)
+    stripe_customer_id = Column(String, nullable=True, unique=True)
+    stripe_subscription_id = Column(String, nullable=True)
+
+
+class PixPaymentRequest(Base):
+    __tablename__ = "pix_payment_requests"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_email = Column(String, nullable=False, index=True)
+    user_name = Column(String, nullable=True)
+    plan = Column(String, nullable=False)
+    amount_cents = Column(Integer, nullable=False)
+    pix_reference = Column(String, nullable=False, unique=True, index=True)
+    pix_payload = Column(Text, nullable=False)
+    status = Column(String, default="pending", nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    paid_at = Column(DateTime, nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    approved_by_admin_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    rejected_at = Column(DateTime, nullable=True)
+    admin_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_logs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    admin_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    admin_email = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False, index=True)
+    target_user_email = Column(String, nullable=True, index=True)
+    target_type = Column(String, nullable=False)
+    target_id = Column(String, nullable=False)
+    metadata_json = Column("metadata", JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SystemEvent(Base):
+    __tablename__ = "system_events"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    level = Column(String, nullable=False, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    user_email = Column(String, nullable=True, index=True)
+    request_id = Column(String, nullable=True, index=True)
+    message = Column(Text, nullable=False)
+    metadata_json = Column("metadata", JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class ObservabilityAlertState(Base):
+    __tablename__ = "observability_alert_states"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alert_key = Column(String, nullable=False, unique=True, index=True)
+    last_sent_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
