@@ -1,6 +1,5 @@
 import { ApiError } from '@/lib/apiError';
-import { getToken, removeToken } from '@/lib/tokenStorage';
-import type { Competition, Document, Flashcard, GenerationStatus, Question, QuestionAttempt, StudySession, Subject, SubjectProgress, Summary, User, UserProgress } from '@/types/entities';
+import type { Competition, DashboardSnapshot, Document, Flashcard, GenerationStatus, Question, QuestionAttempt, StudySession, Subject, SubjectProgress, Summary, User, UserProgress } from '@/types/entities';
 
 const API_URL = import.meta.env.VITE_API_URL;
 if (!API_URL) throw new Error('[Cognora] VITE_API_URL não configurada. Crie um arquivo .env.local com VITE_API_URL=http://localhost:8001');
@@ -35,11 +34,16 @@ async function responsePayload(response: Response): Promise<unknown> {
 }
 
 export async function apiRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const token = getToken();
+  const hasBody = body !== undefined;
+  const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
   const response = await fetch(`${API_URL}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    credentials: 'include',
+    headers: {
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+      ...(isMutation ? { 'X-Cognora-CSRF': '1' } : {}),
+    },
+    ...(hasBody ? { body: JSON.stringify(body) } : {}),
   });
   const data = await responsePayload(response);
   if (!response.ok) {
@@ -62,13 +66,13 @@ function createEntity<TEntity>(entityName: string): EntityClient<TEntity> {
 }
 
 async function uploadFile(payload: { file: File; subject_id?: string | null }): Promise<{ file_url: string }> {
-  const token = getToken();
   const formData = new FormData();
   formData.append('file', payload.file);
   if (payload.subject_id) formData.append('subject_id', payload.subject_id);
   const response = await fetch(`${API_URL}/api/upload`, {
     method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: 'include',
+    headers: { 'X-Cognora-CSRF': '1' },
     body: formData,
   });
   const data = await responsePayload(response);
@@ -79,6 +83,7 @@ async function uploadFile(payload: { file: File; subject_id?: string | null }): 
 }
 
 export const base44 = {
+  dashboard: { get: () => apiRequest<DashboardSnapshot>('GET', '/api/dashboard') },
   entities: {
     Subject: createEntity<Subject>('subjects'), Document: createEntity<Document>('documents'),
     Question: createEntity<Question>('questions'), Summary: createEntity<Summary>('summaries'),
@@ -104,7 +109,11 @@ export const base44 = {
   },
   auth: {
     me: () => apiRequest<User>('GET', '/api/auth/me'),
-    async logout(redirectUrl?: string): Promise<void> { removeToken(); window.location.href = redirectUrl || '/login'; },
+    async logout(redirectUrl?: string): Promise<void> {
+      try { await apiRequest<null>('POST', '/api/auth/logout'); } finally {
+        window.location.href = redirectUrl || '/login';
+      }
+    },
     redirectToLogin(): void { window.location.href = '/login'; },
   },
 };

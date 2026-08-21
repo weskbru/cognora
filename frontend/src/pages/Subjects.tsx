@@ -22,6 +22,17 @@ const TypedDropdownMenuItem = DropdownMenuItem as ComponentType<PropsWithChildre
   onClick?: (event: MouseEvent<HTMLDivElement>) => void;
 }>>;
 
+function mutationErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = error.message;
+    if (typeof message === 'string') return message;
+    if (message && typeof message === 'object' && 'message' in message && typeof message.message === 'string') {
+      return message.message;
+    }
+  }
+  return fallback;
+}
+
 export default function Subjects() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -54,27 +65,59 @@ export default function Subjects() {
 
   const createMutation = useMutation({
     mutationFn: (data: Pick<Subject, 'name' | 'description'>) => base44.entities.Subject.create(data),
-    onSuccess: (created) => {
-      queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached) => {
-        if (!cached || cached.some(subject => subject.id === created.id)) return cached;
-        return [created, ...cached];
-      });
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: ['subjects'] });
+      const previous = queryClient.getQueriesData<Subject[]>({ queryKey: ['subjects'] });
+      const optimisticId = `optimistic-${crypto.randomUUID()}`;
+      const optimistic: Subject = {
+        id: optimisticId,
+        name: data.name,
+        description: data.description,
+        owner_email: user?.email,
+        created_date: new Date().toISOString(),
+      };
+      queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached = []) => [optimistic, ...cached]);
       setOpen(false);
+      setCreateError(null);
+      return { previous, optimisticId, form: data };
+    },
+    onSuccess: (created, _data, context) => {
+      queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached) => {
+        if (!cached) return [created];
+        const replaced = cached.map(subject => subject.id === context?.optimisticId ? created : subject);
+        return replaced.some(subject => subject.id === created.id) ? replaced : [created, ...replaced];
+      });
       setName('');
       setDescription('');
       setCreateError(null);
     },
-    onError: (err: any) => {
-      setCreateError(err?.message?.message || err?.message || 'Erro ao criar matéria');
+    onError: (error, _data, context) => {
+      context?.previous.forEach(([key, value]) => queryClient.setQueryData(key, value));
+      setName(context?.form.name ?? '');
+      setDescription(context?.form.description ?? '');
+      setCreateError(mutationErrorMessage(error, 'Erro ao criar matéria'));
+      setOpen(true);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => base44.entities.Subject.delete(id),
-    onSuccess: (_result, deletedId) => {
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['subjects'] });
+      const previous = queryClient.getQueriesData<Subject[]>({ queryKey: ['subjects'] });
       queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached) =>
         cached?.filter(subject => subject.id !== deletedId)
       );
+      return { previous };
+    },
+    onError: (_error, _deletedId, context) => {
+      context?.previous.forEach(([key, value]) => queryClient.setQueryData(key, value));
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 

@@ -10,6 +10,7 @@ import type { LucideIcon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
+import type { DashboardSnapshot } from '@/types/entities';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -86,13 +87,21 @@ export default function Sidebar({ isOpen = true }: SidebarProps): ReactElement {
   const location = useLocation();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const onDashboard = location.pathname === '/dashboard';
 
-  const { data: genStatus } = useQuery<GenerationStatus>({
+  const { data: standaloneGenStatus } = useQuery<GenerationStatus>({
     queryKey: ['limits-status'],
     queryFn: () => base44.limits.getStatus(),
     staleTime: 30_000,
-    enabled: !isAdmin,
+    enabled: !isAdmin && !onDashboard,
   });
+  const { data: dashboard } = useQuery<DashboardSnapshot>({
+    queryKey: ['dashboard', user?.email],
+    queryFn: () => base44.dashboard.get(),
+    staleTime: 60_000,
+    enabled: !isAdmin && onDashboard && !!user?.email,
+  });
+  const genStatus = dashboard?.limits ?? standaloneGenStatus;
 
   const plan = genStatus?.plan || 'free';
   const genUsedPct = genStatus

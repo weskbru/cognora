@@ -174,7 +174,7 @@ class TestUploadRoute:
                 "/api/upload",
                 files={"file": ("test.pdf", io.BytesIO(b"content"), "application/pdf")},
                 data={"subject_id": self._subject_id(client, auth_headers)},
-                headers={**auth_headers, "Origin": origin},
+                headers={**auth_headers, "Origin": origin, "X-Cognora-CSRF": "1"},
             )
 
         assert response.status_code == 500

@@ -28,6 +28,7 @@ from infrastructure.database.connection import Base, get_db
 from infrastructure.database.models import User
 from core.security.password import hash_password
 from core.security.jwt import create_token
+from core.security.rate_limit import reset_rate_limits_for_tests
 
 # ── Banco de dados de teste ────────────────────────────────────────────────
 _is_sqlite = _TEST_DB_URL.startswith("sqlite")
@@ -106,6 +107,13 @@ def client():
     """TestClient FastAPI com banco de teste configurado."""
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _clean_auth_rate_limits():
+    reset_rate_limits_for_tests()
+    yield
+    reset_rate_limits_for_tests()
 
 
 @pytest.fixture()

@@ -16,6 +16,7 @@ export default defineConfig({
       // Polling is required when Docker mounts the project from Windows.
       usePolling: true,
       interval: 300,
+      ignored: ['**/dist/**', '**/.git/**', '**/backend/**'],
     },
   },
   css: {

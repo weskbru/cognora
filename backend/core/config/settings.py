@@ -16,13 +16,26 @@ def _clean_env(name: str) -> str | None:
     return value or None
 
 
+def _bool_env(name: str, default: bool = False) -> bool:
+    value = _clean_env(name)
+    if value is None:
+        return default
+    return value.lower() in {"1", "true", "yes", "on"}
+
+
 class Settings:
+    environment: str = os.getenv("ENVIRONMENT", "development").lower()
     database_url: str = os.getenv(
         "DATABASE_URL", "postgresql://cognora:cognora@db:5432/cognora"
     )
     secret_key: str = os.getenv("SECRET_KEY", "dev-secret-key-troque-em-producao")
     algorithm: str = "HS256"
     token_expire_days: int = 1   # 1 dia — renovado a cada login
+    session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "cognora_session")
+    session_cookie_secure: bool = _bool_env("SESSION_COOKIE_SECURE", False)
+    session_cookie_samesite: str = os.getenv("SESSION_COOKIE_SAMESITE", "lax").lower()
+    auth_rate_limit_attempts: int = int(os.getenv("AUTH_RATE_LIMIT_ATTEMPTS", "10"))
+    auth_rate_limit_window_seconds: int = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SECONDS", "300"))
     upload_dir: str = _clean_env("UPLOAD_DIR") or os.path.join(_BACKEND_DIR, "uploads")
     gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
     nvidia_api_key: str | None = os.getenv("NVIDIA_API_KEY")
@@ -67,3 +80,17 @@ class Settings:
 
 
 settings = Settings()
+
+
+def validate_security_settings() -> None:
+    if settings.session_cookie_samesite not in {"lax", "strict", "none"}:
+        raise RuntimeError("SESSION_COOKIE_SAMESITE deve ser lax, strict ou none")
+    if settings.session_cookie_samesite == "none" and not settings.session_cookie_secure:
+        raise RuntimeError("Cookies SameSite=None exigem SESSION_COOKIE_SECURE=true")
+    if settings.environment == "production":
+        if len(settings.secret_key) < 32 or settings.secret_key == "dev-secret-key-troque-em-producao":
+            raise RuntimeError("SECRET_KEY de producao deve ser aleatoria e ter pelo menos 32 caracteres")
+        if "*" in settings.allowed_origins:
+            raise RuntimeError("ALLOWED_ORIGINS nao pode usar curinga em producao")
+        if not settings.session_cookie_secure:
+            raise RuntimeError("SESSION_COOKIE_SECURE deve estar habilitado em producao")

@@ -9,8 +9,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from core.config.settings import settings
-from api.routes import admin, auth, entities, upload, nlp, limits, observability, subscriptions
+from core.config.settings import settings, validate_security_settings
+from api.routes import admin, auth, dashboard, entities, upload, nlp, limits, observability, subscriptions
 from infrastructure.database.connection import SessionLocal, engine
 from infrastructure.observability import (
     cleanup_old_system_events,
@@ -187,6 +187,7 @@ def _run_migrations():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_security_settings()
     try:
         _run_migrations()
         if engine.dialect.name != "sqlite":
@@ -202,6 +203,23 @@ async def lifespan(app: FastAPI):
 
 api = FastAPI(title="Cognora API", lifespan=lifespan)
 api.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
+
+
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@api.middleware("http")
+async def browser_request_protection(request: Request, call_next):
+    """Bloqueia CSRF sem impedir clientes Bearer não executados em navegador."""
+    if request.url.path.startswith("/api/") and request.method in _UNSAFE_METHODS:
+        origin = request.headers.get("origin")
+        fetch_site = request.headers.get("sec-fetch-site", "").lower()
+        if fetch_site == "cross-site" and origin not in settings.allowed_origins:
+            return JSONResponse(status_code=403, content={"detail": "Origem nao permitida."})
+        if origin:
+            if origin not in settings.allowed_origins or request.headers.get("x-cognora-csrf") != "1":
+                return JSONResponse(status_code=403, content={"detail": "Requisicao de navegador nao autorizada."})
+    return await call_next(request)
 
 
 def _request_id_from_headers(request: Request) -> str:
@@ -256,6 +274,11 @@ async def request_id_middleware(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if request.url.path.startswith("/api/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    if settings.environment == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     if duration_ms >= settings.slow_request_ms:
         logger.warning(
             "Requisição lenta: method=%s path=%s status=%s duration_ms=%.2f request_id=%s",
@@ -298,6 +321,7 @@ api.include_router(nlp.router)
 api.include_router(limits.router)
 api.include_router(observability.router)
 api.include_router(subscriptions.router)
+api.include_router(dashboard.router)
 api.include_router(entities.router)
 
 os.makedirs(settings.upload_dir, exist_ok=True)
@@ -308,7 +332,7 @@ app = CORSMiddleware(
     app=api,
     allow_origins=settings.allowed_origins,
     # O wrapper global mantém headers CORS até em respostas 500 inesperadas.
-    # JWT é enviado via Authorization, sem cookies.
+    # A sessão do navegador usa cookie HttpOnly; origens curingas ficam sem credenciais.
     allow_credentials=not _wildcard_origins,
     allow_methods=["*"],
     allow_headers=["*"],
