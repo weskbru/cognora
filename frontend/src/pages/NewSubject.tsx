@@ -14,24 +14,48 @@ import type { Subject } from '@/types/entities';
 export default function NewSubject() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const createMutation = useMutation({
     mutationFn: (data: Pick<Subject, 'name' | 'description'>) => base44.entities.Subject.create(data),
-    onSuccess: (created) => {
-      queryClient.setQueryData<Subject[]>(['subjects', user?.email], (cached) => {
-        if (!cached || cached.some(subject => subject.id === created.id)) return cached;
-        return [created, ...cached];
-      });
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: ['subjects'] });
+      const previous = queryClient.getQueriesData<Subject[]>({ queryKey: ['subjects'] });
+      const optimisticId = `optimistic-${crypto.randomUUID()}`;
+      const optimistic: Subject = {
+        id: optimisticId,
+        name: data.name,
+        description: data.description,
+        owner_email: user?.email,
+        created_date: new Date().toISOString(),
+      };
+      queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached = []) => [optimistic, ...cached]);
       navigate('/subjects');
+      return { previous, optimisticId };
+    },
+    onSuccess: (created, _data, context) => {
+      queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached = []) => {
+        const replaced = cached.map(subject => subject.id === context?.optimisticId ? created : subject);
+        return replaced.some(subject => subject.id === created.id) ? replaced : [created, ...replaced];
+      });
+    },
+    onError: (error, _data, context) => {
+      context?.previous.forEach(([key, value]) => queryClient.setQueryData(key, value));
+      setCreateError(error instanceof Error ? error.message : 'Não foi possível criar a matéria.');
+      navigate('/subjects/new', { replace: true });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!name.trim()) return;
+    setCreateError(null);
     createMutation.mutate({ name: name.trim(), description: description.trim() });
   };
 
@@ -59,6 +83,7 @@ export default function NewSubject() {
               {createMutation.isPending ? 'Criando...' : 'Criar Matéria'}
             </Button>
           </div>
+          {createError && <p className="text-sm text-destructive">{createError}</p>}
         </form>
       </Card>
     </div>

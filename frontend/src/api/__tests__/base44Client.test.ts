@@ -19,7 +19,40 @@ describe('base44Client', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/api/questions?subject_id=subject-1&sort=-created_date&limit=10'),
-      expect.objectContaining({ method: 'GET' }),
+      expect.objectContaining({ method: 'GET', credentials: 'include', headers: {} }),
+    );
+  });
+
+  it('nao envia content-type em GET e evita preflight desnecessario', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiRequest('GET', '/api/auth/me');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/auth/me'),
+      expect.objectContaining({ headers: {} }),
+    );
+  });
+
+  it('protege mutacoes do navegador com cabecalho csrf', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiRequest('POST', '/api/subjects', { name: 'Biologia' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/subjects'),
+      expect.objectContaining({
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Cognora-CSRF': '1' },
+      }),
     );
   });
 

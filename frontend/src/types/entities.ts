@@ -99,8 +99,28 @@ export interface UserProgress {
   [key: string]: unknown;
 }
 export interface QuestionAttempt { id: EntityId; question_id: EntityId; user_email: string; is_correct: boolean; created_date?: string; }
-export interface StudySession { id: EntityId; user_email: string; status: string; [key: string]: unknown; }
-export interface SubjectProgress { id: EntityId; user_email: string; subject_id: EntityId; [key: string]: unknown; }
+export interface StudySession {
+  id: EntityId;
+  user_email: string;
+  status: string;
+  subjects?: Array<{ id: EntityId; name: string }>;
+  questions_planned?: EntityId[];
+  questions_answered?: EntityId[];
+  reviews_planned?: EntityId[];
+  reviews_completed?: EntityId[];
+  xp_awarded?: number;
+  created_at?: string;
+}
+export interface SubjectProgress {
+  id: EntityId;
+  user_email: string;
+  subject_id: EntityId;
+  last_studied_at?: string | null;
+  next_review_at?: string | null;
+  review_stage?: number | null;
+  completed_reviews_count?: number | null;
+  accuracy_rate?: number | null;
+}
 
 export interface GenerationStatus {
   plan: 'free' | 'pro' | 'premium';
@@ -109,4 +129,16 @@ export interface GenerationStatus {
   remaining: number;
   has_daily_bonus: boolean;
   [key: string]: unknown;
+}
+
+export interface DashboardSnapshot {
+  subjects: Subject[];
+  documents: Document[];
+  questions: Question[];
+  summaries: Summary[];
+  attempts: QuestionAttempt[];
+  subject_progress: SubjectProgress[];
+  completed_sessions: StudySession[];
+  user_progress: UserProgress | null;
+  limits: GenerationStatus;
 }

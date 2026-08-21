@@ -24,6 +24,24 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import StatCard from '@/components/shared/StatCard';
 import EmptyState from '@/components/shared/EmptyState';
+import type { DashboardSnapshot, StudySession, Subject } from '@/types/entities';
+
+interface SubjectStudyStats extends Subject {
+  docCount: number;
+  questionCount: number;
+  answeredCount: number;
+  sortGroup: number;
+  accuracy: number | null;
+  lastStudySort: number;
+  lastStudiedAt: string | null;
+  nextReviewAt: string | null;
+  reviewStage: number | null;
+  actionLabel: string;
+  actionPath: string;
+  emptyMessage: string | null;
+  status: string;
+  statusClass: string;
+}
 
 const statusMap = {
   pending: { label: 'Pendente', class: 'bg-amber-100 text-amber-700' },
@@ -32,40 +50,40 @@ const statusMap = {
   error: { label: 'Erro', class: 'bg-red-100 text-red-700' },
 };
 
-function estimateMinutes(questionCount) {
+function estimateMinutes(questionCount: number): number {
   if (questionCount === 0) return 0;
   return Math.max(5, Math.ceil(questionCount * 1.2));
 }
 
-function formatAccuracy(value) {
+function formatAccuracy(value: number | null): string {
   if (value === null) return 'Sem tentativas';
   return `${value}% acerto`;
 }
 
-function startOfToday() {
+function startOfToday(): Date {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   return date;
 }
 
-function startOfDate(value) {
+function startOfDate(value: string | Date): Date {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);
   return date;
 }
 
-function formatReviewDate(value) {
+function formatReviewDate(value: string | null | undefined): string | null {
   if (!value) return null;
   return new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
-function daysFromToday(value, today) {
+function daysFromToday(value: string | null | undefined, today: Date): number | null {
   if (!value) return null;
   const target = startOfDate(value);
   return Math.round((target.getTime() - today.getTime()) / 86400000);
 }
 
-function formatReviewDistance(days) {
+function formatReviewDistance(days: number | null): string | null {
   if (days === null) return null;
   if (days < 0) return 'atrasada';
   if (days === 0) return 'hoje';
@@ -73,7 +91,7 @@ function formatReviewDistance(days) {
   return `em ${days} dias`;
 }
 
-function sortSubjectsByStudyPriority(a, b) {
+function sortSubjectsByStudyPriority(a: SubjectStudyStats, b: SubjectStudyStats): number {
   if (a.sortGroup !== b.sortGroup) return a.sortGroup - b.sortGroup;
 
   const aAccuracy = a.accuracy === null ? Number.POSITIVE_INFINITY : a.accuracy;
@@ -85,56 +103,37 @@ function sortSubjectsByStudyPriority(a, b) {
   return a.name.localeCompare(b.name, 'pt-BR');
 }
 
+function apiErrorStatus(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'status' in error) {
+    const value = Number(error.status);
+    return Number.isFinite(value) ? value : null;
+  }
+  return null;
+}
+
 const feedbackEmail = import.meta.env.VITE_FEEDBACK_EMAIL || 'weskdev@gmail.com';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { progress } = useRewardsContext();
   const navigate = useNavigate();
-  const onboardingRef = useRef(null);
+  const onboardingRef = useRef<HTMLDivElement | null>(null);
   const [startingStudy, setStartingStudy] = useState(false);
   const [studyStartError, setStudyStartError] = useState('');
 
-  const { data: subjects = [], isLoading: loadingSubjects } = useQuery({
-    queryKey: ['subjects', user?.email],
-    queryFn: () => base44.entities.Subject.filter({ owner_email: user.email }),
+  const { data: dashboard, isLoading } = useQuery<DashboardSnapshot>({
+    queryKey: ['dashboard', user?.email],
+    queryFn: () => base44.dashboard.get(),
     enabled: !!user?.email,
+    staleTime: 60_000,
   });
-
-  const { data: documents = [], isLoading: loadingDocs } = useQuery({
-    queryKey: ['documents'],
-    queryFn: () => base44.entities.Document.list('-created_date'),
-  });
-
-  const { data: questions = [], isLoading: loadingQuestions } = useQuery({
-    queryKey: ['questions'],
-    queryFn: () => base44.entities.Question.list('-created_date'),
-  });
-
-  const { data: summaries = [], isLoading: loadingSummaries } = useQuery({
-    queryKey: ['summaries'],
-    queryFn: () => base44.entities.Summary.list('-created_date'),
-  });
-
-  const { data: attempts = [], isLoading: loadingAttempts } = useQuery({
-    queryKey: ['question_attempts', user?.email],
-    queryFn: () => base44.entities.QuestionAttempt.filter({ user_email: user.email }),
-    enabled: !!user?.email,
-  });
-
-  const { data: subjectProgress = [], isLoading: loadingSubjectProgress } = useQuery({
-    queryKey: ['subject_progress', user?.email],
-    queryFn: () => base44.entities.SubjectProgress.filter({ user_email: user.email }),
-    enabled: !!user?.email,
-  });
-
-  const { data: completedSessions = [], isLoading: loadingCompletedSessions } = useQuery({
-    queryKey: ['study_sessions', 'completed', user?.email],
-    queryFn: () => base44.entities.StudySession.filter({ status: 'COMPLETED' }),
-    enabled: !!user?.email,
-  });
-
-  const isLoading = loadingSubjects || loadingDocs || loadingQuestions || loadingSummaries || loadingAttempts || loadingSubjectProgress || loadingCompletedSessions;
+  const subjects = dashboard?.subjects ?? [];
+  const documents = dashboard?.documents ?? [];
+  const questions = dashboard?.questions ?? [];
+  const summaries = dashboard?.summaries ?? [];
+  const attempts = dashboard?.attempts ?? [];
+  const subjectProgress = dashboard?.subject_progress ?? [];
+  const completedSessions = dashboard?.completed_sessions ?? [];
   const recentDocs = documents.slice(0, 5);
   const answeredQuestionIds = new Set(attempts.map(attempt => String(attempt.question_id)));
   const unansweredQuestions = questions.filter(question => !answeredQuestionIds.has(String(question.id)));
@@ -155,7 +154,7 @@ export default function Dashboard() {
   const trackedSubjectsCount = subjectProgress.length;
   const nextReviewProgress = subjectProgress
     .filter(item => item.next_review_at)
-    .sort((a, b) => new Date(a.next_review_at).getTime() - new Date(b.next_review_at).getTime())[0];
+    .sort((a, b) => new Date(a.next_review_at ?? 0).getTime() - new Date(b.next_review_at ?? 0).getTime())[0];
   const nextReviewSubject = nextReviewProgress
     ? subjects.find(subject => String(subject.id) === String(nextReviewProgress.subject_id))
     : null;
@@ -168,7 +167,7 @@ export default function Dashboard() {
     ? `${trackedSubjectsCount} materia${trackedSubjectsCount !== 1 ? 's' : ''} em acompanhamento`
     : 'Conclua sua primeira sessao e o Cognora agenda sua proxima revisao.';
 
-  const subjectStats = subjects.map(subject => {
+  const subjectStats: SubjectStudyStats[] = subjects.map(subject => {
     const subjectDocs = documents.filter(doc => doc.subject_id === subject.id);
     const subjectQuestions = questions.filter(question => question.subject_id === subject.id);
     const subjectQuestionIds = new Set(subjectQuestions.map(question => String(question.id)));
@@ -246,11 +245,11 @@ export default function Dashboard() {
 
     setStartingStudy(true);
     try {
-      let activeSessions = [];
+      let activeSessions: StudySession[] = [];
       try {
         activeSessions = await base44.entities.StudySession.filter({ status: 'IN_PROGRESS' });
       } catch (error) {
-        if (error?.status === 404) {
+        if (apiErrorStatus(error) === 404) {
           setStudyStartError('Sessões de estudo ainda não estão disponíveis no backend. Abrindo o quiz normal.');
           window.setTimeout(() => navigate('/quiz'), 700);
           return;
@@ -264,15 +263,15 @@ export default function Dashboard() {
       }
 
       const plannedSubjectIds = Array.from(
-        new Set(recommendedQuestions.map(question => question.subject_id).filter(Boolean))
+        new Set(recommendedQuestions.map(question => question.subject_id).filter((id): id is string => Boolean(id)))
       ).slice(0, 2);
       const questionsFromPlannedSubjects = plannedSubjectIds.length > 0
-        ? recommendedQuestions.filter(question => plannedSubjectIds.includes(question.subject_id))
+        ? recommendedQuestions.filter(question => Boolean(question.subject_id && plannedSubjectIds.includes(question.subject_id)))
         : recommendedQuestions;
       const plannedQuestions = questionsFromPlannedSubjects.slice(0, 10);
       const plannedSubjects = plannedSubjectIds
         .map(subjectId => subjects.find(subject => subject.id === subjectId))
-        .filter(Boolean)
+        .filter((subject): subject is Subject => Boolean(subject))
         .map(subject => ({ id: subject.id, name: subject.name }));
 
       let session;
@@ -287,7 +286,7 @@ export default function Dashboard() {
           xp_awarded: 0,
         });
       } catch (error) {
-        if (error?.status === 404) {
+        if (apiErrorStatus(error) === 404) {
           setStudyStartError('Sessões de estudo ainda não estão disponíveis no backend. Abrindo o quiz normal.');
           window.setTimeout(() => navigate('/quiz'), 700);
           return;

@@ -5,6 +5,7 @@ Cobre: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me
 import uuid
 
 import pytest
+from core.config.settings import settings
 
 
 def _payload_unico() -> dict:
@@ -20,13 +21,15 @@ class TestRegister:
         response = client.post("/api/auth/register", json=_payload_unico())
         assert response.status_code == 201
 
-    def test_registro_retorna_token_e_email(self, client):
+    def test_registro_estabelece_cookie_http_only_sem_expor_token(self, client):
         payload = _payload_unico()
         response = client.post("/api/auth/register", json=payload)
         data = response.json()
-        assert "access_token" in data
-        assert data["token_type"] == "bearer"
+        assert "access_token" not in data
         assert data["email"] == payload["email"]
+        assert data["user"]["email"] == payload["email"]
+        assert settings.session_cookie_name in response.cookies
+        assert "httponly" in response.headers["set-cookie"].lower()
 
     def test_registro_retorna_generations_remaining(self, client):
         response = client.post("/api/auth/register", json=_payload_unico())
@@ -51,15 +54,10 @@ class TestRegister:
         response = client.post("/api/auth/register", json={})
         assert response.status_code == 422
 
-    def test_token_retornado_e_utilizavel(self, client):
+    def test_cookie_retornado_e_utilizavel(self, client):
         payload = _payload_unico()
-        reg_resp = client.post("/api/auth/register", json=payload)
-        token = reg_resp.json()["access_token"]
-
-        me_resp = client.get(
-            "/api/auth/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        client.post("/api/auth/register", json=payload)
+        me_resp = client.get("/api/auth/me")
         assert me_resp.status_code == 200
         assert me_resp.json()["email"] == payload["email"]
 
@@ -74,13 +72,15 @@ class TestLogin:
         response = client.post("/api/auth/login", json=payload)
         assert response.status_code == 200
 
-    def test_login_retorna_token_email_e_bonus(self, client):
+    def test_login_retorna_usuario_bonus_e_cookie(self, client):
         payload = _payload_unico()
         self._registrar(client, payload)
         response = client.post("/api/auth/login", json=payload)
         data = response.json()
-        assert "access_token" in data
+        assert "access_token" not in data
         assert data["email"] == payload["email"]
+        assert data["user"]["email"] == payload["email"]
+        assert settings.session_cookie_name in response.cookies
         assert "generations_remaining" in data
         assert "has_daily_bonus" in data
 
@@ -104,17 +104,55 @@ class TestLogin:
         response = client.post("/api/auth/login", json={"email": "a@b.com"})
         assert response.status_code == 422
 
-    def test_token_de_login_e_valido(self, client):
+    def test_cookie_de_login_e_valido(self, client):
         payload = _payload_unico()
         self._registrar(client, payload)
-        login_resp = client.post("/api/auth/login", json=payload)
-        token = login_resp.json()["access_token"]
-
-        me_resp = client.get(
-            "/api/auth/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        client.post("/api/auth/login", json=payload)
+        me_resp = client.get("/api/auth/me")
         assert me_resp.status_code == 200
+
+    def test_logout_remove_cookie(self, client):
+        payload = _payload_unico()
+        self._registrar(client, payload)
+        response = client.post("/api/auth/logout")
+        assert response.status_code == 204
+        assert settings.session_cookie_name not in client.cookies
+
+    def test_logout_remove_cookie_mesmo_com_sessao_expirada(self, client):
+        client.cookies.set(settings.session_cookie_name, "token-expirado")
+
+        response = client.post("/api/auth/logout")
+
+        assert response.status_code == 204
+        assert f"{settings.session_cookie_name}=\"\"" in response.headers["set-cookie"]
+        assert "Max-Age=0" in response.headers["set-cookie"]
+
+
+def test_navegador_exige_cabecalho_csrf(client):
+    origin = "http://localhost:5173"
+    blocked = client.post(
+        "/api/auth/login",
+        headers={"Origin": origin},
+        json={"email": "missing@example.com", "password": "invalid"},
+    )
+    assert blocked.status_code == 403
+
+    allowed = client.post(
+        "/api/auth/login",
+        headers={"Origin": origin, "X-Cognora-CSRF": "1"},
+        json={"email": "missing@example.com", "password": "invalid"},
+    )
+    assert allowed.status_code == 401
+
+
+def test_login_aplica_rate_limit(client, monkeypatch):
+    monkeypatch.setattr(settings, "auth_rate_limit_attempts", 2)
+    payload = {"email": "missing@example.com", "password": "invalid"}
+    assert client.post("/api/auth/login", json=payload).status_code == 401
+    assert client.post("/api/auth/login", json=payload).status_code == 401
+    response = client.post("/api/auth/login", json=payload)
+    assert response.status_code == 429
+    assert "retry-after" in response.headers
 
 
 class TestMe:

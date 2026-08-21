@@ -1,5 +1,3 @@
-import { getToken } from '@/lib/tokenStorage';
-
 const API_URL = import.meta.env.VITE_API_URL as string | undefined;
 
 export type FrontendEventType =
@@ -21,15 +19,13 @@ const MAX_EVENTS_PER_SESSION = 30;
 export async function reportFrontendEvent(payload: FrontendEventPayload): Promise<void> {
   if (!API_URL || eventCount >= MAX_EVENTS_PER_SESSION) return;
 
-  const token = getToken();
-  if (!token) return;
-
   eventCount += 1;
   await fetch(`${API_URL}/api/observability/frontend-events`, {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+      'X-Cognora-CSRF': '1',
     },
     body: JSON.stringify(payload),
   }).catch(() => {});
