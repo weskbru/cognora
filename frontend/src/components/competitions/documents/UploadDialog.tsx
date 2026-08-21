@@ -13,7 +13,7 @@ import { Upload, FileText, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +42,7 @@ interface SubjectEntityApi {
 const TypedDialogContent = DialogContent as ComponentType<PropsWithChildren<{ className?: string }>>;
 const TypedDialogHeader = DialogHeader as ComponentType<PropsWithChildren<{ className?: string }>>;
 const TypedDialogTitle = DialogTitle as ComponentType<PropsWithChildren>;
+const TypedDialogDescription = DialogDescription as ComponentType<PropsWithChildren<{ className?: string }>>;
 const TypedInput = Input as ComponentType<InputHTMLAttributes<HTMLInputElement>>;
 const subjectApi = base44.entities.Subject as unknown as SubjectEntityApi;
 
@@ -123,6 +124,9 @@ export default function UploadDialog({
       <TypedDialogContent className="w-[calc(100%-2rem)] max-w-md overflow-hidden">
         <TypedDialogHeader>
           <TypedDialogTitle>Enviar PDF</TypedDialogTitle>
+          <TypedDialogDescription className="sr-only">
+            Selecione um arquivo PDF, informe o nome e a matéria de destino.
+          </TypedDialogDescription>
         </TypedDialogHeader>
         {uploading ? (
           <div className="flex flex-col items-center gap-4 py-3 text-center">
