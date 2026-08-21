@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import type { DocumentStatus } from '@/types/entities';
+import type { DashboardSnapshot, Document, DocumentStatus, Subject } from '@/types/entities';
 import { ArrowLeft, FileText, Upload } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,20 +23,35 @@ const statusMap: Record<DocumentStatus, { label: string; class: string }> = {
 export default function SubjectDetail() {
   const { id: subjectId } = useParams<{ id: string }>();
   const [uploadOpen, setUploadOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
 
-  const { data: subject, isLoading: loadingSubject } = useQuery({
+  const cachedDashboard = user?.email
+    ? queryClient.getQueryData<DashboardSnapshot>(['dashboard', user.email])
+    : undefined;
+  const cachedSubjects = user?.email
+    ? queryClient.getQueryData<Subject[]>(['subjects', user.email])
+    : undefined;
+  const cachedDocuments = queryClient.getQueryData<Document[]>(['documents']);
+
+  const { data: subject, isLoading: loadingSubject } = useQuery<Subject | undefined>({
     queryKey: ['subject', subjectId],
-    queryFn: async () => {
-      const subjects = await base44.entities.Subject.filter({ id: subjectId });
-      return subjects[0];
-    },
+    queryFn: () => base44.entities.Subject.get(subjectId!),
     enabled: !!subjectId,
+    initialData: () => cachedSubjects?.find(item => item.id === subjectId)
+      ?? cachedDashboard?.subjects.find(item => item.id === subjectId),
+    staleTime: 60_000,
   });
 
-  const { data: documents = [], isLoading: loadingDocs } = useQuery({
+  const { data: documents, isLoading: loadingDocs } = useQuery<Document[]>({
     queryKey: ['documents', 'subject', subjectId],
     queryFn: () => base44.entities.Document.filter({ subject_id: subjectId }, '-created_date'),
     enabled: !!subjectId,
+    initialData: () => {
+      const source = cachedDocuments ?? cachedDashboard?.documents;
+      return source?.filter(document => document.subject_id === subjectId);
+    },
+    staleTime: 30_000,
   });
 
   if (loadingSubject) {
@@ -58,7 +74,11 @@ export default function SubjectDetail() {
         </Button>
       </PageHeader>
 
-      {documents.length === 0 ? (
+      {loadingDocs ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(item => <Skeleton key={item} className="h-28 rounded-xl" />)}
+        </div>
+      ) : documents?.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="Nenhum documento nesta matéria"
@@ -66,7 +86,7 @@ export default function SubjectDetail() {
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {documents.map(doc => {
+          {documents?.map(doc => {
             const st = statusMap[doc.status] || statusMap.pending;
             return (
               <Link key={doc.id} to={`/documents/${doc.id}`}>
