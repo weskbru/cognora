@@ -21,3 +21,17 @@ def test_upload_dir_pode_ser_configurado_por_env(monkeypatch):
     assert reloaded.Settings.upload_dir == "/tmp/cognora-uploads"
     monkeypatch.delenv("UPLOAD_DIR", raising=False)
     importlib.reload(settings_module)
+
+
+def test_render_usa_defaults_seguros_de_producao(monkeypatch):
+    with monkeypatch.context() as env:
+        env.setenv("RENDER", "true")
+        env.delenv("ENVIRONMENT", raising=False)
+        env.delenv("SESSION_COOKIE_SECURE", raising=False)
+
+        reloaded = importlib.reload(settings_module)
+
+        assert reloaded.settings.environment == "production"
+        assert reloaded.settings.session_cookie_secure is True
+
+    importlib.reload(settings_module)

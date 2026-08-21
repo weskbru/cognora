@@ -1,8 +1,6 @@
 import { ApiError } from '@/lib/apiError';
 import type { Competition, DashboardSnapshot, Document, Flashcard, GenerationStatus, Question, QuestionAttempt, StudySession, Subject, SubjectProgress, Summary, User, UserProgress } from '@/types/entities';
-
-const API_URL = import.meta.env.VITE_API_URL;
-if (!API_URL) throw new Error('[Cognora] VITE_API_URL não configurada. Crie um arquivo .env.local com VITE_API_URL=http://localhost:8001');
+import { API_URL } from './apiUrl';
 
 type EntityFilters = Record<string, string | number | boolean | null | undefined>;
 type ErrorPayload = { detail?: string | { message?: string; code?: string } };

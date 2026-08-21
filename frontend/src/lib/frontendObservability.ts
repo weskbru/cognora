@@ -1,6 +1,5 @@
 import { reportFrontendEvent } from '@/api/observability';
-
-const API_URL = import.meta.env.VITE_API_URL as string | undefined;
+import { API_URL } from '@/api/apiUrl';
 
 let installed = false;
 let originalFetch: typeof fetch | null = null;
@@ -35,8 +34,7 @@ function requestInfo(input: RequestInfo | URL, init?: RequestInit): { url: URL; 
 }
 
 function shouldTrackApiFailure(url: URL): boolean {
-  if (!API_URL) return false;
-  const apiBase = new URL(API_URL);
+  const apiBase = new URL(API_URL || '/', window.location.origin);
   if (url.origin !== apiBase.origin) return false;
   if (url.pathname === '/api/observability/frontend-events') return false;
   return url.pathname.startsWith('/api/');

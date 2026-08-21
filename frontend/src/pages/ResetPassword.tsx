@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Lock, Loader2, Brain, CheckCircle2 } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL as string;
+import { API_URL } from '@/api/apiUrl';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -26,7 +25,8 @@ export default function ResetPassword() {
     try {
       const res = await fetch(`${API_URL}/api/auth/reset-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Cognora-CSRF': '1' },
         body: JSON.stringify({ token, new_password: password }),
       });
       const data = await res.json();
