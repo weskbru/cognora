@@ -218,6 +218,24 @@ class TestAnalisarDocumento:
         )
         assert response.status_code == 404
 
+    @pytest.mark.parametrize(
+        "file_url",
+        [
+            "https://example.com/documento.pdf",
+            "http://127.0.0.1:5432/segredo",
+            "file:///etc/passwd",
+        ],
+    )
+    def test_rejeita_origem_externa_sem_realizar_download(self, client, auth_headers, file_url):
+        response = client.post(
+            "/api/nlp/analisar-documento",
+            json={"file_url": file_url},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 400
+        assert "Cognora" in response.json()["detail"]
+
     def test_sem_autenticacao_retorna_401(self, client):
         response = client.post(
             "/api/nlp/analisar-documento",

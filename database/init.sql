@@ -62,11 +62,17 @@ CREATE TABLE IF NOT EXISTS competitions (
     mode TEXT CHECK (mode IN ('duel', 'time_attack', 'weekly_league')),
     status TEXT DEFAULT 'waiting' CHECK (status IN ('waiting', 'active', 'finished')),
     host_email TEXT,
+    subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL,
     participants JSONB DEFAULT '[]',
     question_count INTEGER DEFAULT 5,
     time_limit_seconds INTEGER,
     invite_code TEXT UNIQUE,
     questions_data JSONB DEFAULT '[]',
+    question_ids JSONB DEFAULT '[]',
+    winner_email TEXT,
+    finished_at TIMESTAMPTZ,
+    week_start DATE,
+    week_end DATE,
     created_date TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -193,6 +199,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE;
 ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL;
 ALTER TABLE competitions ADD COLUMN IF NOT EXISTS questions_data JSONB DEFAULT '[]';
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL;
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS question_ids JSONB DEFAULT '[]';
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS winner_email TEXT;
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS week_start DATE;
+ALTER TABLE competitions ADD COLUMN IF NOT EXISTS week_end DATE;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT UNIQUE;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'inactive';

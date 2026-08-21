@@ -37,6 +37,9 @@ USER_PROGRESS_PROTECTED_FIELDS = {
 }
 
 STUDY_SESSION_ALLOWED_STATUSES = {"IN_PROGRESS", "COMPLETED", "ABANDONED"}
+COMPETITION_ALLOWED_MODES = {"duel", "time_attack", "weekly_league"}
+COMPETITION_ALLOWED_STATUSES = {"waiting", "active", "finished"}
+COMPETITION_LIST_FIELDS = {"participants", "questions_data", "question_ids"}
 STUDY_SESSION_PROTECTED_FIELDS = {
     "user_email",
     "xp_awarded",
@@ -100,6 +103,36 @@ def _normalize_subject_progress_data(data: dict, *, user_email: str | None = Non
     normalized = {key: value for key, value in data.items() if key not in SUBJECT_PROGRESS_PROTECTED_FIELDS}
     if user_email:
         normalized["user_email"] = user_email
+    return normalized
+
+
+def _normalize_competition_data(data: dict) -> dict:
+    normalized = dict(data)
+    if "mode" in normalized and normalized["mode"] not in COMPETITION_ALLOWED_MODES:
+        raise HTTPException(status_code=400, detail="Modo de competição inválido.")
+    if "status" in normalized and normalized["status"] not in COMPETITION_ALLOWED_STATUSES:
+        raise HTTPException(status_code=400, detail="Status de competição inválido.")
+    for field in COMPETITION_LIST_FIELDS:
+        if field in normalized and not isinstance(normalized[field], list):
+            raise HTTPException(status_code=400, detail=f"O campo '{field}' deve ser uma lista.")
+    if "question_count" in normalized:
+        try:
+            normalized["question_count"] = int(normalized["question_count"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Quantidade de questões inválida.")
+        if not 1 <= normalized["question_count"] <= 100:
+            raise HTTPException(status_code=400, detail="A quantidade de questões deve ficar entre 1 e 100.")
+    if isinstance(normalized.get("finished_at"), str):
+        try:
+            normalized["finished_at"] = datetime.fromisoformat(normalized["finished_at"])
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Data de encerramento inválida.")
+    for field in ("week_start", "week_end"):
+        if isinstance(normalized.get(field), str):
+            try:
+                normalized[field] = datetime.fromisoformat(normalized[field]).date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Data inválida no campo '{field}'.")
     return normalized
 
 
@@ -424,7 +457,7 @@ def create_entity(
         check_document_limit(subject_id, current_user.email, db)
     elif entity == "competitions":
         check_competition_limit(current_user.email, db)
-        data = {**data, "host_email": current_user.email}
+        data = {**_normalize_competition_data(data), "host_email": current_user.email}
     elif entity == "summaries":
         document_id = data.get("document_id")
         if not document_id:
@@ -470,6 +503,9 @@ def update_entity(
             data = _normalize_study_session_data(data, existing_session=row)
         elif entity == "subject_progress":
             data = _normalize_subject_progress_data(data)
+    elif entity == "competitions":
+        data.pop("host_email", None)
+        data = _normalize_competition_data(data)
     row = _repo(entity, db).update(item_id, data)
     if not row:
         raise HTTPException(status_code=404, detail="Not found")

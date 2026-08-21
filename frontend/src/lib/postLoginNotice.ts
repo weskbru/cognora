@@ -4,17 +4,18 @@ export function rememberGenerationLimitAfterLogin(generationsRemaining: unknown)
   if (typeof window === 'undefined') return;
 
   if (generationsRemaining === 0) {
-    window.sessionStorage.setItem(GENERATION_LIMIT_NOTICE_KEY, '1');
+    setStoredValue('session', GENERATION_LIMIT_NOTICE_KEY, '1');
     return;
   }
 
-  window.sessionStorage.removeItem(GENERATION_LIMIT_NOTICE_KEY);
+  removeStoredValue('session', GENERATION_LIMIT_NOTICE_KEY);
 }
 
 export function consumeGenerationLimitAfterLogin(): boolean {
   if (typeof window === 'undefined') return false;
 
-  const shouldShowNotice = window.sessionStorage.getItem(GENERATION_LIMIT_NOTICE_KEY) === '1';
-  window.sessionStorage.removeItem(GENERATION_LIMIT_NOTICE_KEY);
+  const shouldShowNotice = getStoredValue('session', GENERATION_LIMIT_NOTICE_KEY) === '1';
+  removeStoredValue('session', GENERATION_LIMIT_NOTICE_KEY);
   return shouldShowNotice;
 }
+import { getStoredValue, removeStoredValue, setStoredValue } from '@/lib/safeStorage';

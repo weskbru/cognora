@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import type { DocumentStatus } from '@/types/entities';
 import { ArrowLeft, FileText, Upload } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
 import UploadDialog from '@/components/documents/UploadDialog';
 
-const statusMap = {
+const statusMap: Record<DocumentStatus, { label: string; class: string }> = {
   pending: { label: 'Pendente', class: 'bg-amber-100 text-amber-700' },
   processing: { label: 'Processando', class: 'bg-blue-100 text-blue-700' },
   completed: { label: 'Concluído', class: 'bg-emerald-100 text-emerald-700' },
@@ -19,8 +20,7 @@ const statusMap = {
 };
 
 export default function SubjectDetail() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const subjectId = window.location.pathname.split('/subjects/')[1];
+  const { id: subjectId } = useParams<{ id: string }>();
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const { data: subject, isLoading: loadingSubject } = useQuery({

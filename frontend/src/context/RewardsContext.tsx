@@ -1,10 +1,12 @@
-import React, { createContext, useContext } from 'react';
+import { createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
 import { useRewards } from '@/hooks/useRewards';
 import RewardPopup from '@/components/rewards/RewardPopup';
+import type { RewardsContextValue } from '@/types/rewards';
 
-const RewardsContext = createContext(null);
+const RewardsContext = createContext<RewardsContextValue | null>(null);
 
-export function RewardsProvider({ children }) {
+export function RewardsProvider({ children }: { children: ReactNode }) {
   const rewards = useRewards();
 
   return (
@@ -15,7 +17,7 @@ export function RewardsProvider({ children }) {
   );
 }
 
-export function useRewardsContext() {
+export function useRewardsContext(): RewardsContextValue {
   const ctx = useContext(RewardsContext);
   if (!ctx) throw new Error('useRewardsContext must be inside RewardsProvider');
   return ctx;

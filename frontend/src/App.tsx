@@ -1,43 +1,47 @@
 import { Toaster } from "@/components/ui/toaster"
+import { lazy, Suspense } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import Login from '@/pages/Login';
 import ResetPassword from '@/pages/ResetPassword';
-import Pricing from '@/pages/Pricing';
-import AdminAudit from '@/pages/AdminAudit';
-import AdminDashboard from '@/pages/AdminDashboard';
-import AdminObservability from '@/pages/AdminObservability';
-import AdminPayments from '@/pages/AdminPayments';
-import AdminUsers from '@/pages/AdminUsers';
 import Landing from '@/pages/Landing';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
-import Dashboard from '@/pages/Dashboard';
-import Subjects from '@/pages/Subjects';
-import SubjectDetail from '@/pages/SubjectDetail';
-import NewSubject from '@/pages/NewSubject';
-import Documents from '@/pages/Documents';
-import DocumentDetail from '@/pages/DocumentDetail';
-import Quiz from '@/pages/Quiz';
-import Profile from '@/pages/Profile';
-import Leaderboard from '@/pages/Leaderboard';
-import Competitions from '@/pages/Competitions';
-import CompetitionDetail from '@/pages/CompetitionDetail';
-import ErrorNotebook from '@/pages/ErrorNotebook';
 import { RewardsProvider } from '@/context/RewardsContext';
+
+const Pricing = lazy(() => import('@/pages/Pricing'));
+const AdminAudit = lazy(() => import('@/pages/AdminAudit'));
+const AdminDashboard = lazy(() => import('@/pages/AdminDashboard'));
+const AdminObservability = lazy(() => import('@/pages/AdminObservability'));
+const AdminPayments = lazy(() => import('@/pages/AdminPayments'));
+const AdminUsers = lazy(() => import('@/pages/AdminUsers'));
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
+const Subjects = lazy(() => import('@/pages/Subjects'));
+const SubjectDetail = lazy(() => import('@/pages/SubjectDetail'));
+const NewSubject = lazy(() => import('@/pages/NewSubject'));
+const Documents = lazy(() => import('@/pages/Documents'));
+const DocumentDetail = lazy(() => import('@/pages/DocumentDetail'));
+const Quiz = lazy(() => import('@/pages/Quiz'));
+const Profile = lazy(() => import('@/pages/Profile'));
+const Leaderboard = lazy(() => import('@/pages/Leaderboard'));
+const Competitions = lazy(() => import('@/pages/Competitions'));
+const CompetitionDetail = lazy(() => import('@/pages/CompetitionDetail'));
+const ErrorNotebook = lazy(() => import('@/pages/ErrorNotebook'));
+
+const LoadingScreen = () => (
+  <div className="fixed inset-0 flex items-center justify-center bg-slate-950">
+    <div className="w-8 h-8 border-4 border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
+  </div>
+);
 
 // Rotas protegidas — redireciona nao autenticados para /login
 const ProtectedRoutes = () => {
   const { isLoadingAuth, isAuthenticated } = useAuth();
 
   if (isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-950">
-        <div className="w-8 h-8 border-4 border-slate-700 border-t-indigo-500 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -46,8 +50,9 @@ const ProtectedRoutes = () => {
 
   return (
     <RewardsProvider>
-      <Routes>
-        <Route element={<AppLayout />}>
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/subjects/new" element={<NewSubject />} />
@@ -66,9 +71,10 @@ const ProtectedRoutes = () => {
           <Route path="/admin/payments" element={<AdminPayments />} />
           <Route path="/admin/audit" element={<AdminAudit />} />
           <Route path="/admin/observability" element={<AdminObservability />} />
-        </Route>
-        <Route path="*" element={<PageNotFound />} />
-      </Routes>
+          </Route>
+          <Route path="*" element={<PageNotFound />} />
+        </Routes>
+      </Suspense>
     </RewardsProvider>
   );
 };

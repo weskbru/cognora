@@ -1,4 +1,5 @@
 import os
+import tempfile
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -11,6 +12,48 @@ from infrastructure.database.models import Subject, User
 from infrastructure.observability import record_system_event
 
 router = APIRouter(prefix="/api", tags=["upload"])
+
+ALLOWED_UPLOAD_EXTENSIONS = {
+    ".pdf": {"application/pdf", "application/octet-stream"},
+    ".png": {"image/png"},
+    ".jpg": {"image/jpeg"},
+    ".jpeg": {"image/jpeg"},
+    ".webp": {"image/webp"},
+}
+MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024
+
+
+def _validated_extension(filename: str, content_type: str | None) -> str:
+    extension = os.path.splitext(filename)[1].lower()
+    if not extension:
+        # Mantem compatibilidade com o fluxo legado de documentos sem extensao.
+        extension = ".pdf"
+    allowed_types = ALLOWED_UPLOAD_EXTENSIONS.get(extension)
+    if not allowed_types or (content_type and content_type not in allowed_types):
+        raise HTTPException(
+            status_code=415,
+            detail={
+                "code": "UNSUPPORTED_FILE_TYPE",
+                "message": "Envie um arquivo PDF, PNG, JPG ou WEBP.",
+            },
+        )
+    return extension
+
+
+def _write_upload_atomically(data: bytes, filename: str) -> None:
+    os.makedirs(settings.upload_dir, exist_ok=True)
+    destination = os.path.join(settings.upload_dir, filename)
+    descriptor, temporary_path = tempfile.mkstemp(dir=settings.upload_dir, prefix=".upload-")
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(data)
+        os.replace(temporary_path, destination)
+    except Exception:
+        try:
+            os.unlink(temporary_path)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def _public_upload_url(request: Request, filename: str) -> str:
@@ -31,8 +74,8 @@ def upload_file(
     original_name = file.filename or "arquivo.pdf"
     try:
         data = file.file.read()
-        ext = os.path.splitext(original_name)[1] or ".pdf"
-        is_pdf = ext.lower() == ".pdf" or file.content_type == "application/pdf"
+        ext = _validated_extension(original_name, file.content_type)
+        is_pdf = ext == ".pdf"
         if is_pdf:
             check_upload_size(current_user.email, len(data), db)
             if not subject_id:
@@ -50,13 +93,18 @@ def upload_file(
                     "message": "Matéria não encontrada.",
                 })
             check_document_limit(subject_id, current_user.email, db)
+        elif len(data) > MAX_IMAGE_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail={
+                    "code": "FILE_TOO_LARGE",
+                    "message": "A imagem deve ter no maximo 5 MB.",
+                    "limit_mb": 5,
+                },
+            )
 
         filename = f"{uuid.uuid4()}{ext}"
-
-        os.makedirs(settings.upload_dir, exist_ok=True)
-        path = os.path.join(settings.upload_dir, filename)
-        with open(path, "wb") as output:
-            output.write(data)
+        _write_upload_atomically(data, filename)
 
         record_system_event(
             db,
@@ -92,3 +140,5 @@ def upload_file(
             metadata={"filename": original_name, "error": str(exc), "content_type": file.content_type},
         )
         raise
+    finally:
+        file.file.close()

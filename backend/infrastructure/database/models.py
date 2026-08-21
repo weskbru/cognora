@@ -73,11 +73,17 @@ class Competition(Base):
     mode = Column(String)
     status = Column(String, default="waiting")
     host_email = Column(String)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True)
     participants = Column(JSON, default=list)
     questions_data = Column(JSON, default=list)
+    question_ids = Column(JSON, default=list)
     question_count = Column(Integer, default=5)
     time_limit_seconds = Column(Integer)
     invite_code = Column(String, unique=True)
+    winner_email = Column(String, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+    week_start = Column(Date, nullable=True)
+    week_end = Column(Date, nullable=True)
     created_date = Column(DateTime, default=datetime.utcnow)
 
 
