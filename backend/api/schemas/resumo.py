@@ -24,6 +24,25 @@ class AnalisarDocumentoRequest(BaseModel):
 
 # ── Schemas de saída ──────────────────────────────────────────────────────────
 
+class CriarGeracaoDocumentoRequest(BaseModel):
+    document_id: str = Field(..., description="ID do documento pertencente ao usuario.")
+    operation: str = Field(default="summary", description="'summary', 'questions' ou 'flashcards'")
+    question_type: str = Field(default="multiple_choice", description="'multiple_choice' ou 'true_false'")
+    question_count: int = Field(default=5, ge=1, le=10)
+
+
+class GeracaoDocumentoJobResponse(BaseModel):
+    id: str
+    document_id: str
+    operation: str
+    status: str
+    result: dict = Field(default_factory=dict)
+    error_code: str | None = None
+    error_message: str | None = None
+    plan: str | None = None
+    subscription_status: str | None = None
+
+
 class AlternativaSchema(BaseModel):
     text: str
     correct: bool

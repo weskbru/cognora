@@ -127,6 +127,8 @@ class GeminiNLPAdapter:
             nvidia = AsyncOpenAI(
                 base_url="https://integrate.api.nvidia.com/v1",
                 api_key=settings.nvidia_api_key,
+                timeout=settings.ai_provider_timeout_seconds,
+                max_retries=0,
             )
             for model in (
                 "meta/llama-3.3-70b-instruct",
@@ -140,6 +142,8 @@ class GeminiNLPAdapter:
             gemini = AsyncOpenAI(
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
                 api_key=settings.gemini_api_key,
+                timeout=settings.ai_provider_timeout_seconds,
+                max_retries=0,
             )
             for model in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"):
                 self._candidates.append((gemini, model))
@@ -148,6 +152,8 @@ class GeminiNLPAdapter:
             openrouter = AsyncOpenAI(
                 base_url="https://openrouter.ai/api/v1",
                 api_key=settings.openrouter_api_key,
+                timeout=settings.ai_provider_timeout_seconds,
+                max_retries=0,
             )
             for model in (
                 "google/gemma-3-27b-it:free",

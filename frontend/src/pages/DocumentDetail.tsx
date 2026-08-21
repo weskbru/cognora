@@ -79,7 +79,7 @@ export default function DocumentDetail() {
     return <div className="space-y-4"><Skeleton className="h-10 w-64" /><Skeleton className="h-64" /></div>;
   }
 
-  if (!document) {
+  if (!documentId || !document) {
     return <div className="text-center py-16 text-muted-foreground">Documento não encontrado</div>;
   }
 

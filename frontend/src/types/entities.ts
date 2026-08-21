@@ -46,6 +46,21 @@ export interface Question {
 export interface Summary { id: EntityId; content?: string | null; document_id?: EntityId | null; created_date?: string; }
 export interface Flashcard { id: EntityId; front: string; back: string; owner_email?: string | null; subject_id?: EntityId | null; document_id?: EntityId | null; created_date?: string; }
 
+export type AIGenerationOperation = 'summary' | 'questions' | 'flashcards';
+export type AIGenerationJobStatus = 'queued' | 'processing' | 'completed' | 'failed';
+
+export interface AIGenerationJob {
+  id: EntityId;
+  document_id: EntityId;
+  operation: AIGenerationOperation;
+  status: AIGenerationJobStatus;
+  result: { created_count?: number };
+  error_code?: string | null;
+  error_message?: string | null;
+  plan?: string | null;
+  subscription_status?: string | null;
+}
+
 export type CompetitionMode = 'duel' | 'time_attack' | 'weekly_league';
 export type CompetitionStatus = 'waiting' | 'active' | 'finished';
 
