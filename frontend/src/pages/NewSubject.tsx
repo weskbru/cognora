@@ -37,6 +37,8 @@ export default function NewSubject() {
       return { previous, optimisticId };
     },
     onSuccess: (created, _data, context) => {
+      queryClient.setQueryData(['subject', created.id], created);
+      queryClient.setQueryData(['documents', 'subject', created.id], []);
       queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached = []) => {
         const replaced = cached.map(subject => subject.id === context?.optimisticId ? created : subject);
         return replaced.some(subject => subject.id === created.id) ? replaced : [created, ...replaced];
