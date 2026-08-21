@@ -2,6 +2,7 @@ import os
 
 # Raiz do backend (/app em Docker, backend/ localmente)
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_DEFAULT_ENVIRONMENT = "production" if os.getenv("RENDER") else "development"
 
 
 def _clean_env(name: str) -> str | None:
@@ -24,7 +25,7 @@ def _bool_env(name: str, default: bool = False) -> bool:
 
 
 class Settings:
-    environment: str = os.getenv("ENVIRONMENT", "development").lower()
+    environment: str = os.getenv("ENVIRONMENT", _DEFAULT_ENVIRONMENT).lower()
     database_url: str = os.getenv(
         "DATABASE_URL", "postgresql://cognora:cognora@db:5432/cognora"
     )
@@ -32,7 +33,7 @@ class Settings:
     algorithm: str = "HS256"
     token_expire_days: int = 1   # 1 dia — renovado a cada login
     session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "cognora_session")
-    session_cookie_secure: bool = _bool_env("SESSION_COOKIE_SECURE", False)
+    session_cookie_secure: bool = _bool_env("SESSION_COOKIE_SECURE", environment == "production")
     session_cookie_samesite: str = os.getenv("SESSION_COOKIE_SAMESITE", "lax").lower()
     auth_rate_limit_attempts: int = int(os.getenv("AUTH_RATE_LIMIT_ATTEMPTS", "10"))
     auth_rate_limit_window_seconds: int = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SECONDS", "300"))

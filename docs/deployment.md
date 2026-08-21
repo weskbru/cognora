@@ -32,16 +32,16 @@ Defina também as proteções de sessão:
 ```text
 ENVIRONMENT=production
 SESSION_COOKIE_SECURE=true
-SESSION_COOKIE_SAMESITE=none
+SESSION_COOKIE_SAMESITE=lax
 AUTH_RATE_LIMIT_ATTEMPTS=10
 AUTH_RATE_LIMIT_WINDOW_SECONDS=300
 ```
 
-O cookie de sessão é `HttpOnly` e não fica disponível ao JavaScript. Quando
-frontend e API estiverem em domínios diferentes, `SameSite=None` exige HTTPS.
-Para maior compatibilidade com bloqueio de cookies de terceiros, prefira um
-domínio próprio no mesmo site, como `app.seudominio.com` e `api.seudominio.com`;
-nesse cenário use `SESSION_COOKIE_SAMESITE=lax`.
+O cookie de sessão é `HttpOnly` e não fica disponível ao JavaScript. O frontend
+publicado usa o proxy `/api` da Vercel, portanto o cookie é first-party e não
+depende da liberação de cookies de terceiros pelo navegador. O Render é
+detectado automaticamente como produção e habilita cookies `Secure`, mas
+mantenha as variáveis explícitas.
 
 Configure tambem as chaves dos provedores usados: `NVIDIA_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, Google e Resend.
 
@@ -68,9 +68,12 @@ Configure:
 - Root directory: `.`
 - Build command: `npm run build`
 - Output directory: `frontend/dist`
-- Environment variable: `VITE_API_URL=https://SEU-BACKEND.onrender.com`
+- `VITE_API_URL` continua obrigatória apenas no desenvolvimento local. Em
+  produção, o frontend usa `/api` no mesmo domínio e o `vercel.json` encaminha
+  as chamadas para `https://cognora.onrender.com`.
 
-O `vercel.json` da raiz fixa o diretorio publicado e redireciona rotas da SPA durante o deploy.
+O `vercel.json` da raiz fixa o diretorio publicado, encaminha a API e
+redireciona rotas da SPA durante o deploy.
 
 ## Uploads locais
 

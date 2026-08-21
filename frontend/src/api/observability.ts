@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL as string | undefined;
+import { API_URL } from './apiUrl';
 
 export type FrontendEventType =
   | 'frontend_error'
@@ -17,7 +17,7 @@ let eventCount = 0;
 const MAX_EVENTS_PER_SESSION = 30;
 
 export async function reportFrontendEvent(payload: FrontendEventPayload): Promise<void> {
-  if (!API_URL || eventCount >= MAX_EVENTS_PER_SESSION) return;
+  if (eventCount >= MAX_EVENTS_PER_SESSION) return;
 
   eventCount += 1;
   await fetch(`${API_URL}/api/observability/frontend-events`, {
