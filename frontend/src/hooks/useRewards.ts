@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { UserProgress } from '@/types/entities';
 import type { ProfileUpdate, RewardNotification, RewardPopupState, RewardsContextValue } from '@/types/rewards';
 import { useAuth } from '@/lib/AuthContext';
+import { useLocation } from 'react-router-dom';
 
 export const XP_REWARDS = {
   CORRECT_ANSWER: 10,
@@ -51,6 +52,8 @@ export function useRewards(): RewardsContextValue {
   const progressRef = useRef<UserProgress | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const location = useLocation();
+  const onDashboard = location.pathname === '/dashboard';
 
   const pushNotification = useCallback((xp: number, reason: string, levelUp = false, newLevel: number | null = null) => {
     const notif = { id: Date.now(), xp, reason, levelUp, newLevel, date: new Date().toISOString() };
@@ -64,6 +67,18 @@ export function useRewards(): RewardsContextValue {
       return;
     }
     try {
+      if (onDashboard) {
+        const snapshot = await queryClient.fetchQuery({
+          queryKey: ['dashboard', user.email],
+          queryFn: () => base44.dashboard.get(),
+          staleTime: 60_000,
+        });
+        if (snapshot.user_progress) {
+          setProgress(snapshot.user_progress);
+          progressRef.current = snapshot.user_progress;
+          return;
+        }
+      }
       const records = await base44.entities.UserProgress.filter({ user_email: user.email });
 
       if (records.length === 0) {
@@ -90,7 +105,7 @@ export function useRewards(): RewardsContextValue {
     } finally {
       setLoading(false);
     }
-  }, [user?.email]);
+  }, [onDashboard, queryClient, user?.email]);
 
   useEffect(() => { loadProgress(); }, [loadProgress]);
 

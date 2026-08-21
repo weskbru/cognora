@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import Depends, HTTPException, status # pyright: ignore[reportMissingImports]
+from fastapi import Cookie, Depends, HTTPException, status # pyright: ignore[reportMissingImports]
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from infrastructure.database.connection import get_db
@@ -12,11 +12,13 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    session_token: str | None = Cookie(default=None, alias=settings.session_cookie_name),
     db: Session = Depends(get_db),
 ) -> User:
-    if not credentials:
+    token = credentials.credentials if credentials else session_token
+    if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    email = decode_token(credentials.credentials)
+    email = decode_token(token)
     if not email:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     user = db.query(User).filter(User.email == email).first()

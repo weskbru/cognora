@@ -5,12 +5,14 @@ class RegisterPayload(BaseModel):
     email: str
     username: str | None = None
     password: str
+    remember: bool = False
 
 
 class LoginPayload(BaseModel):
     identifier: str | None = None  # email or username
     email: str | None = None
     password: str
+    remember: bool = False
 
     @model_validator(mode="after")
     def normalize_identifier(self):
@@ -32,6 +34,7 @@ class ResetPasswordPayload(BaseModel):
 
 class GoogleAuthPayload(BaseModel):
     credential: str  # Google ID token (JWT from GSI)
+    remember: bool = False
 
 
 # Keep for backwards compat if anything still uses it

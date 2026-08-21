@@ -27,6 +27,22 @@ Variaveis obrigatorias:
 | `ALLOWED_ORIGINS` | URL publica do frontend Vercel |
 | `UPLOAD_DIR` | Diretorio persistente para uploads no backend |
 
+Defina também as proteções de sessão:
+
+```text
+ENVIRONMENT=production
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=none
+AUTH_RATE_LIMIT_ATTEMPTS=10
+AUTH_RATE_LIMIT_WINDOW_SECONDS=300
+```
+
+O cookie de sessão é `HttpOnly` e não fica disponível ao JavaScript. Quando
+frontend e API estiverem em domínios diferentes, `SameSite=None` exige HTTPS.
+Para maior compatibilidade com bloqueio de cookies de terceiros, prefira um
+domínio próprio no mesmo site, como `app.seudominio.com` e `api.seudominio.com`;
+nesse cenário use `SESSION_COOKIE_SAMESITE=lax`.
+
 Configure tambem as chaves dos provedores usados: `NVIDIA_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, Google e Resend.
 
 ## Neon

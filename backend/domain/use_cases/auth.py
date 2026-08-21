@@ -1,9 +1,18 @@
 import re
 
+import requests
+from cachecontrol import CacheControl
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
+
 from core.config.settings import settings
 from core.security.jwt import create_token
 from core.security.password import hash_password, verify_password
 from infrastructure.repositories.user import UserRepository
+
+
+_google_http_session = CacheControl(requests.Session())
+_google_request = google_requests.Request(session=_google_http_session)
 
 
 def _send_reset_email(to_email: str, reset_url: str) -> None:
@@ -32,12 +41,9 @@ def _verify_google_token(credential: str) -> dict | None:
     if not settings.google_client_id:
         return None
     try:
-        from google.auth.transport import requests as google_requests
-        from google.oauth2 import id_token
-
         return id_token.verify_oauth2_token(
             credential,
-            google_requests.Request(),
+            _google_request,
             settings.google_client_id,
         )
     except Exception:
@@ -93,6 +99,7 @@ class AuthUseCases:
             "token_type": "bearer",
             "email": user.email,
             "username": user.username,
+            "role": user.role or "user",
         }, None
 
     def login(self, identifier: str, password: str):
@@ -106,6 +113,7 @@ class AuthUseCases:
             "token_type": "bearer",
             "email": user.email,
             "username": user.username,
+            "role": user.role or "user",
         }, None
 
     def google_login(self, credential: str):
@@ -132,6 +140,7 @@ class AuthUseCases:
             "token_type": "bearer",
             "email": user.email,
             "username": user.username,
+            "role": user.role or "user",
             "is_new_user": is_new_user,
         }, None
 

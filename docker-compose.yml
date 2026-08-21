@@ -51,8 +51,14 @@ services:
       VITE_API_URL: http://localhost:8001
       VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
     volumes:
-      # Hot reload: monta o projeto inteiro
-      - .:/app
+      # Hot reload com mounts estreitos: evita varrer .git, backend e artefatos
+      # no compartilhamento de arquivos do Docker Desktop/Windows.
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/index.html:/app/frontend/index.html
+      - ./vite.config.js:/app/vite.config.js
+      - ./postcss.config.js:/app/postcss.config.js
+      - ./tailwind.config.js:/app/tailwind.config.js
+      - ./tsconfig.json:/app/tsconfig.json
       # Preserva o node_modules do container (nao sobrescreve com o do host)
       - /app/node_modules
     depends_on:

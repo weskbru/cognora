@@ -1,5 +1,4 @@
 import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { getToken, removeToken } from './tokenStorage';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 if (!API_URL) {
@@ -20,10 +19,11 @@ interface AuthContextValue {
   isLoadingPublicSettings: boolean;
   authError: { type: string } | null;
   appPublicSettings: null;
-  logout: (shouldRedirect?: boolean) => void;
+  logout: (shouldRedirect?: boolean) => Promise<void>;
   navigateToLogin: () => void;
   checkAppState: () => void;
   refreshUser: () => Promise<void>;
+  completeLogin: (user: AuthUser) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -33,24 +33,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   const fetchUser = async () => {
-    const token = getToken();
-    if (!token) {
-      setIsLoadingAuth(false);
-      return;
-    }
     try {
       const res = await fetch(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
         setUser(data);
       } else {
-        removeToken();
         setUser(null);
       }
     } catch {
-      removeToken();
       setUser(null);
     } finally {
       setIsLoadingAuth(false);
@@ -61,10 +54,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fetchUser();
   }, []);
 
-  const logout = (shouldRedirect = true) => {
-    removeToken();
+  const logout = async (shouldRedirect = true) => {
     setUser(null);
-    if (shouldRedirect) window.location.href = '/login';
+    try {
+      await fetch(`${API_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Cognora-CSRF': '1' },
+      });
+    } finally {
+      if (shouldRedirect) window.location.href = '/login';
+    }
   };
 
   const navigateToLogin = () => {
@@ -87,6 +87,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       navigateToLogin,
       checkAppState: () => {},
       refreshUser,
+      completeLogin: (authenticatedUser) => {
+        setUser(authenticatedUser);
+        setIsLoadingAuth(false);
+      },
     }}>
       {children}
     </AuthContext.Provider>

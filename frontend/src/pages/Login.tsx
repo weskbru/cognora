@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail, Lock, Loader2, Brain, Zap, Trophy,
   ArrowLeft, ArrowRight, User, Sparkles, AtSign, CheckCircle2, Eye, EyeOff, X, Heart,
 } from 'lucide-react';
 // Loader2 é usado no botão de submit
-import { setToken } from '@/lib/tokenStorage';
 import { rememberGenerationLimitAfterLogin } from '@/lib/postLoginNotice';
+import { useAuth, type AuthUser } from '@/lib/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL as string;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
@@ -18,18 +18,11 @@ type PublicRankingEntry = {
   xp: number;
 };
 
-async function resolvePostLoginPath(token: string): Promise<string> {
-  try {
-    const res = await fetch(`${API_URL}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return '/dashboard';
-    const data = await res.json();
-    return data.role === 'admin' ? '/admin' : '/dashboard';
-  } catch {
-    return '/dashboard';
-  }
-}
+type AuthResponse = {
+  user: AuthUser;
+  is_new_user?: boolean;
+  generations_remaining?: number;
+};
 
 declare global {
   interface Window {
@@ -224,6 +217,8 @@ function ShowcasePanel() {
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function Login() {
+  const navigate = useNavigate();
+  const { completeLogin } = useAuth();
   const [mode, setMode] = useState<Mode>('login');
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
@@ -246,24 +241,19 @@ export default function Login() {
     try {
       const res = await fetch(`${API_URL}/api/auth/google`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential }),
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Cognora-CSRF': '1' },
+        body: JSON.stringify({ credential, remember }),
       });
-      const data = await res.json();
+      const data = await res.json() as AuthResponse & { detail?: string };
       if (!res.ok) { setError(data.detail || 'Erro ao autenticar com Google'); return; }
-      setToken(data.access_token, remember);
       rememberGenerationLimitAfterLogin(data.generations_remaining);
-      const postLoginPath = await resolvePostLoginPath(data.access_token);
-      if (data.is_new_user) {
-        setSuccessMsg('Conta criada com sucesso! Redirecionando...');
-        setTimeout(() => { window.location.href = postLoginPath; }, 1500);
-      } else {
-        window.location.href = postLoginPath;
-      }
+      completeLogin(data.user);
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard', { replace: true });
     } catch {
       setError('Não foi possível conectar ao servidor.');
     }
-  }, [remember]);
+  }, [completeLogin, navigate, remember]);
 
   useEffect(() => {
     googleCallbackRef.current = handleGoogleCallback;
@@ -344,20 +334,21 @@ export default function Login() {
     setLoading(true);
     const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
     const body = mode === 'login'
-      ? { identifier, password }
-      : { email, username, password };
+      ? { identifier, password, remember }
+      : { email, username, password, remember };
 
     try {
       const res = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-Cognora-CSRF': '1' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data = await res.json() as AuthResponse & { detail?: string };
       if (!res.ok) { setError(data.detail || 'Erro ao processar solicitação'); return; }
-      setToken(data.access_token, remember);
       rememberGenerationLimitAfterLogin(data.generations_remaining);
-      window.location.href = await resolvePostLoginPath(data.access_token);
+      completeLogin(data.user);
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard', { replace: true });
     } catch {
       setError('Não foi possível conectar ao servidor.');
     } finally {
