@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from '@/components/ui/skeleton';
 import PageHeader from '@/components/shared/PageHeader';
 import EmptyState from '@/components/shared/EmptyState';
-import type { Document, Subject } from '@/types/entities';
+import type { DashboardSnapshot, Document, Subject } from '@/types/entities';
 
 const FREE_SUBJECT_LIMIT = 2;
 const TypedDropdownMenuContent = DropdownMenuContent as ComponentType<PropsWithChildren<{ align?: 'start' | 'center' | 'end' }>>;
@@ -40,16 +40,23 @@ export default function Subjects() {
   const [createError, setCreateError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const dashboardQueryKey = ['dashboard', user?.email] as const;
+  const cachedDashboard = queryClient.getQueryData<DashboardSnapshot>(dashboardQueryKey);
+  const dashboardUpdatedAt = queryClient.getQueryState(dashboardQueryKey)?.dataUpdatedAt;
 
   const { data: subjects = [], isLoading } = useQuery<Subject[]>({
     queryKey: ['subjects', user?.email],
     queryFn: () => base44.entities.Subject.filter({ owner_email: user!.email }),
     enabled: !!user?.email,
+    initialData: () => cachedDashboard?.subjects,
+    initialDataUpdatedAt: dashboardUpdatedAt,
   });
 
-  const { data: documents = [] } = useQuery<Document[]>({
+  const { data: documents = [], isSuccess: documentsLoaded } = useQuery<Document[]>({
     queryKey: ['documents'],
     queryFn: () => base44.entities.Document.list(),
+    initialData: () => cachedDashboard?.documents,
+    initialDataUpdatedAt: dashboardUpdatedAt,
   });
   const documentCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -82,6 +89,8 @@ export default function Subjects() {
       return { previous, optimisticId, form: data };
     },
     onSuccess: (created, _data, context) => {
+      queryClient.setQueryData(['subject', created.id], created);
+      queryClient.setQueryData(['documents', 'subject', created.id], []);
       queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached) => {
         if (!cached) return [created];
         const replaced = cached.map(subject => subject.id === context?.optimisticId ? created : subject);
@@ -195,9 +204,35 @@ export default function Subjects() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {subjects.map(subject => {
             const docCount = documentCounts.get(subject.id) || 0;
+            const isOptimistic = subject.id.startsWith('optimistic-');
+            const prepareSubjectDetail = () => {
+              if (isOptimistic) return;
+              void import('@/pages/SubjectDetail');
+              queryClient.setQueryData(['subject', subject.id], subject);
+              if (documentsLoaded) {
+                queryClient.setQueryData(
+                  ['documents', 'subject', subject.id],
+                  documents.filter(document => document.subject_id === subject.id),
+                );
+              }
+            };
             return (
               <Card key={subject.id} className="group relative hover:shadow-md transition-shadow">
-                <Link to={`/subjects/${subject.id}`} className="block p-6">
+                <Link
+                  to={`/subjects/${subject.id}`}
+                  aria-disabled={isOptimistic}
+                  onPointerEnter={prepareSubjectDetail}
+                  onPointerDown={prepareSubjectDetail}
+                  onFocus={prepareSubjectDetail}
+                  onClick={(event) => {
+                    if (isOptimistic) {
+                      event.preventDefault();
+                      return;
+                    }
+                    prepareSubjectDetail();
+                  }}
+                  className={`block p-6 ${isOptimistic ? 'cursor-wait' : ''}`}
+                >
                   <div className="flex items-start justify-between">
                     <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center">
                       <BookOpen className="h-5 w-5 text-primary" />
@@ -226,7 +261,9 @@ export default function Subjects() {
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{subject.description}</p>
                   )}
                   <p className="text-xs text-muted-foreground mt-3">
-                    {docCount} documento{docCount !== 1 ? 's' : ''}
+                    {isOptimistic
+                      ? 'Criando matéria...'
+                      : `${docCount} documento${docCount !== 1 ? 's' : ''}`}
                   </p>
                 </Link>
               </Card>

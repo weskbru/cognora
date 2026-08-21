@@ -47,6 +47,8 @@ export default function CreateSubjectDialog({ open, onOpenChange, onCreated }: C
       return { previous, optimisticId };
     },
     onSuccess: (subject, _data, context) => {
+      queryClient.setQueryData(['subject', subject.id], subject);
+      queryClient.setQueryData(['documents', 'subject', subject.id], []);
       queryClient.setQueriesData<Subject[]>({ queryKey: ['subjects'] }, (cached = []) => {
         const replaced = cached.map(item => item.id === context?.optimisticId ? subject : item);
         return replaced.some(item => item.id === subject.id) ? replaced : [subject, ...replaced];
