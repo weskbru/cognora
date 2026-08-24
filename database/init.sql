@@ -149,9 +149,29 @@ CREATE TABLE IF NOT EXISTS user_progress (
     summaries_used_month INTEGER DEFAULT 0,
     questions_used_month INTEGER DEFAULT 0,
     flashcards_used_month INTEGER DEFAULT 0,
+    study_paths_used_month INTEGER DEFAULT 0,
     usage_month DATE,
     stripe_customer_id TEXT UNIQUE,
     stripe_subscription_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS study_paths (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_email TEXT NOT NULL,
+    objective TEXT NOT NULL,
+    target_date DATE,
+    weeks_count INTEGER NOT NULL,
+    hours_per_week INTEGER NOT NULL,
+    title TEXT,
+    overview TEXT,
+    status TEXT NOT NULL DEFAULT 'queued',
+    weeks JSONB DEFAULT '[]',
+    completed_milestones JSONB DEFAULT '[]',
+    error_code TEXT,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS pix_payment_requests (
@@ -192,6 +212,7 @@ ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS last_generation_date DATE;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS summaries_used_month INTEGER DEFAULT 0;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS questions_used_month INTEGER DEFAULT 0;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS flashcards_used_month INTEGER DEFAULT 0;
+ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS study_paths_used_month INTEGER DEFAULT 0;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS usage_month DATE;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS avatar_emoji TEXT;
@@ -243,3 +264,6 @@ CREATE INDEX IF NOT EXISTS ix_flashcards_document_id ON flashcards (document_id)
 CREATE INDEX IF NOT EXISTS ix_flashcards_owner_email ON flashcards (owner_email);
 CREATE INDEX IF NOT EXISTS ix_competitions_host_email ON competitions (host_email);
 CREATE INDEX IF NOT EXISTS ix_competitions_subject_id ON competitions (subject_id);
+CREATE INDEX IF NOT EXISTS ix_study_paths_user_email ON study_paths (user_email);
+CREATE INDEX IF NOT EXISTS ix_study_paths_status ON study_paths (status);
+CREATE INDEX IF NOT EXISTS ix_study_paths_created_at ON study_paths (created_at);

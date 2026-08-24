@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from core.config.settings import settings, validate_security_settings
-from api.routes import admin, auth, dashboard, entities, upload, nlp, limits, observability, subscriptions
+from api.routes import admin, auth, dashboard, entities, upload, nlp, limits, observability, study_paths, subscriptions
 from infrastructure.database.connection import SessionLocal, engine
 from infrastructure.observability import (
     cleanup_old_system_events,
@@ -59,6 +59,7 @@ def _run_migrations():
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS summaries_used_month INTEGER DEFAULT 0",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS questions_used_month INTEGER DEFAULT 0",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS flashcards_used_month INTEGER DEFAULT 0",
+        "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS study_paths_used_month INTEGER DEFAULT 0",
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS usage_month DATE",
         # Stripe subscription columns
         "ALTER TABLE user_progress ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR UNIQUE",
@@ -188,6 +189,27 @@ def _run_migrations():
         "CREATE INDEX IF NOT EXISTS ix_ai_generation_jobs_status ON ai_generation_jobs (status)",
         "CREATE INDEX IF NOT EXISTS ix_ai_generation_jobs_created_at ON ai_generation_jobs (created_at)",
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_ai_generation_jobs_active_document_operation ON ai_generation_jobs (document_id, operation) WHERE status IN ('queued', 'processing')",
+        """CREATE TABLE IF NOT EXISTS study_paths (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_email VARCHAR NOT NULL,
+            objective TEXT NOT NULL,
+            target_date DATE,
+            weeks_count INTEGER NOT NULL,
+            hours_per_week INTEGER NOT NULL,
+            title VARCHAR,
+            overview TEXT,
+            status VARCHAR NOT NULL DEFAULT 'queued',
+            weeks JSONB DEFAULT '[]',
+            completed_milestones JSONB DEFAULT '[]',
+            error_code VARCHAR,
+            error_message TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW(),
+            completed_at TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS ix_study_paths_user_email ON study_paths (user_email)",
+        "CREATE INDEX IF NOT EXISTS ix_study_paths_status ON study_paths (status)",
+        "CREATE INDEX IF NOT EXISTS ix_study_paths_created_at ON study_paths (created_at)",
         "CREATE INDEX IF NOT EXISTS ix_questions_subject_id ON questions (subject_id)",
         "CREATE INDEX IF NOT EXISTS ix_questions_document_id ON questions (document_id)",
         "CREATE INDEX IF NOT EXISTS ix_questions_owner_email ON questions (owner_email)",
@@ -315,9 +337,18 @@ async def request_id_middleware(request: Request, call_next):
 
 @api.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    def json_safe(value):
+        if isinstance(value, dict):
+            return {key: json_safe(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [json_safe(item) for item in value]
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        return str(value)
+
     errors = []
     for error in exc.errors():
-        errors.append({k: v for k, v in error.items() if k != "input"})
+        errors.append(json_safe({k: v for k, v in error.items() if k != "input"}))
     db = SessionLocal()
     try:
         record_system_event(
@@ -342,6 +373,7 @@ api.include_router(upload.router)
 api.include_router(nlp.router)
 api.include_router(limits.router)
 api.include_router(observability.router)
+api.include_router(study_paths.router)
 api.include_router(subscriptions.router)
 api.include_router(dashboard.router)
 api.include_router(entities.router)

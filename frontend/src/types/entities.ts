@@ -61,6 +61,41 @@ export interface AIGenerationJob {
   subscription_status?: string | null;
 }
 
+export type StudyPathStatus = 'queued' | 'processing' | 'completed' | 'failed';
+
+export interface StudyPathWeek {
+  number: number;
+  focus: string;
+  topics: string[];
+  milestones: string[];
+  estimated_hours: number;
+}
+
+export interface StudyPath {
+  id: EntityId;
+  objective: string;
+  target_date?: string | null;
+  weeks_count: number;
+  hours_per_week: number;
+  title?: string | null;
+  overview?: string | null;
+  status: StudyPathStatus;
+  weeks: StudyPathWeek[];
+  completed_milestones: string[];
+  error_code?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+}
+
+export interface CreateStudyPathPayload {
+  objective: string;
+  target_date?: string | null;
+  weeks_count: number;
+  hours_per_week: number;
+}
+
 export type CompetitionMode = 'duel' | 'time_attack' | 'weekly_league';
 export type CompetitionStatus = 'waiting' | 'active' | 'finished';
 

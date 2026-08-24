@@ -61,6 +61,7 @@ class TestPlanStatus:
         assert status["monthly_summaries"]["limit"] == 5
         assert status["monthly_questions"]["limit"] == 5
         assert status["monthly_flashcards"]["limit"] == 5
+        assert status["monthly_study_paths"]["limit"] == 2
 
     @pytest.mark.parametrize(
         ("plan", "expected"),
@@ -83,6 +84,7 @@ class TestPlanStatus:
             summaries_used_month=5,
             questions_used_month=5,
             flashcards_used_month=5,
+            study_paths_used_month=2,
             usage_month=date(2026, 5, 1),
         )
 
@@ -91,6 +93,7 @@ class TestPlanStatus:
         assert status["monthly_summaries"]["used"] == 0
         assert status["monthly_questions"]["used"] == 0
         assert status["monthly_flashcards"]["used"] == 0
+        assert status["monthly_study_paths"]["used"] == 0
 
 
 class TestTableLimits:
@@ -191,6 +194,7 @@ class TestAIUsageLimits:
             (AIUsageType.SUMMARY, "monthly_summaries", 5, "Você atingiu o limite mensal de resumos do seu plano."),
             (AIUsageType.QUESTIONS, "monthly_questions", 5, "Você atingiu o limite mensal de questões do seu plano."),
             (AIUsageType.FLASHCARDS, "monthly_flashcards", 5, "Você atingiu o limite mensal de flashcards do seu plano."),
+            (AIUsageType.STUDY_PATH, "monthly_study_paths", 2, "Você atingiu o limite mensal de trilhas de estudos do seu plano."),
         ],
     )
     def test_reserva_um_uso_mensal_por_tipo(self, db, usage_type, field, limit, message):
@@ -207,8 +211,10 @@ class TestAIUsageLimits:
             progress.summaries_used_month = limit
         elif usage_type == AIUsageType.QUESTIONS:
             progress.questions_used_month = limit
-        else:
+        elif usage_type == AIUsageType.FLASHCARDS:
             progress.flashcards_used_month = limit
+        else:
+            progress.study_paths_used_month = limit
         db.commit()
 
         with pytest.raises(HTTPException) as exc_info:

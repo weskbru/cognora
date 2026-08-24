@@ -24,6 +24,7 @@ class AIUsageType(str, Enum):
     SUMMARY = "summary"
     QUESTIONS = "questions"
     FLASHCARDS = "flashcards"
+    STUDY_PATH = "study_path"
 
 
 AIAction = AIUsageType
@@ -32,6 +33,7 @@ USAGE_COUNTER_FIELDS: dict[AIUsageType, str] = {
     AIUsageType.SUMMARY: "summaries_used_month",
     AIUsageType.QUESTIONS: "questions_used_month",
     AIUsageType.FLASHCARDS: "flashcards_used_month",
+    AIUsageType.STUDY_PATH: "study_paths_used_month",
 }
 
 
@@ -44,6 +46,7 @@ class PlanLimits:
     maxMonthlySummaries: int
     maxMonthlyQuestions: int
     maxMonthlyFlashcards: int
+    maxMonthlyStudyPaths: int
     maxActiveCompetitions: int
 
 
@@ -56,6 +59,7 @@ PLAN_LIMITS: dict[PlanType, PlanLimits] = {
         maxMonthlySummaries=5,
         maxMonthlyQuestions=5,
         maxMonthlyFlashcards=5,
+        maxMonthlyStudyPaths=2,
         maxActiveCompetitions=1,
     ),
     PlanType.PRO: PlanLimits(
@@ -66,6 +70,7 @@ PLAN_LIMITS: dict[PlanType, PlanLimits] = {
         maxMonthlySummaries=30,
         maxMonthlyQuestions=30,
         maxMonthlyFlashcards=30,
+        maxMonthlyStudyPaths=10,
         maxActiveCompetitions=5,
     ),
     PlanType.PREMIUM: PlanLimits(
@@ -76,6 +81,7 @@ PLAN_LIMITS: dict[PlanType, PlanLimits] = {
         maxMonthlySummaries=100,
         maxMonthlyQuestions=100,
         maxMonthlyFlashcards=100,
+        maxMonthlyStudyPaths=30,
         maxActiveCompetitions=20,
     ),
 }
@@ -90,11 +96,12 @@ FREE_ACTIVE_COMPETITIONS = PLAN_LIMITS[PlanType.FREE].maxActiveCompetitions
 FREE_MONTHLY_SUMMARIES = PLAN_LIMITS[PlanType.FREE].maxMonthlySummaries
 FREE_MONTHLY_QUESTIONS = PLAN_LIMITS[PlanType.FREE].maxMonthlyQuestions
 FREE_MONTHLY_FLASHCARDS = PLAN_LIMITS[PlanType.FREE].maxMonthlyFlashcards
+FREE_MONTHLY_STUDY_PATHS = PLAN_LIMITS[PlanType.FREE].maxMonthlyStudyPaths
 
 # Compatibilidade com testes/telas antigas que ainda importam esse nome.
 FREE_DAILY_LIMIT = FREE_MONTHLY_SUMMARIES
 FREE_MONTHLY_AI_CREDITS = (
-    FREE_MONTHLY_SUMMARIES + FREE_MONTHLY_QUESTIONS + FREE_MONTHLY_FLASHCARDS
+    FREE_MONTHLY_SUMMARIES + FREE_MONTHLY_QUESTIONS + FREE_MONTHLY_FLASHCARDS + FREE_MONTHLY_STUDY_PATHS
 )
 
 
@@ -148,6 +155,7 @@ def _ensure_monthly_reset(progress: UserProgress, db: Session) -> UserProgress:
         progress.summaries_used_month = 0
         progress.questions_used_month = 0
         progress.flashcards_used_month = 0
+        progress.study_paths_used_month = 0
         progress.usage_month = current_month
         db.commit()
     return progress
@@ -200,6 +208,7 @@ def _ai_usage_state(progress: UserProgress, limits: PlanLimits) -> dict:
     summaries_used = progress.summaries_used_month or 0
     questions_used = progress.questions_used_month or 0
     flashcards_used = progress.flashcards_used_month or 0
+    study_paths_used = progress.study_paths_used_month or 0
     return {
         "summaries": {
             "used": summaries_used,
@@ -216,6 +225,11 @@ def _ai_usage_state(progress: UserProgress, limits: PlanLimits) -> dict:
             "limit": limits.maxMonthlyFlashcards,
             "remaining": max(0, limits.maxMonthlyFlashcards - flashcards_used),
         },
+        "study_paths": {
+            "used": study_paths_used,
+            "limit": limits.maxMonthlyStudyPaths,
+            "remaining": max(0, limits.maxMonthlyStudyPaths - study_paths_used),
+        },
     }
 
 
@@ -229,11 +243,13 @@ def get_status(email: str, db: Session) -> dict:
         limits.maxMonthlySummaries
         + limits.maxMonthlyQuestions
         + limits.maxMonthlyFlashcards
+        + limits.maxMonthlyStudyPaths
     )
     total_used = (
         ai_usage["summaries"]["used"]
         + ai_usage["questions"]["used"]
         + ai_usage["flashcards"]["used"]
+        + ai_usage["study_paths"]["used"]
     )
 
     return {
@@ -252,6 +268,7 @@ def get_status(email: str, db: Session) -> dict:
         "monthly_summaries": ai_usage["summaries"],
         "monthly_questions": ai_usage["questions"],
         "monthly_flashcards": ai_usage["flashcards"],
+        "monthly_study_paths": ai_usage["study_paths"],
         # Compatibilidade com nomes antigos do widget de créditos.
         "monthly_ai_credits": total_limit,
         "ai_credits_used": total_used,
@@ -278,6 +295,7 @@ def _usage_limit_and_value(progress: UserProgress, limits: PlanLimits, usage_typ
         AIUsageType.SUMMARY: limits.maxMonthlySummaries,
         AIUsageType.QUESTIONS: limits.maxMonthlyQuestions,
         AIUsageType.FLASHCARDS: limits.maxMonthlyFlashcards,
+        AIUsageType.STUDY_PATH: limits.maxMonthlyStudyPaths,
     }
     return limits_by_type[usage_type], getattr(progress, USAGE_COUNTER_FIELDS[usage_type]) or 0
 
@@ -291,6 +309,7 @@ def _usage_message(usage_type: AIUsageType) -> str:
         AIUsageType.SUMMARY: "Você atingiu o limite mensal de resumos do seu plano.",
         AIUsageType.QUESTIONS: "Você atingiu o limite mensal de questões do seu plano.",
         AIUsageType.FLASHCARDS: "Você atingiu o limite mensal de flashcards do seu plano.",
+        AIUsageType.STUDY_PATH: "Você atingiu o limite mensal de trilhas de estudos do seu plano.",
     }
     return messages[usage_type]
 

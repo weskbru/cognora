@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/apiError';
-import type { AIGenerationJob, AIGenerationOperation, Competition, DashboardSnapshot, Document, Flashcard, GenerationStatus, Question, QuestionAttempt, StudySession, Subject, SubjectProgress, Summary, User, UserProgress } from '@/types/entities';
+import type { AIGenerationJob, AIGenerationOperation, Competition, CreateStudyPathPayload, DashboardSnapshot, Document, Flashcard, GenerationStatus, Question, QuestionAttempt, StudyPath, StudySession, Subject, SubjectProgress, Summary, User, UserProgress } from '@/types/entities';
 import { API_URL } from './apiUrl';
 
 type EntityFilters = Record<string, string | number | boolean | null | undefined>;
@@ -104,6 +104,16 @@ export const base44 = {
       question_count?: number;
     }) => apiRequest<AIGenerationJob>('POST', '/api/nlp/jobs', payload),
     get: (jobId: string) => apiRequest<AIGenerationJob>('GET', `/api/nlp/jobs/${jobId}`),
+  },
+  studyPaths: {
+    list: () => apiRequest<StudyPath[]>('GET', '/api/study-paths'),
+    get: (id: string) => apiRequest<StudyPath>('GET', `/api/study-paths/${id}`),
+    create: (payload: CreateStudyPathPayload) => apiRequest<StudyPath>('POST', '/api/study-paths', payload),
+    updateProgress: (id: string, completedMilestones: string[]) =>
+      apiRequest<StudyPath>('PATCH', `/api/study-paths/${id}/progress`, {
+        completed_milestones: completedMilestones,
+      }),
+    delete: (id: string) => apiRequest<null>('DELETE', `/api/study-paths/${id}`),
   },
   competitions: {
     join: (id: string, inviteCode: string) =>
