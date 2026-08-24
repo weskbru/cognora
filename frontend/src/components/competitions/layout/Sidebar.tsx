@@ -4,7 +4,7 @@ import {
   LayoutDashboard, BookOpen, FileText, HelpCircle,
   GraduationCap, User, Trophy, Swords, BookX,
   Zap, Sparkles, Crown, CreditCard, ArrowUpCircle, ShieldCheck,
-  Users, ScrollText, Activity,
+  Users, ScrollText, Activity, Map,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
@@ -52,6 +52,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'PROGRESSO',
     items: [
       { path: '/profile', label: 'Meu Progresso', icon: User },
+      { path: '/study-paths', label: 'Trilha de Estudos', icon: Map },
       { path: '/competitions', label: 'Competições', icon: Swords },
       { path: '/leaderboard', label: 'Ranking', icon: Trophy },
     ],

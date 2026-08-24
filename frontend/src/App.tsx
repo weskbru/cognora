@@ -31,6 +31,7 @@ const Leaderboard = lazy(() => import('@/pages/Leaderboard'));
 const Competitions = lazy(() => import('@/pages/Competitions'));
 const CompetitionDetail = lazy(() => import('@/pages/CompetitionDetail'));
 const ErrorNotebook = lazy(() => import('@/pages/ErrorNotebook'));
+const StudyPaths = lazy(() => import('@/pages/StudyPaths'));
 
 const LoadingScreen = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-slate-950">
@@ -67,6 +68,7 @@ const ProtectedRoutes = () => {
           <Route path="/competitions" element={<Competitions />} />
           <Route path="/competitions/:id" element={<CompetitionDetail />} />
           <Route path="/error-notebook" element={<ErrorNotebook />} />
+          <Route path="/study-paths" element={<StudyPaths />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/users" element={<AdminUsers />} />

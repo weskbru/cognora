@@ -62,6 +62,26 @@ class AIGenerationJob(Base):
     completed_at = Column(DateTime, nullable=True)
 
 
+class StudyPath(Base):
+    __tablename__ = "study_paths"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_email = Column(String, nullable=False, index=True)
+    objective = Column(Text, nullable=False)
+    target_date = Column(Date, nullable=True)
+    weeks_count = Column(Integer, nullable=False)
+    hours_per_week = Column(Integer, nullable=False)
+    title = Column(String, nullable=True)
+    overview = Column(Text, nullable=True)
+    status = Column(String, nullable=False, default="queued", index=True)
+    weeks = Column(JSON, default=list)
+    completed_milestones = Column(JSON, default=list)
+    error_code = Column(String, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+
 class Question(Base):
     __tablename__ = "questions"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -185,6 +205,7 @@ class UserProgress(Base):
     summaries_used_month = Column(Integer, default=0)
     questions_used_month = Column(Integer, default=0)
     flashcards_used_month = Column(Integer, default=0)
+    study_paths_used_month = Column(Integer, default=0)
     usage_month = Column(Date, nullable=True)
     stripe_customer_id = Column(String, nullable=True, unique=True)
     stripe_subscription_id = Column(String, nullable=True)

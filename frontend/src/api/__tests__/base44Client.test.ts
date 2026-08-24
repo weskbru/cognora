@@ -100,4 +100,44 @@ describe('base44Client', () => {
       }),
     );
   });
+
+  it('envia os parâmetros para gerar uma trilha de estudos', async () => {
+    const path = {
+      id: 'path-1',
+      objective: 'Passar no concurso da Polícia Civil',
+      weeks_count: 4,
+      hours_per_week: 10,
+      status: 'queued',
+      weeks: [],
+      completed_milestones: [],
+      created_at: '2026-08-24T12:00:00Z',
+      updated_at: '2026-08-24T12:00:00Z',
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(path), {
+      status: 202,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(base44.studyPaths.create({
+      objective: path.objective,
+      target_date: null,
+      weeks_count: 4,
+      hours_per_week: 10,
+    })).resolves.toEqual(path);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/study-paths'),
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({
+          objective: path.objective,
+          target_date: null,
+          weeks_count: 4,
+          hours_per_week: 10,
+        }),
+      }),
+    );
+  });
 });
