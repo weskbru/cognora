@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ComponentType, ReactElement, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, FileText, HelpCircle, GraduationCap, Menu, Swords, Trophy, User } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FileText, HelpCircle, GraduationCap, Map, Menu, Swords, Trophy, User } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -26,6 +26,7 @@ const navItems: NavItem[] = [
   { path: '/documents', label: 'Documentos', icon: FileText },
   { path: '/quiz', label: 'Questões', icon: HelpCircle },
   { path: '/competitions', label: 'Competições', icon: Swords },
+  { path: '/study-paths', label: 'Trilha de Estudos', icon: Map },
   { path: '/leaderboard', label: 'Ranking', icon: Trophy },
   { path: '/profile', label: 'Meu Progresso', icon: User },
 ];
